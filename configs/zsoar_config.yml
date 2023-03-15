@@ -1,0 +1,10 @@
+logging:
+    language: "en" # Currently only "en" available.
+    log_level_stdout: "info" # The log level for std_out. Is either "debug"/"info"/"warning"/"error"/"critical". If Z-SOAR is started in debug mode (--debug) then the log level is overwritten to "debug".
+    log_lvel_to_file: "warning" # The log level for logging to a file. Is either "debug"/"info"/"warning"/"error"/"critical" or "none" to disable file logging.
+    split_file_on_worker_iteration: False # Set to True if a new file should be created for every new worker iteration.
+    split_file_on_startup: True # Set to True to create a new log file on each new Z-SOAR startup (recommended).
+    
+daemon: 
+    enabled: True # Will spawn a daemon process on startup that will run the worker at a specified interval. If set to False, the zsoar_start script will run the worker just once.
+    interval_min: 1 # Minimum interval in minutes to wait after last worker finished. Set to 0 to immediatly run the next worker if the last one finished.

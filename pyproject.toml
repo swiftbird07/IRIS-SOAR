@@ -1,8 +1,13 @@
+#[build-system]
+#requires = ["flit_core >=3.2,<4"]
+#build-backend = "flit_core.buildapi"
+
 [build-system]
-requires = ["flit_core >=3.2,<4"]
-build-backend = "flit_core.buildapi"
+requires = ["setuptools>=40.8.0", "wheel"]
+build-backend = "setuptools.build_meta"
 
 [project]
-name = "Z-SOAR"
-authors = [{name = "Martin Offermann", email = ""}]
+name = "zsoar"
+authors = [{name = "Martin Offermann", email = "none@none.no"}]
 dynamic = ["version", "description"]
+#description = "Z-SOAR is a modular SOAR implementation written in Python. It is designed to be a companion to Znuny/OTRS that uses playbook automation and is able to load integrations to other services."
