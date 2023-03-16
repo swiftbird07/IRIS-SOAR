@@ -123,9 +123,8 @@ def test_startup_daemon():
     zsoar.startup(mlog)
     daemons = subp.check_output(["pgrep", "-f", "python3 zsoar_daemon.py"]).split()
     assert (
-        daemons != [],
-        "The daemon was not started.",
-    )  # Will fail at the moment, as the daemon is not implemented yet.
+        daemons != []
+    ), "The daemon was not started."  # Will fail at the moment, as the daemon is not implemented yet.
     assert len(daemons) == 1, "More than one daemon was started."
     assert daemons[0].isdigit(), "The daemon PID is not a number."
 
@@ -145,3 +144,18 @@ def test_stop():
     zsoar.stop(mlog)
     daemons = subp.check_output(["pgrep", "-f", "python3 zsoar_daemon.py"]).split()
     assert daemons == [], "The daemon was not stopped."
+
+
+def test_daemon():
+    """Tests the daemon function. Note that this does not test the called zsoar_worker.
+
+    Args:
+        None
+
+    Returns:
+        None
+    """
+    try:
+        zsoar.zsoar_daemon.main(TEST_CALL=True)
+    except Exception as e:
+        pytest.fail("The daemon function failed: {}".format(e))

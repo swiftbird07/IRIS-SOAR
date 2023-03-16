@@ -17,7 +17,7 @@ def test_logger():
         None
     """
     try:
-        mlog = zsoar.logging_helper.Log("zsoar_test_core", log_level_stdout="INFO")
+        mlog = zsoar.logging_helper.Log("zsoar_test_lib", log_level_stdout="INFO")
         mlog.info("Test message")
     except AttributeError as e:
         pytest.fail("The logger could not be initialized: {}".format(e))
@@ -52,7 +52,7 @@ def test_config_loading():
         pytest.fail(f"The config was loaded, but is empty: {cfg}. {e}")
 
     # Test that invalid values are detected
-    mlog = zsoar.logging_helper.Log("zsoar_test_core")
+    mlog = zsoar.logging_helper.Log("zsoar_test_lib")
     cfg["logging"]["log_level_to_file"] = "some_invalid_value"
     assert (
         zsoar.config_helper.check_config(cfg, mlog) == False

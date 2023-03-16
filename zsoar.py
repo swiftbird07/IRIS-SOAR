@@ -9,6 +9,7 @@ import argparse
 
 import lib.config_helper as config_helper
 import lib.logging_helper as logging_helper
+import zsoar_daemon as zsoar_daemon
 
 TEST_CALL = True  # Stays True if the script is called by the test script
 

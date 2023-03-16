@@ -169,7 +169,6 @@ def check_config(cfg, mlog, onload=True):
             return False
         cfg["daemon"]["interval_min"] = 5
 
-    print(type(cfg["setup"]["setup_step"]))
     if type(cfg["setup"]["setup_step"]) != int or cfg["setup"]["setup_step"] < 0:
         mlog.warning(
             "setup_step not a valid integer value. Please check the config file. Will assume value to be 0 (new setup)."
