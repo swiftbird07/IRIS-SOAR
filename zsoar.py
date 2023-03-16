@@ -266,7 +266,7 @@ def setup(step=0, continue_steps=True):
         if not TEST_CALL and not continue_steps:
             sys.exit(0)
 
-    # TODO: Add Znuny/OTRS connection settings
+    # TODO: Add Znuny/OTRS connection setup
 
     print("Setup stopped. Please run the setup again to continue.")
 
@@ -294,7 +294,7 @@ def main():
     parser = add_arguments()
     args = parser.parse_args()
 
-    # Create the logger
+    # Create the module's logger
     mlog = logging_helper.Log("zsoar")
 
     # Check if at least one argument is provided:
@@ -360,7 +360,7 @@ def main():
         else:
             mlog.info("Z-SOAR is not running as a daemon.")
 
-        # TODO Further checks based on logs / statistics etc.
+        # TODO: Further checks based on logs / statistics etc.
 
         if not TEST_CALL:
             sys.exit(0)

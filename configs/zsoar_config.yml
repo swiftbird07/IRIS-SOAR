@@ -12,8 +12,7 @@ logging:
 setup:
   setup_step: 1
 znuny_otrs:
-  hostname:
-  web_service_name:
-  api_customer_user:
-  api_customer_password:
-  
+  api_customer_password: null
+  api_customer_user: null
+  hostname: null
+  web_service_name: null
