@@ -9,6 +9,7 @@ logging:
   log_level_to_file: debug
   split_file_on_startup: true
   split_file_on_worker_iteration: false
+  split_files_by_module: false
 setup:
   setup_step: 1
 znuny_otrs:

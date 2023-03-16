@@ -4,6 +4,7 @@
 
 import sys
 import logging
+import os
 
 TEST_CALL = True  # Stays True if the script is called by the test script
 
@@ -54,7 +55,12 @@ class Log:
                 log_level_stdout = settings["logging"]["log_level_stdout"]
 
             if "none" not in log_level_to_file:
-                handlerFile = logging.FileHandler("logs/zsoar.log")
+                if settings["logging"]["split_files_by_module"]:
+                    path = "logs/" + module_name + ".log"
+                else:
+                    path = "logs/zsoar.log"
+                os.makedirs(os.path.dirname(path), exist_ok=True) # According to documentation of logger, this is not needed, but that is not true
+                handlerFile = logging.FileHandler(path)
                 handlerFile.setLevel(log_level_to_file.upper())
                 handlerFile.setFormatter(formatter)
                 self.logger.addHandler(handlerFile)
@@ -68,8 +74,9 @@ class Log:
 
                 handlerStream.setFormatter(formatter)
                 self.logger.addHandler(handlerStream)
-        except:  # Exception only to print the error message using default python print(). The caller has to handle the error itself.
-            print(f"[ERROR] The logger object for {module_name} could not be initialized.")
+        except Exception as e:
+            print(f"[CRITICAL] The logger object for {module_name} could not be initialized.")
+            raise(e)
 
         return None
 

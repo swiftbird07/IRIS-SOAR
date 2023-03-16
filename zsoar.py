@@ -24,7 +24,7 @@ def add_arguments():
         parser (argparse.ArgumentParser): The parser
     """
     parser = argparse.ArgumentParser(description="Z-SOAR - Modular SOAR for Znuny/OTRS")
-    parser.add_argument("--version", action="version", version="%(prog)s 0.1")
+    parser.add_argument("--version", action="store_true", help="Print the version of Z-SOAR")
     parser.add_argument("--debug", action="store_true", help="Enable debug mode")
     parser.add_argument("--setup", action="store_true", help="Install or Configure Z-SOAR")
     parser.add_argument("--start", action="store_true", help="Start Z-SOAR")
@@ -260,6 +260,21 @@ def setup(step=0, continue_steps=True):
         setup(10)
 
     elif settings["setup"]["setup_step"] == 10 or step == 10:
+        # Ask if log files should be split for each module
+        print("")
+        print("Do you want to split the log files for each module?")
+        response = setup_ask("n", available_responses_list=["y", "n"])
+        if response == "y":
+            settings["logging"]["log_file_split_module"] = True
+        elif response == "n":
+            settings["logging"]["log_file_split_module"] = False
+        settings["setup"]["setup_step"] = 11
+        config_helper.save_config(settings)
+        if not continue_steps:
+            return
+        setup(11)
+
+    elif settings["setup"]["setup_step"] == 11 or step == 11:
         print("")
         print("Setup finished. You can now start the daemon with the command 'zsoar.py --start'.")
         settings["setup"]["setup_step"] = 0
@@ -299,14 +314,16 @@ def main():
     mlog = logging_helper.Log("zsoar")
 
     # Check if at least one argument is provided:
-    if type(args) == argparse.Namespace:
+    if type(args) != argparse.Namespace or len(sys.argv) == 1:
         print("No mode selected. Please use --help to see the available modes.")
         if not TEST_CALL:
             sys.exit(0)
 
     # Check if the version mode is enabled:
     if parser.parse_args().version:
-        print("Z-SOAR Version 0.0.1 (alpha)")
+        import pkg_resources
+        version = pkg_resources.get_distribution('ZSOARpkg').version
+        print("Z-SOAR version: " + version)
         if not TEST_CALL:
             sys.exit(0)
 
