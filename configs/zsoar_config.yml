@@ -1,5 +1,5 @@
 daemon:
-  enabled: false
+  enabled: true
   interval_min: 1
 logging:
   language: en

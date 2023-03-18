@@ -7,6 +7,7 @@ import time
 import lib.config_helper as config_helper
 import lib.logging_helper as logging_helper
 import zsoar_worker as zsoar_worker
+from argparse import ArgumentParser
 
 TEST_CALL = True  # Stays True if the script is called by the test script
 
@@ -22,6 +23,10 @@ def main(TEST_CALL):
     """
     # Get the logger
     mlog = logging_helper.Log("zsoar_daemon")
+
+    if TEST_CALL or args.debug_module:
+        mlog.set_level("DEBUG")
+        mlog.debug("Debug mode enabled.")
 
     # Get the config
     try:
@@ -69,4 +74,12 @@ def main(TEST_CALL):
 
 
 if __name__ == "__main__":
+    # Parse if debug argument was given
+    parser_daemon = ArgumentParser()
+    parser_daemon.add_argument(
+        "--debug_module",
+        action="store_true",
+    )
+    args = parser_daemon.parse_args()
+
     main(TEST_CALL == False)

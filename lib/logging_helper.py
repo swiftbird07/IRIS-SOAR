@@ -36,9 +36,9 @@ class Log:
         """
         try:
             TEST_CALL = False
-
             self.logger = logging.getLogger(module_name)
-            self.logger.setLevel("DEBUG")
+            self.logger.setLevel(10)
+            self.logger.propagate = False
 
             # Create a logging format
             formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
@@ -59,7 +59,9 @@ class Log:
                     path = "logs/" + module_name + ".log"
                 else:
                     path = "logs/zsoar.log"
-                os.makedirs(os.path.dirname(path), exist_ok=True) # According to documentation of logger, this is not needed, but that is not true
+                os.makedirs(
+                    os.path.dirname(path), exist_ok=True
+                )  # According to documentation of logger, this is not needed, but that is not true
                 handlerFile = logging.FileHandler(path)
                 handlerFile.setLevel(log_level_to_file.upper())
                 handlerFile.setFormatter(formatter)
@@ -76,12 +78,17 @@ class Log:
                 self.logger.addHandler(handlerStream)
         except Exception as e:
             print(f"[CRITICAL] The logger object for {module_name} could not be initialized.")
-            raise(e)
+            raise (e)
 
         return None
 
     def set_level(self, level):
+        """Change the logging level of the logger object and also for all its handlers."""
         self.logger.setLevel(level.upper())
+
+        # We have to set all handlers to the same level as well (thanks to Martijn Pieters @ https://stackoverflow.com/a/38496484)
+        for handler in self.logger.handlers:
+            handler.setLevel(level.upper())
 
     def debug(self, message):
         """Logs a debug message.

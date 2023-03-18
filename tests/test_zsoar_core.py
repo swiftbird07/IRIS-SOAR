@@ -67,7 +67,7 @@ def test_setup():
         None
     """
     cfg = zsoar.config_helper.Config().cfg
-    tmp = cfg
+    tmp = cfg.copy()
 
     zsoar.config_helper.save_config(cfg)
 
@@ -119,14 +119,21 @@ def test_startup_daemon():
     Returns:
         None
     """
+    # Temporarily enable the daemon
+    cfg = zsoar.config_helper.Config().cfg
+    tmp = cfg.copy()
+    cfg["daemon"]["enabled"] = True
+    zsoar.config_helper.save_config(cfg)
+
+    # Test if the daemon can be started
     mlog = zsoar.logging_helper.Log("zsoar_test_core")
-    zsoar.startup(mlog)
-    daemons = subp.check_output(["pgrep", "-f", "python3 zsoar_daemon.py"]).split()
+    zsoar.startup(mlog, True)
+    assert zsoar.get_script_pid(mlog, "zsoar_daemon.py") > 0, "The daemon was not started."
+
+    # Reset to original config
     assert (
-        daemons != []
-    ), "The daemon was not started."  # Will fail at the moment, as the daemon is not implemented yet.
-    assert len(daemons) == 1, "More than one daemon was started."
-    assert daemons[0].isdigit(), "The daemon PID is not a number."
+        zsoar.config_helper.save_config(tmp) == True
+    ), "Resetting config to original failed (test_startup_daemon)."
 
 
 def test_stop():
@@ -139,11 +146,8 @@ def test_stop():
         None
     """
     mlog = zsoar.logging_helper.Log("zsoar_test_core")
-    zsoar.startup(mlog)
-    sleep(1)
     zsoar.stop(mlog)
-    daemons = subp.check_output(["pgrep", "-f", "python3 zsoar_daemon.py"]).split()
-    assert daemons == [], "The daemon was not stopped."
+    assert zsoar.get_script_pid(mlog, "zsoar_daemon.py") == -1, "The daemon was not stopped."
 
 
 def test_daemon():

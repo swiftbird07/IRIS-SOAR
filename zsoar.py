@@ -3,15 +3,19 @@
 # This module is the user interactive start point for the Z-SOAR project.
 # It will load the prvided arguments and either start the setup mode or start/stop/restart the main zsoar_worker.py or delegate this job to the daemon if enabled.
 
+import subprocess
 import sys
 import os
 import argparse
+import psutil
 
 import lib.config_helper as config_helper
 import lib.logging_helper as logging_helper
 import zsoar_daemon as zsoar_daemon
+import zsoar_worker as zsoar_worker
 
 TEST_CALL = True  # Stays True if the script is called by the test script
+REPORT_ZOMBIE_PROCESSES = False  # If True, the script will report zombie processes when searching for the PID of a script. If you are using the developing, this should be set to False as tests from pytest will hang otherwise.
 
 
 def add_arguments():
@@ -35,8 +39,48 @@ def add_arguments():
     return parser
 
 
-def startup(mlog):
-    """Starts the main loop or the daemon depending on the settings.
+def get_script_pid(mlog, script):
+    """Checks if the given script is running. Returns the PID if it is running.
+
+    Args:
+        mlog (logging_helper.Log): The logger
+        script (str): The script name
+
+    Returns:
+        pid (int): The PID of the script (-1 if not running)
+    """
+    for q in psutil.process_iter():
+        if q.name().lower().startswith("python"):
+            try:
+                if len(q.cmdline()) > 1 and script in q.cmdline()[1] and q.pid != os.getpid():
+                    mlog.debug(
+                        "'{}' script is running: {}. Command line: {}".format(
+                            script, str(q), str(q.cmdline())
+                        )
+                    )
+                    return q.pid
+            except psutil.ZombieProcess:
+                if q.pid != os.getpid() and REPORT_ZOMBIE_PROCESSES:
+                    mlog.warning(
+                        "ZOMBIE Python process found: '{}' when searching for {} script. Will report it as instance of the searched script, as zombies can't be checked for command line.".format(
+                            str(q), str(script)
+                        )
+                    )
+                    return q.pid
+                else:
+                    mlog.warning(
+                        "ZOMBIE Python process found: '{}' when searching for {} script. Will ignore it.".format(
+                            str(q), str(script)
+                        )
+                    )
+                    return -1
+
+    mlog.debug("'{}' script is not running".format(script))
+    return -1
+
+
+def startup(mlog, DEBUG):
+    """Starts the main loop (called 'worker') or the daemon depending on the settings.
 
     Args:
         mlog (logging_helper.Log): The logger
@@ -53,17 +97,62 @@ def startup(mlog):
 
     # Check if the daemon is enabled
     if settings["daemon"]["enabled"]:
-        # Start the daemon
-        mlog.info("Starting the daemon")
-        if os.system("python3 lib/daemon.py"):
-            mlog.critical("Could not start the daemon: System call failed.")
+        mlog.info("Starting the daemon...")
+        # Check if daemon is already running
+        if get_script_pid(mlog, "zsoar_daemon.py") > 0:
+            mlog.critical(
+                "Daemon is already running. Use 'zsoar.py --restart' to restart it or 'zsoar.py --stop' to stop it manually."
+            )
             raise SystemExit(1)
+
+        # Start the daemon with or without debug mode
+        if DEBUG:
+            popen = subprocess.Popen(
+                [sys.executable, "zsoar_daemon.py", "--debug_module"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+            )
+        else:
+            popen = subprocess.Popen(
+                [sys.executable, "zsoar_daemon.py"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+            )
+
+        if popen.returncode != None:
+            mlog.critical(
+                "Could not start the daemon: System call failed. Subprocess returned: {}".format(
+                    popen.returncode
+                )
+            )
+            if not TEST_CALL:
+                raise SystemExit(1)
+        else:
+            mlog.info("Daemon started")
     else:
-        # Start the main loop
-        mlog.info("Daemon disabled. Starting the main loop directly.")
-        if os.system("python3 zsoar_worker.py"):
-            mlog.critical("Could not start the worker: System call failed.")
+        mlog.info("Daemon disabled. Starting the main loop (zsoar_worker.py) directly...")
+        # Check if worker is already running
+        if get_script_pid(mlog, "zsoar_worker.py") > 0:
+            mlog.critical(
+                "Worker is already running. Use 'zsoar.py --restart' to restart it or 'zsoar.py --stop' to stop it manually."
+            )
             raise SystemExit(1)
+
+        if get_script_pid(mlog, "zsoar_daemon.py") > 0:
+            mlog.critical("Daemon is still running. Use 'zsoar.py --stop' to stop it manually.")
+            raise SystemExit(1)
+
+        # Start the worker manually
+        return_code = zsoar_worker.main(DEBUG)
+
+        if return_code > 0:
+            mlog.critical(
+                "Could not start the worker: System call failed. Subprocess returned: {}".format(
+                    popen.returncode
+                )
+            )
+            if not TEST_CALL:
+                raise SystemExit(1)
 
 
 def stop(mlog):
@@ -79,14 +168,42 @@ def stop(mlog):
         None
     """
     mlog.info("Stopping Z-SOAR...")
-    import subprocess as subp
+    did_something = False
 
-    daemon_pids = list(
-        map(int, subp.check_output(["pgrep", "-f", "python3 zsoar_daemon.py"]).split())
-    )
-    for daemon_pid in daemon_pids:
-        os.kill(daemon_pid, 15)
-    mlog.info("Z-SOAR stopped")
+    # Check if daemons are running
+    while (daemon_pid := get_script_pid(mlog, "zsoar_daemon.py")) > 0:
+        # Kill the daemon
+        mlog.info(f"Found running daemon (pid={daemon_pid}). Killing it...")
+        if os.system(f"kill -9 {daemon_pid}"):
+            mlog.critical("Could not stop the daemon: System call failed.")
+            if not TEST_CALL:
+                raise SystemExit(1)
+        else:
+            mlog.info("Daemon script stopped")
+            did_something = True
+
+    if not did_something:
+        mlog.info("Daemon not running")
+
+    # Check if worker is running
+    worker_pid = get_script_pid(mlog, "zsoar_worker.py")
+    if worker_pid > 0:
+        # Kill the worker
+        mlog.info("Stopping the worker...")
+        if os.system(f"kill -9 {worker_pid}"):
+            mlog.critical("Could not stop the worker: System call failed.")
+            if not TEST_CALL:
+                raise SystemExit(1)
+        else:
+            mlog.info("Worker script stopped")
+            did_something = True
+    else:
+        mlog.info("Worker script not running")
+
+    if not did_something:
+        mlog.warning("Nothing to stop!")
+    else:
+        mlog.info("Z-SOAR stopped")
 
 
 def setup(step=0, continue_steps=True):
@@ -322,7 +439,8 @@ def main():
     # Check if the version mode is enabled:
     if parser.parse_args().version:
         import pkg_resources
-        version = pkg_resources.get_distribution('ZSOARpkg').version
+
+        version = pkg_resources.get_distribution("ZSOARpkg").version
         print("Z-SOAR version: " + version)
         if not TEST_CALL:
             sys.exit(0)
