@@ -36,6 +36,8 @@ def main(config, fromDaemon=False):
     # Get every installed integration from config
     integrations = config["integrations"]  # TODO: Implement this in config_helper.py
 
+    mlog.info("Started Z-SOAR worker script")
+    mlog.info("Checking for new detections...")
     DetectionArray = []
     DetectionReportArray = []
 
