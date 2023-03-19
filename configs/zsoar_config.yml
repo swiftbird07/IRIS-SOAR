@@ -1,9 +1,9 @@
 daemon:
-  enabled: true
+  enabled: false
   interval_min: 1
 integrations:
   elastic_siem:
-    enabled: false
+    enabled: true
   ibm_qradar:
     enabled: false
   vt_threat_intel:

@@ -10,6 +10,7 @@ import os
 import mock
 import pytest
 import subprocess as subp
+import copy
 
 
 def test_import():
@@ -67,7 +68,7 @@ def test_setup():
         None
     """
     cfg = zsoar.config_helper.Config().cfg
-    tmp = cfg.copy()
+    tmp = copy.deepcopy(cfg)
 
     zsoar.config_helper.save_config(cfg)
 
@@ -79,6 +80,7 @@ def test_setup():
     # assert cfg["setup"]["setup_step"] == 0, "The setup step accepted an invalid input."
 
     # Test vaild input True/False:
+
     cfg["setup"]["setup_step"] = 1
     cfg["daemon"]["enabled"] = False
     zsoar.config_helper.save_config(cfg)
@@ -127,7 +129,8 @@ def test_startup_daemon():
 
     # Temporarily enable the daemon
     cfg = zsoar.config_helper.Config().cfg
-    tmp = cfg.copy()
+    tmp = copy.deepcopy(cfg)
+
     cfg["daemon"]["enabled"] = True
     zsoar.config_helper.save_config(cfg)
 

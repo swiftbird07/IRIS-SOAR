@@ -144,9 +144,9 @@ def startup(mlog, DEBUG):
             raise SystemExit(1)
 
         # Start the worker manually
-        return_code = zsoar_worker.main(DEBUG)
+        return_code = zsoar_worker.main(settings, debug=DEBUG)
 
-        if return_code > 0:
+        if return_code != None:
             mlog.critical(
                 "Could not start the worker: System call failed. Subprocess returned: {}".format(
                     popen.returncode
@@ -401,6 +401,7 @@ def setup(step=0, continue_steps=True):
             sys.exit(0)
 
     # TODO: Add Znuny/OTRS connection setup
+    # TODO: Add integration setup
 
     print("Setup stopped. Please run the setup again to continue.")
 

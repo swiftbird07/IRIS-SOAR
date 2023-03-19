@@ -130,13 +130,13 @@ def check_module_exists(module_name):
         bool: True if the module exists, False if not
     """
     try:
-        __import__(module_name)
+        __import__("integrations." + module_name)
         return True
     except ImportError:
         return False
 
 
-def check_module_has_function(module_name, function_name):
+def check_module_has_function(module_name, function_name, mlog):
     """Checks if a module has a function.
 
     Args:
@@ -147,10 +147,12 @@ def check_module_has_function(module_name, function_name):
         bool: True if the module has the function, False if not
     """
     try:
-        module = __import__(module_name)
-        function = getattr(module, function_name)
+        module = __import__("integrations." + module_name)
+        integration = getattr(module, module_name)
+        getattr(integration, function_name)
         return True
-    except (ImportError, AttributeError):
+    except AttributeError as e:
+        mlog.debug("AttributeError: " + str(e))
         return False
 
 

@@ -49,7 +49,7 @@ def main(TEST_CALL):
     while True:
         mlog.info("Starting zsoar_worker.py")
         try:
-            zsoar_worker.main(cfg, fromDaemon=True)
+            zsoar_worker.main(cfg, fromDaemon=True, debug=args.debug_module)
             mlog.info("zsoar_worker.py finished. Waiting for next run.")
         except Exception as e:
             mlog.error(

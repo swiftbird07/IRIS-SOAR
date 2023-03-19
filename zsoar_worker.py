@@ -20,7 +20,7 @@ import lib.logging_helper as logging_helper
 import lib.class_helper as class_helper  # TODO: Implement class_helper.py
 
 
-def main(config, fromDaemon=False):
+def main(config, fromDaemon=False, debug=False):
     """Main function of the worker script.
 
     Args:
@@ -32,6 +32,10 @@ def main(config, fromDaemon=False):
     """
     # Get the logger
     mlog = logging_helper.Log("zsoar_worker")
+
+    if debug:
+        mlog.set_level("DEBUG")
+        mlog.debug("Debug mode enabled.")
 
     # Get every installed integration from config
     integrations = config["integrations"]  # TODO: Implement this in config_helper.py
@@ -58,7 +62,9 @@ def main(config, fromDaemon=False):
             continue
 
         # Check if module provides getting new detections
-        if not class_helper.check_module_has_function(module_name, "zs_provide_new_detections"):
+        if not class_helper.check_module_has_function(
+            module_name, "zs_provide_new_detections", mlog
+        ):
             mlog.debug(
                 "The module "
                 + module_name
@@ -69,7 +75,9 @@ def main(config, fromDaemon=False):
         # Make the actual call to the integration
         try:
             mlog.info("Calling module " + module_name)
-            new_detections = module_name.zs_provide_new_detections()
+            module_import = __import__("integrations." + module_name)
+            module_import = getattr(module_import, module_name)
+            new_detections = module_import.zs_provide_new_detections()
         except Exception as e:
             mlog.error(
                 "The module " + module_name + " failed to provide new detections. Error: " + str(e)
@@ -130,7 +138,9 @@ def main(config, fromDaemon=False):
                 mlog.info(
                     f"Calling playbook {playbook_name} to check if it can handle current detection '{detection_title}' ({detection_id})"
                 )
-                can_handle = playbook_name.zs_can_handle_detection(detection_report)
+                module_import = __import__("integrations." + playbook_name)
+                playbook_import = getattr(module_import, playbook_name)
+                can_handle = playbook_import.zs_can_handle_detection(detection_report)
             except Exception as e:
                 mlog.warning(
                     "The playbook "
@@ -146,7 +156,7 @@ def main(config, fromDaemon=False):
                     mlog.info(
                         f"Calling playbook to handle the current detection {detection_title} ({detection_id})"
                     )
-                    detection_report = playbook_name.zs_handle_detection(detection_report)
+                    detection_report = playbook_import.zs_handle_detection(detection_report)
                 except Exception as e:
                     mlog.warning(
                         "The playbook "
@@ -173,9 +183,6 @@ def main(config, fromDaemon=False):
                     f"Adding detection report for detection {detection_title} ({detection_id}) to the detection report array."
                 )
                 DetectionReportArray.append(detection_report)
-
-                # Break the loop to check the next detection
-                break
 
         # If no playbook was able to handle the detection, log it
         if not detectionHandled:
