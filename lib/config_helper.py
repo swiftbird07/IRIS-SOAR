@@ -66,6 +66,57 @@ class Config:
             return None
 
 
+def check_config_log_level(log_level, mlog):
+    """The check_config_log_level() function is used to check if the log level is valid.
+
+    Args:
+        cfg (dict): The config object
+        mlog (Log): The logger object
+
+    Returns:
+        True if the log level is valid, False if not
+    """
+    try:
+        if type(log_level) != str or log_level.upper() not in [
+            "DEBUG",
+            "INFO",
+            "WARNING",
+            "ERROR",
+            "CRITICAL",
+            "NONE",
+        ]:
+            mlog.critical(
+                f"Could not load config file: {log_level} not one of ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL', 'none']. Please check the config file and try again."
+            )
+            return False
+        else:
+            return True
+    except:
+        mlog.critical(
+            f"Could not load config file: {log_level} not defined. Please check the config file and try again."
+        )
+        return False
+
+
+def check_config_bool(bool_var, mlog):
+    if type(bool_var) != bool or bool_var not in [
+        True,
+        False,
+    ]:
+        mlog.critical("daemon_enabled not one of [True, False]. Please check the config file.")
+        return False
+    return True
+
+
+def check_config_int(int_var, mlog):
+    if type(int_var) != int or int_var < 0:
+        mlog.critical(
+            "daemon_interval_min not a valid integer value. Please check the config file."
+        )
+        return False
+    return True
+
+
 def check_config(cfg, mlog, onload=True):
     """The check_config() function is used to check if the config file is valid.
 
@@ -78,46 +129,14 @@ def check_config(cfg, mlog, onload=True):
         True if the config file is valid (enough), False if not
     """
     try:
-        if type(cfg["logging"]["log_level_stdout"]) != str or cfg["logging"][
-            "log_level_stdout"
-        ].upper() not in [
-            "DEBUG",
-            "INFO",
-            "WARNING",
-            "ERROR",
-            "CRITICAL",
-            "NONE",
-        ]:
-            if onload:
-                mlog.critical(
-                    "Could not load config file: logging_level_stdout not one of ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL', 'none']. Please check the config file and try again."
-                )
-            else:
-                mlog.warning(
-                    "Could not load config file: logging_level_stdout not one of ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL', 'none']. Please check the config file and try again."
-                )
+        # daemon
+        if not check_config_bool(cfg["daemon"]["enabled"], mlog):
             return False
 
-        if type(cfg["logging"]["log_level_to_file"]) != str or cfg["logging"][
-            "log_level_to_file"
-        ].upper() not in [
-            "DEBUG",
-            "INFO",
-            "WARNING",
-            "ERROR",
-            "CRITICAL",
-            "NONE",
-        ]:
-            if onload:
-                mlog.critical(
-                    "Could not load config file: logging_level_to_file not one of ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL', 'none']. Please check the config file and try again."
-                )
-            else:
-                mlog.warning(
-                    "Could not load config file: logging_level_to_file not one of ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL', 'none']. Please check the config file and try again."
-                )
-
+        if not check_config_int(cfg["daemon"]["interval_min"], mlog):
             return False
+
+        # logging
 
         if type(cfg["logging"]["language"]) != str or cfg["logging"]["language"].lower() not in [
             "en",
@@ -130,91 +149,43 @@ def check_config(cfg, mlog, onload=True):
                 return False
             cfg["logging"]["language"] = "en"  # ...If not then assume a default value
 
-        if type(cfg["logging"]["split_file_on_worker_iteration"]) != bool or cfg["logging"][
-            "split_file_on_worker_iteration"
-        ] not in [True, False]:
-            mlog.warning(
-                "split_file_on_worker_iteration not one of [True, False]. Please check the config file. Will assume value to be False."
-            )
-            if not onload:
-                return False
-            cfg["logging"]["split_file_on_worker_iteration"] = False
+        if not check_config_log_level(cfg["logging"]["log_level_stdout"], mlog):
+            return False
 
-        if type(cfg["logging"]["split_file_on_startup"]) != bool or cfg["logging"][
-            "split_file_on_startup"
-        ] not in [True, False]:
-            mlog.warning(
-                "split_file_on_startup not one of [True, False]. Please check the config file. Will assume value to be False."
-            )
-            if not onload:
-                return False
-            cfg["logging"]["split_file_on_startup"] = False
+        if not check_config_log_level(cfg["logging"]["log_level_file"], mlog):
+            return False
 
-        if type(cfg["daemon"]["enabled"]) != bool or cfg["daemon"]["enabled"] not in [
-            True,
-            False,
-        ]:
-            mlog.warning(
-                "daemon_enabled not one of [True, False]. Please check the config file. Will assume value to be False."
-            )
-            if not onload:
-                return False
-            cfg["daemon"]["enabled"] = False
+        if not check_config_log_level(cfg["logging"]["log_level_syslog"], mlog):
+            return False
 
-        if type(cfg["daemon"]["interval_min"]) != int or cfg["daemon"]["interval_min"] < 0:
-            mlog.warning(
-                "daemon_interval_min not a valid integer value. Please check the config file. Will assume value to be 5 minutes."
-            )
-            if not onload:
-                return False
-            cfg["daemon"]["interval_min"] = 5
+        if not check_config_bool(cfg["logging"]["split_file_on_worker_iteration"], mlog):
+            return False
 
-        if type(cfg["setup"]["setup_step"]) != int or cfg["setup"]["setup_step"] < 0:
-            mlog.warning(
-                "setup_step not a valid integer value. Please check the config file. Will assume value to be 0 (new setup)."
-            )
-            if not onload:
-                return False
-            cfg["setup"]["setup_step"] = 0
+        if not check_config_bool(cfg["logging"]["split_file_on_startup"], mlog):
+            return False
 
-        if type(cfg["logging"]["log_level_syslog"]) != str or cfg["logging"][
-            "log_level_syslog"
-        ].upper() not in [
-            "DEBUG",
-            "INFO",
-            "WARNING",
-            "ERROR",
-            "CRITICAL",
-            "NONE",
-        ]:
-            mlog.warning(
-                "log_level_syslog not one of ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL', 'none']. Please check the config file. Will assume value to be 'none'."
-            )
-            if not onload:
-                return False
-            cfg["logging"]["log_level_syslog"] = "none"
+        if not check_config_bool(cfg["logging"]["split_files_by_module"], mlog):
+            return False
 
-        if (
-            type(cfg["logging"]["log_file_rotate_size"]) != int
-            or cfg["logging"]["log_file_rotate_size"] < 0
-        ):
-            mlog.warning(
-                "log_file_rotate_size not a valid integer value. Please check the config file. Will assume value to be 0 (disabled)."
-            )
-            if not onload:
-                return False
-            cfg["logging"]["log_file_rotate_size"] = 0
+        if not check_config_int(cfg["logging"]["log_file_rotate_size"], mlog):
+            return False
 
-        if type(cfg["logging"]["split_files_by_module"]) != bool or cfg["logging"][
-            "split_files_by_module"
-        ] not in [True, False]:
-            mlog.warning(
-                "split_files_by_module not one of [True, False]. Please check the config file. Will assume value to be False."
-            )
-            if not onload:
+        # setup
+
+        if not check_config_int(cfg["setup"]["setup_step"], mlog):
+            return False
+
+        # znuny_otrs
+
+        # TODO: OTRS settings
+
+        # integrations
+
+        for integration in cfg["integrations"]:
+            if not check_config_bool(cfg["integrations"][integration]["enabled"], mlog):
                 return False
-            cfg["logging"]["split_files_by_module"] = False
-            
+            mlog.debug(f"Loaded integration: {integration}")
+
     except KeyError as e:
         mlog.critical(
             "Could not load config file: Setting not found: {}. Please check the config file and try again.".format(
@@ -223,7 +194,7 @@ def check_config(cfg, mlog, onload=True):
         )
         return False
 
-    return True  # Only warnings
+    return True
 
 
 def save_config(cfg):
@@ -324,8 +295,9 @@ def setup_ask(default_response, available_responses_list=[], available_responses
 
 
 def main():
-    cfg = Config()
+    # cfg = Config()
     # print(cfg.cfg)
+    pass
 
 
 if __name__ == "__main__":

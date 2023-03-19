@@ -23,7 +23,7 @@ class Log:
         self,
         module_name,
         log_level="none",
-        log_level_to_file="none",
+        log_level_file="none",
         log_level_stdout="INFO",
     ):
         """Initializes the Log() object.
@@ -51,10 +51,10 @@ class Log:
                 settings = config_helper.Config().cfg
 
                 # Override default paramaters if set in config:
-                log_level_to_file = settings["logging"]["log_level_to_file"]
+                log_level_file = settings["logging"]["log_level_file"]
                 log_level_stdout = settings["logging"]["log_level_stdout"]
 
-            if "none" not in log_level_to_file:
+            if "none" not in log_level_file:
                 if settings["logging"]["split_files_by_module"]:
                     path = "logs/" + module_name + ".log"
                 else:
@@ -63,7 +63,7 @@ class Log:
                     os.path.dirname(path), exist_ok=True
                 )  # According to documentation of logger, this is not needed, but that is not true
                 handlerFile = logging.FileHandler(path)
-                handlerFile.setLevel(log_level_to_file.upper())
+                handlerFile.setLevel(log_level_file.upper())
                 handlerFile.setFormatter(formatter)
                 self.logger.addHandler(handlerFile)
 

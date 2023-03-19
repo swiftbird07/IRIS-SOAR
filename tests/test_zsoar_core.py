@@ -119,6 +119,12 @@ def test_startup_daemon():
     Returns:
         None
     """
+    # Stop daemon first if running
+    try:
+        zsoar.stop(zsoar.logging_helper.Log("zsoar_test_core"))
+    except:
+        pass  # Stop errors not in scope of this test
+
     # Temporarily enable the daemon
     cfg = zsoar.config_helper.Config().cfg
     tmp = cfg.copy()
@@ -163,3 +169,19 @@ def test_daemon():
         zsoar.zsoar_daemon.main(TEST_CALL=True)
     except Exception as e:
         pytest.fail("The daemon function failed: {}".format(e))
+
+
+def test_worker():
+    """Tests the worker function.
+
+    Args:
+        None
+
+    Returns:
+        None
+    """
+    config = zsoar.config_helper.Config().cfg
+    try:
+        zsoar.zsoar_worker.main(config)
+    except Exception as e:
+        pytest.fail("The worker function failed: {}".format(e))

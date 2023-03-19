@@ -8,6 +8,7 @@ import sys
 import os
 import argparse
 import psutil
+import json
 
 import lib.config_helper as config_helper
 import lib.logging_helper as logging_helper
@@ -483,20 +484,44 @@ def main():
     # Check if the status mode is enabled:
     if parser.parse_args().status:
         mlog.info("Checking the status of Z-SOAR...")
-        import subprocess as subp
 
-        daemon_pids = list(
-            map(
-                int,
-                subp.check_output(["pgrep", "-f", "python3 zsoar_daemon.py"]).split(),
-            )
-        )
-        if len(daemon_pids) > 0:
-            mlog.info("Z-SOAR is running as a daemon. PID: ", daemon_pids)
+        # Check if daemons are running
+        daemon_pid = get_script_pid(mlog, "zsoar_daemon.py")
+        if daemon_pid > 0:
+            # Print the daemon
+            mlog.info(f"Found running daemon (pid={daemon_pid}).")
+
+            mlog.info("")
+            mlog.info("\tDaemon information:")
+            mlog.info("\t" + str(psutil.Process(daemon_pid)))
+
+            if DEBUG:
+                mlog.info(
+                    "\n\tDebug mode. Printing extended process info:\n"
+                    + json.dumps(psutil.Process(daemon_pid).as_dict(), indent=2)
+                )
+
+            mlog.info("")
         else:
-            mlog.info("Z-SOAR is not running as a daemon.")
+            mlog.info("No running daemon found.")
 
-        # TODO: Further checks based on logs / statistics etc.
+        # Check if worker is running
+        worker_pid = get_script_pid(mlog, "zsoar_worker.py")
+        if worker_pid > 0:
+            mlog.info(f"Found running worker (pid={worker_pid}).")
+            mlog.info("")
+            mlog.info("\tWorker information:")
+            mlog.info("\t" + psutil.Process(worker_pid))
+            if DEBUG:
+                mlog.info(
+                    "\n\tDebug mode. Printing extended process info:\n"
+                    + json.dumps(psutil.Process(daemon_pid).as_dict(), indent=2)
+                )
+        else:
+            mlog.info("No running worker found.")
+
+        if daemon_pid == 0 and worker_pid == 0:
+            mlog.info("Z-SOAR is not running.")
 
         if not TEST_CALL:
             sys.exit(0)

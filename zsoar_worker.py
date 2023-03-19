@@ -42,7 +42,10 @@ def main(config, fromDaemon=False):
     DetectionReportArray = []
 
     for integration in integrations:
-        module_name = integration["name"]
+        module_name = integration
+        integration = integrations[
+            integration
+        ]  # we want the whole dict not just the name to work with
 
         # Check if the module is enabled
         if not integration["enabled"]:
@@ -188,4 +191,5 @@ def main(config, fromDaemon=False):
 
 
 if __name__ == "__main__":
-    main()
+    main(config_helper.Config().cfg)
+    pass

@@ -53,13 +53,13 @@ def test_config_loading():
 
     # Test that invalid values are detected
     mlog = zsoar.logging_helper.Log("zsoar_test_lib")
-    cfg["logging"]["log_level_to_file"] = "some_invalid_value"
+    cfg["logging"]["log_level_file"] = "some_invalid_value"
     assert (
         zsoar.config_helper.check_config(cfg, mlog) == False
     ), "The config is valid, but should not be (Value test)."
 
     # Reset the config
-    cfg["logging"]["log_level_to_file"] = "debug"
+    cfg["logging"]["log_level_file"] = "debug"
     assert (
         zsoar.config_helper.check_config(cfg, mlog) == True
     ), "The config is not valid after resetting."
@@ -83,16 +83,16 @@ def test_config_saving():
     configObj = zsoar.config_helper.Config()
     cfg = configObj.cfg
     assert zsoar.config_helper.save_config(cfg) == True, "Saving current config to file failed"
-    tmp = cfg["logging"]["log_level_to_file"]
+    tmp = cfg["logging"]["log_level_file"]
 
-    cfg["logging"]["log_level_to_file"] = "some_invalid_value"
+    cfg["logging"]["log_level_file"] = "some_invalid_value"
     assert (
         zsoar.config_helper.save_config(cfg) == False
     ), "Saving invalid config to file did not fail"
 
-    cfg["logging"]["log_level_to_file"] = "debug"
+    cfg["logging"]["log_level_file"] = "debug"
     assert zsoar.config_helper.save_config(cfg) == True, "Saving valid new config to file failed"
 
     # Reset
-    cfg["logging"]["log_level_to_file"] = tmp
+    cfg["logging"]["log_level_file"] = tmp
     assert zsoar.config_helper.save_config(cfg) == True, "Saving valid old config to file failed"
