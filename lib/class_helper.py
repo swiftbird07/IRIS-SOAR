@@ -2,10 +2,12 @@
 # Created by: Martin Offermann
 # This module is a helper module that privides important classes and functions for the Z-SOAR project.
 
+from typing import Union
 import random
 import datetime
 import socket
 import datetime
+import json
 
 import lib.config_helper as config_helper
 import lib.logging_helper as logging_helper
@@ -169,8 +171,8 @@ class DetectionReport:
 
 
     Methods:
-        __init__(self, detections: list[Detection])
-        __str__(self)
+        __init__(self, detections: list[Detection], playbooks: list[str] = None, action: str = None, action_result: bool = None, action_result_message: str = None, action_result_data: str = None, contexts: list[Context] = None): Initializes a new DetectionReport object.
+        __str__(self): Returns the string representation of the object.
     """
 
     def __init__(self, detections: list[Detection]):
@@ -181,7 +183,10 @@ class DetectionReport:
         self.action_result = None
         self.action_result_message = None
         self.action_result_data = None
-        self.contexts: list[Context] = []
+        self.context_logs: list[ContextLog] = []
+        self.context_processes: list[ContextProcess] = []
+        self.context_flows: list[ContextFlow] = []
+        self.context_threat_intel: list[ContextThreatIntel] = []
 
     def __str__(self):
         """Returns the string representation of the object."""
@@ -224,7 +229,7 @@ class DetectionReport:
 
 class Context:
     """This class provides a context for a detection. It has three main category types: "SIEM", "ThreatIntel" and "ITSM".
-    The SIEM  category type is used for context from the SIEM. It has three sub-categories: 'Events', 'Flows' and 'Processes'.  The ThreatIntel category type is used for context from
+    The SIEM  category type is used for context from the SIEM. It has three sub-categories: 'logs', 'Flows' and 'Processes'.  The ThreatIntel category type is used for context from
     threat intelligence sources. The ITSM category type is used for context from ITSM sources.
 
     Attributes:
@@ -233,8 +238,8 @@ class Context:
         data (list[str]): The data of the context
 
     Methods:
-        __init__(self)
-        __str__(self)
+        __init__(self, category: str, sub_category: str, data: list[str]): Initializes a new Context object.
+        __str__(self): Returns the string representation of the object.
     """
 
     def __init__(self):
@@ -305,9 +310,9 @@ class ContextFlow(Context):
         network_type: str = None,
         flow_source: str = None,
     ):
-        """Initializes a new ContextEvent object."""
+        """Initializes a new ContextFlow object."""
         self.category = "SIEM"
-        self.sub_category = "Events"
+        self.sub_category = "Flow"
         self.data = []
 
         self.timestamp = timestamp
@@ -380,83 +385,6 @@ class ContextFlow(Context):
     # Getter and setter;
 
     # ...
-
-
-class ContextEvent(Context):
-    """ContextEvent class."""
-
-    def __init__(
-        self,
-        flow,
-        application,
-        certificate,
-        dns_query,
-        dns_response,
-        dns_type,
-        file_hash,
-        file_name,
-        http,
-    ):
-        pass
-
-
-class ContextProcess(Context):
-    """ContextProcess class.
-
-    Attributes:
-        process_name (str): The name of the process
-        process_id (int): The ID of the process
-        parent_process_name (str): The name of the parent process
-        parent_process_id (int): The ID of the parent process
-        process_path (str): The path of the process
-        process_md5 (str): The MD5 hash of the process
-        process_sha1 (str): The SHA1 hash of the process
-        process_sha256 (str): The SHA256 hash of the process
-        process_command_line (str): The command line of the process
-        process_username (str): The username of the process
-        process_integrity_level (str): The integrity level of the process
-        process_is_elevated_token (bool): True if the process has an elevated token, False if not
-        process_token_elevation_type (str): The token elevation type of the process
-        process_token_elevation_type_full (str): The token elevation type of the process in full
-        process_token_integrity_level (str): The token integrity level of the process
-        process_token_integrity_level_full (str): The token integrity level of the process in full
-        process_privileges (str): The privileges of the process
-        process_owner (str): The owner of the process
-        process_group_id (str): The group ID of the process
-        process_group_name (str): The group name of the process
-        process_logon_guid (str): The logon GUID of the process
-        process_logon_id (str): The logon ID of the process
-        process_logon_type (str): The logon type of the process
-        process_logon_type_full (str): The logon type of the process in full
-        process_logon_time (str): The logon time of the process
-        process_start_time (str): The start time of the process
-        process_parent_start_time (str): The start time of the parent process
-        process_current_directory (str): The current directory of the process
-        process_image_file_device (str): The image file device of the process
-        process_image_file_directory (str): The image file directory of the process
-        process_image_file_name (str): The image file name of the process
-        process_image_file_path (str): The image file path of the process
-        process_dns (DNS): The DNS object of the process
-        process_certificate (Certificate): The certificate object of the process
-        process_http (HTTP): The HTTP object of the process
-        process_flow (Flow): The flow object of the process
-        process_parent (ContextProcess): The parent process object of the process
-        process_children (list[ContextProcess]): The children processes of the process
-        process_environment_variables (list[EnvironmentVariable]): The environment variables of the process
-        process_arguments (list[Argument]): The arguments of the process
-        process_modules (list[Module]): The modules of the process
-        process_thread (list[Thread]): The threads of the process
-
-    """
-
-    def __init__(
-        process_name: str,
-        process_id: int,
-        parent_process_name: str = "N/A",
-        parent_process_id: int = 0,
-        process_path: str = "",
-    ):
-        pass
 
 
 class Certificate:
@@ -649,6 +577,286 @@ class HTTP:
             + self.user_agent
             + " )"
         )
+
+
+class ContextProcess(Context):
+    """ContextProcess class.
+
+    Attributes:
+        process_name (str): The name of the process
+        process_id (int): The ID of the process
+        parent_process_name (str): The name of the parent process
+        parent_process_id (int): The ID of the parent process
+        process_path (str): The path of the process
+        process_md5 (str): The MD5 hash of the process
+        process_sha1 (str): The SHA1 hash of the process
+        process_sha256 (str): The SHA256 hash of the process
+        process_command_line (str): The command line of the process
+        process_username (str): The username of the process
+        process_integrity_level (str): The integrity level of the process
+        process_is_elevated_token (bool): True if the process has an elevated token, False if not
+        process_token_elevation_type (str): The token elevation type of the process
+        process_token_elevation_type_full (str): The token elevation type of the process in full
+        process_token_integrity_level (str): The token integrity level of the process
+        process_token_integrity_level_full (str): The token integrity level of the process in full
+        process_privileges (str): The privileges of the process
+        process_owner (str): The owner of the process
+        process_group_id (str): The group ID of the process
+        process_group_name (str): The group name of the process
+        process_logon_guid (str): The logon GUID of the process
+        process_logon_id (str): The logon ID of the process
+        process_logon_type (str): The logon type of the process
+        process_logon_type_full (str): The logon type of the process in full
+        process_logon_time (str): The logon time of the process
+        process_start_time (str): The start time of the process
+        process_parent_start_time (str): The start time of the parent process
+        process_current_directory (str): The current directory of the process
+        process_image_file_device (str): The image file device of the process
+        process_image_file_directory (str): The image file directory of the process
+        process_image_file_name (str): The image file name of the process
+        process_image_file_path (str): The image file path of the process
+        process_dns (DNSQuery): The DNS object of the process
+        process_certificate (Certificate): The certificate object of the process
+        process_http (HTTP): The HTTP object of the process
+        process_flow (ContextFlow): The flow object of the process
+        process_parent (ContextProcess): The parent process object of the process
+        process_children (list[ContextProcess]): The children processes of the process
+        process_environment_variables (list[]): The environment variables of the process
+        process_arguments (list[]): The arguments of the process
+        process_modules (list[]): The modules of the process
+        process_thread (str): The threads of the process
+
+    Methods:
+        __init__(self, process_name: str, process_id: int, parent_process_name: str = "N/A", parent_process_id: int = 0, process_path: str = "", process_md5: str = "", process_sha1: str = "", process_sha256: str = "", process_command_line: str = "", process_username: str = "", process_integrity_level: str = "", process_is_elevated_token: bool = False, process_token_elevation_type: str = "", process_token_elevation_type_full: str = "", process_token_integrity_level: str = "", process_token_integrity_level_full: str = "", process_privileges: str = "", process_owner: str = "", process_group_id: str = "", process_group_name: str = "", process_logon_guid: str = "", process_logon_id: str = "", process_logon_type: str = "", process_logon_type_full: str = "", process_logon_time: str = "", process_start_time: str = "", process_parent_start_time: str = "", process_current_directory: str = "", process_image_file_device: str = "", process_image_file_directory: str = "", process_image_file_name: str = "", process_image_file_path: str = "", process_dns: DNSQuery = None, process_certificate: Certificate = None, process_http: HTTP = None, process_flow: ContextFlow = None, process_parent: ContextProcess = None, process_children: list[ContextProcess] = None, process_environment_variables: list[] = None, process_arguments: list[] = None, process_modules: list[] = None, process_thread: str = "")
+        __str__(self)
+    """
+
+    def __init__(
+        self,
+        process_name: str,
+        process_id: int,
+        parent_process_name: str = "N/A",
+        parent_process_id: int = 0,
+        process_path: str = "",
+        process_md5: str = "",
+        process_sha1: str = "",
+        process_sha256: str = "",
+        process_command_line: str = "",
+        process_username: str = "",
+        process_integrity_level: str = "",
+        process_is_elevated_token: bool = False,
+        process_token_elevation_type: str = "",
+        process_token_elevation_type_full: str = "",
+        process_token_integrity_level: str = "",
+        process_token_integrity_level_full: str = "",
+        process_privileges: str = "",
+        process_owner: str = "",
+        process_group_id: str = "",
+        process_group_name: str = "",
+        process_logon_guid: str = "",
+        process_logon_id: str = "",
+        process_logon_type: str = "",
+        process_logon_type_full: str = "",
+        process_logon_time: str = "",
+        process_start_time: str = "",
+        process_parent_start_time: str = "",
+        process_current_directory: str = "",
+        process_image_file_device: str = "",
+        process_image_file_directory: str = "",
+        process_image_file_name: str = "",
+        process_image_file_path: str = "",
+        process_dns: DNSQuery = None,
+        process_certificate: Certificate = None,
+        process_http: HTTP = None,
+        process_flow: ContextFlow = None,
+        process_parent: list = None,
+        process_children: list = None,
+        process_environment_variables: list = None,
+        process_arguments: list = None,
+        process_modules: list = None,
+        process_thread: str = None,
+    ):
+        self.process_name = process_name
+        self.process_id = process_id
+        self.parent_process_name = parent_process_name
+        self.parent_process_id = parent_process_id
+        self.process_path = process_path
+        self.process_md5 = process_md5
+        self.process_sha1 = process_sha1
+        self.process_sha256 = process_sha256
+        self.process_command_line = process_command_line
+        self.process_username = process_username
+        self.process_integrity_level = process_integrity_level
+        self.process_is_elevated_token = process_is_elevated_token
+        self.process_token_elevation_type = process_token_elevation_type
+        self.process_token_elevation_type_full = process_token_elevation_type_full
+        self.process_token_integrity_level = process_token_integrity_level
+        self.process_token_integrity_level_full = process_token_integrity_level_full
+        self.process_privileges = process_privileges
+        self.process_owner = process_owner
+        self.process_group_id = process_group_id
+        self.process_group_name = process_group_name
+        self.process_logon_guid = process_logon_guid
+        self.process_logon_id = process_logon_id
+        self.process_logon_type = process_logon_type
+        self.process_logon_type_full = process_logon_type_full
+        self.process_logon_time = process_logon_time
+        self.process_start_time = process_start_time
+        self.process_parent_start_time = process_parent_start_time
+        self.process_current_directory = process_current_directory
+        self.process_image_file_device = process_image_file_device
+        self.process_image_file_directory = process_image_file_directory
+        self.process_image_file_name = process_image_file_name
+        self.process_image_file_path = process_image_file_path
+        self.process_dns = process_dns
+        self.process_certificate = process_certificate
+        self.process_http = process_http
+        self.process_flow = process_flow
+        self.process_parent = process_parent
+        self.process_children = process_children
+        self.process_environment_variables = process_environment_variables
+        self.process_arguments = process_arguments
+        self.process_modules = process_modules
+        self.process_thread = process_thread
+
+    def __str__(self):
+        try:
+            return json.dumps(self.__dict__, indent=4)
+        except:
+            return self.process_name + " (" + str(self.process_id) + ")"
+
+
+class ContextLog(Context):
+    """The ContextLog class. Used for storing log data like syslog from a SIEM.
+
+    Attrbutes:
+        log_message (str): The message of the log
+        log_source (str): The source of the log
+        log_flow (ContextFlow): The flow object related to the log
+        log_protocol (str): The protocol of the log
+        log_timestamp (str): The timestamp of the log
+        log_type (str): The type of the log
+        log_severity (str): The severity of the log
+        log_facility (str): The facility of the log
+        log_tags (list[str]): The tags of the log
+        log_custom_fields (dict): The custom fields of the log
+
+    Methods:
+        __init__(log_message, log_source, log_flow, log_protocol, log_timestamp, log_type, log_severity, log_facility, log_tags, log_custom_fields): Initializes the ContextLog object
+        __str__(self): Returns the ContextLog object as a string
+
+    """
+
+    def __init__(
+        self,
+        log_message: str,
+        log_source: str,
+        log_flow: ContextFlow = None,
+        log_protocol: str = "",
+        log_timestamp: str = "",
+        log_type: str = "",
+        log_severity: str = "",
+        log_facility: str = "",
+        log_tags: list = None,
+        log_custom_fields: dict = None,
+    ):
+        self.log_message = log_message
+        self.log_source = log_source
+        self.log_flow = log_flow
+        self.log_protocol = log_protocol
+        self.log_timestamp = log_timestamp
+        self.log_type = log_type
+        self.log_severity = log_severity
+        self.log_facility = log_facility
+        self.log_tags = log_tags
+        self.log_custom_fields = log_custom_fields
+
+    def __str__(self):
+        try:
+            return json.dumps(self.__dict__, indent=4)
+        except:
+            return self.log_message
+
+
+class ThreatIntelDetection:
+    """Detection by an idividual threat intel engine (e.g. Kaspersky, Avast, Microsoft, etc.).
+
+    Attributes:
+        engine (str): The name of the detection engine
+        is_known (bool): If the indicator is known by the detection engine
+        is_hit (bool): If the detection engine hit on the indicator
+        hit_type (str): The type of the hit (e.g. malicious, suspicious, etc.)
+        threat_name (str): The name of the threat (if available)
+        confidence (int): The confidence of the detection engine (if available)
+        engine_version (str): The version of the detection engine
+        engine_update (datetime): The last update of the detection engine
+    """
+
+    def __init__(
+        self,
+        engine: str,
+        is_known: bool,
+        is_hit: bool = False,
+        hit_type: str = "",
+        threat_name: str = "",
+        confidence: int = "",
+        engine_version: str = "",
+        engine_update: datetime = None,
+    ):
+        """Initializes a new ThreatIntelDetection object."""
+        self.is_known = is_known
+        self.is_hit = is_hit
+        self.hit_type = hit_type
+        self.threat_name = threat_name
+        self.confidence = confidence
+        self.engine = engine
+        self.engine_version = engine_version
+        self.engine_update = engine_update
+
+    def __str__(self):
+        """Returns the string representation of the object."""
+        return json.dumps(self.__dict__, indent=4, sort_keys=True, default=str)
+
+
+class ContextThreatIntel:
+    """DetectionThreatIntel class. This class is used for storing threat intel (e.g. VirusTotal, AlienVault OTX, etc.).
+
+    Attributes:
+        type (type): The type of the indicator
+        indicator(socket.intet_aton | HTTP | DNSQuery | ContextProcess ) The indicator
+        score_hit (int): The hits on the particular indicator
+        score_total (int): The total possible score of the indicator
+        source (str): The integration source of the indicator
+        timestamp (datetime): The timestamp of the lookup
+        threat_intel_detections (list[ThreatIntelDetection]): The threat intel detections of the indicator
+
+    Methods:
+        __init__(type, indicator, score_hit, score_total, source, timestamp, threat_intel_detections): Initializes the ContextThreatIntel object
+        __str__(self): Returns the ContextThreatIntel object as a string
+    """
+
+    def __init__(
+        self,
+        type: type,
+        indicator: Union[socket.inet_aton, HTTP, DNSQuery, ContextProcess],
+        score_hit: int,
+        score_total: int,
+        source: str,
+        timestamp: datetime,
+        threat_intel_detections: list[ThreatIntelDetection],
+    ):
+        """Initializes a new ContextThreatIntel object."""
+        self.type = type
+        self.indicator = indicator
+        self.score_hit = score_hit
+        self.score_total = score_total
+        self.source = source
+        self.timestamp = timestamp
+        self.threat_intel_detections = threat_intel_detections
+
+    def __str__(self):
+        """Returns the string representation of the object."""
+        return json.dumps(self.__dict__, indent=4, sort_keys=True, default=str)
 
 
 def check_module_exists(module_name):
