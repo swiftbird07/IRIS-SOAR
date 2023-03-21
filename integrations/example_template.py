@@ -84,7 +84,8 @@ def zs_provide_new_detections(config, test_return_dummy_data=False) -> list[Dete
     # ...
     # ...
 
-    mlog.info("zs_provide_new_detections() found " + str(len(detections)) + " new detections: " + str(detections))
+    mlog.info("zs_provide_new_detections() found " + str(len(detections)) + " new detections.")
+    mlog.debug("zs_provide_new_detections() found the following new detections: " + str(detections))
     return detections
 
 
@@ -124,14 +125,8 @@ def zs_provide_context_for_detections(config, detection: Detection, required_typ
         mlog.error("The returned object is not of the required type. Returning None.")
         return None
     if return_object != None:
-        mlog.info(
-            "zs_provide_context_for_detections() returning: "
-            + str(return_object)
-            + " for detection: "
-            + str(detection)
-            + " and required_type: "
-            + str(required_type)
-        )
+        mlog.info("zs_provide_context_for_detections() found context for detection '" + detection.name + "' and required_type: " + str(required_type))
+        mlog.debug("zs_provide_context_for_detections() returned the following context: " + str(return_object) + " for detection: " + str(detection))
     else:
         mlog.info(
             "zs_provide_context_for_detections() found no context for detection: " + str(detection) + " and required_type: " + str(required_type)
