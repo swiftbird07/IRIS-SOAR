@@ -16,7 +16,7 @@ import lib.logging_helper as logging_helper
 from lib.class_helper import Rule, Detection
 
 # For context for detections (remove unused types):
-from lib.class_helper import DetectionReport, ContextFlow, LogMessage, Process
+from lib.class_helper import DetectionReport, NetworkFlow, LogMessage, Process
 
 import datetime
 
@@ -83,7 +83,7 @@ def zs_provide_new_detections(config, TEST=False) -> list[Detection]:
 
 def zs_provide_context_for_detections(
     config, detection_report: DetectionReport, required_type: type, TEST=False
-) -> Union[ContextFlow, LogMessage, Process]:
+) -> Union[NetworkFlow, LogMessage, Process]:
     """Returns a DetectionReport object with context for the detections from the XXX integration.
 
     Args:
@@ -97,11 +97,11 @@ def zs_provide_context_for_detections(
         Union[ContextFlow, ContextLog]: The required context of type 'required_type'
     """
     mlog = init_logging(config)
-    detection_report_str = "'" + detection_report.get_title() + "' (" + detection_report.uuid + ")"
+    detection_report_str = "'" + detection_report.get_title() + "' (" + str(detection_report.uuid) + ")"
     mlog.info(f"zs_provide_context_for_detections() called with detection report: {detection_report_str} and required_type: {required_type}")
 
     provided_typed = []
-    provided_typed.append(ContextFlow)
+    provided_typed.append(NetworkFlow)
     provided_typed.append(LogMessage)
     provided_typed.append(Process)
 
@@ -112,12 +112,14 @@ def zs_provide_context_for_detections(
     if TEST:  # When called from unit tests, return dummy data. Can be removed in production.
         mlog.info("Running in test mode. Returning dummy data.")
         return_objects = []
-        if required_type == ContextFlow:
-            context_object = ContextFlow(datetime.datetime.now(), "Elastic-SIEM", "10.0.0.1", 123, "123.123.123.123", 80, "TCP")
+        if required_type == NetworkFlow:
+            context_object = NetworkFlow(
+                detection_report.uuid, datetime.datetime.now(), "Elastic-SIEM", "10.0.0.1", 123, "123.123.123.123", 80, "TCP"
+            )
         elif required_type == Process:
-            context_object = Process("test.exe", 123, process_start_time=datetime.datetime.now())
+            context_object = Process(detection_report.uuid, "test.exe", 123, process_start_time=datetime.datetime.now())
         elif required_type == LogMessage:
-            context_object = LogMessage(datetime.datetime.now(), "Some log message", "Elastic-SIEM")
+            context_object = LogMessage(detection_report.uuid, datetime.datetime.now(), "Some log message", "Elastic-SIEM")
         return_objects.append(context_object)
         detection_example = detection_report.detections[0]
         detection_name = detection_example.name

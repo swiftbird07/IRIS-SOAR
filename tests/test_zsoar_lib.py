@@ -115,9 +115,10 @@ def test_class_helper():
     detectionList.append(detection)
     assert class_helper.DetectionReport(detectionList) != None, "DetectionReport class could not be initialized"
 
-    assert class_helper.Context() != None, "Context class could not be initialized"
+    assert class_helper.Context("SIEM") != None, "Context class could not be initialized"
 
-    flow = class_helper.ContextFlow(
+    flow = class_helper.NetworkFlow(
+        detection.uuid,
         datetime.datetime.now(),
         "PyTest",
         ipaddress.ip_address("123.123.123.123"),
@@ -149,19 +150,20 @@ def test_class_helper():
     ), "Certificate class could not be initialized"
 
     assert (
-        class_helper.DNSQuery(flow, "A", "www2.example.com", has_response=True, query_response="10.10.10.10") != None
+        class_helper.DNSQuery(detection.uuid, flow, "A", "www2.example.com", has_response=True, query_response="10.10.10.10") != None
     ), "DNSQuery class could not be initialized"
 
-    http = class_helper.HTTP(flow, "GET", "HTTPS", "www2.example.com", 200, path="index.html", user_agent="PyTest")
+    http = class_helper.HTTP(detection.uuid, flow, "GET", "HTTPS", "www2.example.com", 200, path="index.html", user_agent="PyTest")
     assert http != None, "HTTP class could not be initialized"
     assert http.full_url == "https://www2.example.com/index.html", "HTTP class full_url not set correctly"
 
-    parent_process = class_helper.Process("word.exe", 242, "service.exe", 235, "C:\\Microsoft\word.exe")
+    parent_process = class_helper.Process(detection.uuid, "word.exe", 242, "service.exe", 235, "C:\\Microsoft\word.exe")
     assert parent_process != None, "ContextProcess class (for test parent) could not be initialized"
 
     parents = []
     parents.append(parent_process)
     process = class_helper.Process(
+        detection.uuid,
         "virus.exe",
         299,
         "word.exe",
@@ -192,13 +194,13 @@ def test_class_helper():
     ), "ContextLog class could not be initialized"
 
     ti_detections = []
-    test_hit = class_helper.ThreatIntelDetection(datetime.datetime.now(), "Microsoft Defender", True, True, "Malicious", "GenVirus Trojan/32")
+    test_hit = class_helper.ThreatIntel(datetime.datetime.now(), "Microsoft Defender", True, True, "Malicious", "GenVirus Trojan/32")
     assert test_hit != None, "ThreatIntelDetection class could not be initialized (test hit)"
 
-    test_unknwon = class_helper.ThreatIntelDetection(datetime.datetime.now(), "Avast", False)
+    test_unknwon = class_helper.ThreatIntel(datetime.datetime.now(), "Avast", False)
     assert test_unknwon != None, "ThreatIntelDetection class could not be initialized (test unknown)"
 
-    test_clean = class_helper.ThreatIntelDetection(datetime.datetime.now(), "Kaspersky", True, False)
+    test_clean = class_helper.ThreatIntel(datetime.datetime.now(), "Kaspersky", True, False)
     assert test_clean != None, "ThreatIntelDetection class could not be initialized (test clean)"
 
     ti_detections.append(test_hit)
@@ -210,7 +212,9 @@ def test_class_helper():
     assert threat_intel != None, "ContextThreatIntel class could not be initialized (explicit score)"
 
     # Check if score is calculated correctly when not given explicitly
-    threat_intel_impl_score = class_helper.ContextThreatIntel(class_helper.Process, process, "VirusTotal", datetime.datetime.now(), ti_detections)
+    threat_intel_impl_score = class_helper.ContextThreatIntel(
+        class_helper.Process, process, "VirusTotal", datetime.datetime.now(), ti_detections, related_detection_uuid=detection.uuid
+    )
     assert threat_intel_impl_score != None, "ContextThreatIntel class could not be initialized (implicit score)"
     assert threat_intel_impl_score.score_hit == 1, "ContextThreatIntel class score_hit not calculated correctly"
     assert threat_intel_impl_score.score_known == 2, "ContextThreatIntel class score_known not calculated correctly"

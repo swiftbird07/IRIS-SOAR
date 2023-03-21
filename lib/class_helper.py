@@ -138,7 +138,7 @@ class Detection:
     """Detection class. This class is used for storing detections.
 
     Attributes:
-        id (str): The ID of the detection
+        vendor_id (str): The vendor specific ID of the detection, note that for unique identification, the 'uuid' of the detection is used
         name (str): The name of the detection
         rules (list[Rule]): The rules that triggered the detection
         description (str): The description of the detection
@@ -162,7 +162,7 @@ class Detection:
 
     def __init__(
         self,
-        id: str,
+        vendor_id: str,
         name: str,
         rules: list[Rule],
         description: str = None,
@@ -177,12 +177,12 @@ class Detection:
         destination_port: int = None,
         protocol: str = None,
         severity: int = None,
-        process=None,  # Type: ContextProcess
+        uuid: uuid.UUID = uuid.uuid4(),
     ):
         source_ip = cast_to_ipaddress(source_ip)
         destination_ip = cast_to_ipaddress(destination_ip)
 
-        self.id = id
+        self.id = vendor_id
         self.name = name
         self.description = description
         self.timestamp = timestamp
@@ -197,7 +197,8 @@ class Detection:
         self.tags = tags
         self.raw = raw
         self.rules = rules
-        self.process = process
+
+        self.uuid = uuid
 
     def __dict__(self):
         """Returns the dictionary representation of the object."""
@@ -217,7 +218,6 @@ class Detection:
             "tags": self.tags,
             "raw": self.raw,
             "rules": self.rules,
-            "process": self.process,
         }
 
     def __str__(self):
@@ -229,40 +229,11 @@ class Detection:
     # ...
 
 
-class Context:
-    """This class provides a context for a detection. It has three main category types: "SIEM", "ThreatIntel" and "ITSM".
-    The SIEM  category type is used for context from the SIEM. It has three sub-categories: 'logs', 'Flows' and 'Processes'.  The ThreatIntel category type is used for context from
-    threat intelligence sources. The ITSM category type is used for context from ITSM sources.
+class NetworkFlow:
+    """This class provides a single context of type flow for a detection.
 
     Attributes:
-        category (str): The category of the context
-        sub_category (str): The sub-category of the context
-        data (list[str]): The data of the context
-
-    Methods:
-        __init__(self, category: str, sub_category: str, data: list[str]): Initializes a new Context object.
-        __str__(self): Returns the string representation of the object.
-    """
-
-    def __init__(self):
-        self.category = None
-        self.sub_category = None
-        self.data = []
-
-    def __str__(self):
-        """Returns the string representation of the object."""
-        return json.dumps(del_none_from_dict(self.__dict__()), indent=4, sort_keys=False, default=str)
-
-    # Getter and setter;
-
-    # ...
-
-
-class ContextFlow(Context):
-    """This class provides a single context of type flow for a detection. It extends the Context class.
-
-    Attributes:
-        related_detection (Detection): The related detection of the context flow
+        related_detection_uuid (str): The related detection unique ID of the context flow
         timestamp (datetime): The timestamp of the flow
         integration (str): The integration of the flow
         source_ip (socket.inet_aton): The source IP of the flow
@@ -291,7 +262,7 @@ class ContextFlow(Context):
 
     def __init__(
         self,
-        related_detection: Detection,
+        related_detection_uuid: uuid.UUID,
         timestamp: datetime.datetime,
         integration: str,
         source_ip: Union[ipaddress.IPv4Address, ipaddress.IPv6Address],
@@ -319,6 +290,8 @@ class ContextFlow(Context):
 
         if flow_id < 1 or flow_id > 1000000000:
             raise ValueError("flow_id must be between 1 and 1000000000")
+
+        self.related_detection_uuid = related_detection_uuid
 
         self.timestamp = timestamp
         self.data = data
@@ -367,6 +340,7 @@ class ContextFlow(Context):
         # Have to overwrite the __dict__ method because of the ipaddress objects
 
         dict_ = {
+            "related_detection_uuid": self.related_detection_uuid,
             "timestamp": self.timestamp,
             "data": self.data,
             "integration": self.integration,
@@ -405,6 +379,7 @@ class Certificate:
     """Certificate class.
 
     Attributes:
+        related_detection_uuid (str): The UUID of the related detection
         flow (ContextFlow): The flow of the certificate
         subject (str): The subject of the certificate
         issuer (str): The issuer of the certificate
@@ -431,7 +406,8 @@ class Certificate:
 
     def __init__(
         self,
-        flow: ContextFlow,
+        related_detection_uuid: uuid.UUID,
+        flow: NetworkFlow,
         subject: str,
         issuer: str,
         issuer_common_name: str = None,
@@ -449,6 +425,7 @@ class Certificate:
         public_key_algorithm: str = None,
         public_key_size: int = None,
     ):
+        self.related_detection_uuid = related_detection_uuid
         self.flow = flow
         self.issuer = issuer
         self.issuer_common_name = issuer_common_name
@@ -478,6 +455,7 @@ class Certificate:
 
     def __dict__(self):
         dict_ = {
+            "related_detection_uuid": self.related_detection_uuid,
             "flow": self.flow,
             "subject": self.subject,
             "issuer": self.issuer,
@@ -507,6 +485,7 @@ class DNSQuery:
     """DNSQuery class.
 
     Attributes:
+        related_detection_uuid (str): The UUID of the related detection
         flow (ContextFlow): The flow of the DNS query
         type (str): The type of the DNS query
         query (str): The query of the DNS query
@@ -520,13 +499,15 @@ class DNSQuery:
 
     def __init__(
         self,
-        flow: ContextFlow,
+        related_detection_uuid: uuid.UUID,
+        flow: NetworkFlow,
         type: str,
         query: str,
         has_response: bool = False,
         query_response: Union[ipaddress.IPv4Address, ipaddress.IPv6Address, str] = DEFAULT_IP,
         rcode: str = "NOERROR",
     ):
+        self.related_detection_uuid = related_detection_uuid
         self.flow = flow
 
         if type not in ["A", "AAAA", "CNAME", "MX", "NS", "PTR", "SOA", "SRV", "TXT"]:
@@ -547,6 +528,7 @@ class DNSQuery:
 
     def __dict__(self):
         dict_ = {
+            "related_detection_uuid": self.related_detection_uuid,
             "flow": self.flow,
             "type": self.type,
             "query": self.query,
@@ -565,6 +547,7 @@ class HTTP:
     """HTTP class.
 
     Attributes:
+        related_detection_uuid (str): The UUID of the related detection
         flow (ContextFlow): The flow of the HTTP request
         method (str): The method of the HTTP request
         type (str): The type of the HTTP request
@@ -588,7 +571,8 @@ class HTTP:
 
     def __init__(
         self,
-        flow: ContextFlow,
+        related_detection_uuid: uuid.UUID,
+        flow: NetworkFlow,
         method: str,
         type: str,
         host: str,
@@ -604,6 +588,7 @@ class HTTP:
         response_headers: list[str] = None,
         http_version: str = None,
     ):
+        self.related_detection_uuid = related_detection_uuid
         mlog = logging_helper.Log("lib.class_helper")
         self.flow = flow
 
@@ -656,6 +641,7 @@ class HTTP:
     def __dict__(self):
         try:
             dict_ = {
+                "related_detection_uuid": self.related_detection_uuid,
                 "flow": self.flow,
                 "method": self.method,
                 "type": self.type,
@@ -692,6 +678,7 @@ class File:
     """File class. Represents a file.
 
     Attributes:
+        related_detection_uuid (uuid.UUID): The UUID of the detection the file is related to
         file_name (str): The name of the file
         file_path (str): The path of the file
         file_size (int): The size of the file
@@ -725,6 +712,7 @@ class File:
 
     def __init__(
         self,
+        related_detection_uuid: uuid.UUID,
         file_name: str,
         file_path: str = "",
         file_size: int = 0,
@@ -748,6 +736,7 @@ class File:
         is_special: bool = False,
         is_unknown: bool = False,
     ):
+        self.related_detection_uuid = related_detection_uuid
         self.file_name = file_name
         self.file_path = file_path
 
@@ -782,6 +771,7 @@ class File:
 
     def __dict__(self):
         dict_ = {
+            "related_detection_uuid": self.related_detection_uuid,
             "file_name": self.file_name,
             "file_path": self.file_path,
             "file_size": self.file_size,
@@ -812,10 +802,11 @@ class File:
         return json.dumps(del_none_from_dict(self.__dict__()), indent=4, sort_keys=False, default=str)
 
 
-class Process(Context):
+class Process:
     """Process class.
 
     Attributes:
+        related_detection_uuid (uuid.UUID): The UUID of the detection this process is related to
         process_name (str): The name of the process
         process_id (int): The ID of the process
         parent_process_name (str): The name of the parent process
@@ -866,6 +857,7 @@ class Process(Context):
 
     def __init__(
         self,
+        related_detection_uuid: uuid.UUID,
         process_name: str,
         process_id: int,
         parent_process_name: str = "N/A",
@@ -901,7 +893,7 @@ class Process(Context):
         process_dns: DNSQuery = None,
         process_certificate: Certificate = None,
         process_http: HTTP = None,
-        process_flow: ContextFlow = None,
+        process_flow: NetworkFlow = None,
         process_parents: list = [],
         process_children: list = [],
         process_environment_variables: list[str] = [],
@@ -909,6 +901,8 @@ class Process(Context):
         process_modules: list[str] = [],
         process_thread: str = None,
     ):
+        self.related_detection_uuid = related_detection_uuid
+
         if process_name == "":
             raise ValueError("process_name cannot be empty")
         self.process_name = process_name
@@ -987,6 +981,7 @@ class Process(Context):
 
     def __dict__(self):
         _dict = {
+            "related_detection_uuid": self.related_detection_uuid,
             "process_name": self.process_name,
             "process_id": self.process_id,
             "parent_process_name": self.parent_process_name,
@@ -1037,10 +1032,11 @@ class Process(Context):
         return json.dumps(del_none_from_dict(del_none_from_dict(self.__dict__())), indent=4, sort_keys=False, default=str)
 
 
-class LogMessage(Context):
-    """The ContextLog class. Used for storing log data like syslog from a SIEM.
+class LogMessage:
+    """The LogMessage class. Used for storing log data like syslog from a SIEM.
 
     Attrbutes:
+        related_detection_uuid (uuid.UUID): The UUID of the detection this log is related to
         log_message (str): The message of the log
         log_source (str): The source of the log
         log_flow (ContextFlow): The flow object related to the log
@@ -1060,10 +1056,11 @@ class LogMessage(Context):
 
     def __init__(
         self,
+        related_detection_uuid: uuid.UUID,
         log_timestamp: datetime.datetime,
         log_message: str,
         log_source: str,
-        log_flow: ContextFlow = None,
+        log_flow: NetworkFlow = None,
         log_protocol: str = "",
         log_type: str = "",
         log_severity: str = "",
@@ -1071,6 +1068,7 @@ class LogMessage(Context):
         log_tags: list[str] = None,
         log_custom_fields: dict = None,
     ):
+        self.related_detection_uuid = related_detection_uuid
         self.log_timestamp = log_timestamp
         self.log_message = log_message
         self.log_source = log_source
@@ -1084,6 +1082,7 @@ class LogMessage(Context):
 
     def __dict__(self):
         dict_ = {
+            "related_detection_uuid": str(self.related_detection_uuid),
             "log_timestamp": str(self.log_timestamp),
             "log_message": self.log_message,
             "log_source": self.log_source,
@@ -1102,7 +1101,7 @@ class LogMessage(Context):
         return json.dumps(del_none_from_dict(self.__dict__()), indent=4, sort_keys=False, default=str)
 
 
-class ThreatIntelDetection:
+class ThreatIntel:
     """Detection by an idividual threat intel engine (e.g. Kaspersky, Avast, Microsoft, etc.).
 
     Attributes:
@@ -1193,6 +1192,7 @@ class ContextThreatIntel:
         score_hit_mal (int): The number of malicious hits on the indicator
         score_known (int): The number of engines that know the indicator
         score_unknown (int): The number of engines that don't know the indicator
+        related_detection_uuid (uuid.UUID): The UUID of the related detection
 
     Methods:
         __init__(type, indicator, source, timestamp, threat_intel_detections, score_hit, score_total): Initializes the ContextThreatIntel object
@@ -1205,13 +1205,14 @@ class ContextThreatIntel:
         indicator: Union[ipaddress.IPv4Address, ipaddress.IPv6Address, HTTP, DNSQuery, File, Process],
         source: str,
         timestamp: datetime.datetime,
-        threat_intel_detections: list[ThreatIntelDetection],
+        threat_intel_detections: list[ThreatIntel],
         score_hit: int = None,
         score_total: int = None,
         score_hit_sus: int = None,
         score_hit_mal: int = None,
         score_known: int = None,
         score_unknown: int = None,
+        related_detection_uuid: uuid.UUID = None,
     ):
         if type not in [ipaddress.IPv4Address, ipaddress.IPv6Address, HTTP, DNSQuery, File, Process]:
             raise ValueError("type must be one of IPv4Address, IPv6Address, HTTP, DNSQuery, File or ContextProcess")
@@ -1300,6 +1301,8 @@ class ContextThreatIntel:
             else:
                 self.score_unknown = self.score_total - self.score_known
 
+        self.related_detection_uuid = related_detection_uuid
+
     def __dict__(self):
         """Returns the object as a dictionary."""
         dict_ = {
@@ -1314,6 +1317,7 @@ class ContextThreatIntel:
             "score_hit_mal": self.score_hit_mal,
             "score_known": self.score_known,
             "score_unknown": self.score_unknown,
+            "related_detection_uuid": self.related_detection_uuid,
         }
         return dict_
 
@@ -1353,13 +1357,13 @@ class DetectionReport:
         self.action_result_data = None
         self.context_logs: list[LogMessage] = []
         self.context_processes: list[Process] = []
-        self.context_flows: list[ContextFlow] = []
+        self.context_flows: list[NetworkFlow] = []
         self.context_threat_intel: list[ContextThreatIntel] = []
         self.aggregated_context_logs: DefaultDict = DefaultDict(str)
         self.aggregated_context_processes: dict = {}
         self.aggregated_context_flows: dict = {}
         self.aggregated_context_threat_intel: dict = {}
-        self.uuid = str(uuid.uuid4())
+        self.uuid = uuid.uuid4()
 
     def __dict__(self):
         """Returns the object as a dictionary."""
@@ -1402,6 +1406,35 @@ class DetectionReport:
     def get_title(self):
         """Returns the title of the report."""
         return self.detections[0].name  # TODO: Make this more sophisticated
+
+
+class Context:
+    """This class provides a context for a detection. It has three main category types: "SIEM", "ThreatIntel" and "ITSM".
+    The SIEM  category type is used for context from the SIEM. It has three sub-categories: 'logs', 'Flows' and 'Processes'.  The ThreatIntel category type is used for context from
+    threat intelligence sources. The ITSM category type is used for context from ITSM sources.
+
+    Attributes:
+        category (str): The category of the context (one of SIEM or ThreatIntel or ITSM)
+        raw (list[str]): The raw data of a context
+
+    Methods:
+        __init__(self, category: str, sub_category: str, data: list[str]): Initializes a new Context object.
+        __str__(self): Returns the string representation of the object.
+    """
+
+    def __init__(self, category):
+        if category not in ["SIEM", "ThreatIntel", "ITSM"]:
+            raise ValueError("Invalid category for creating context: " + category)
+        self.category = category
+        self.raw = {}
+
+    def __str__(self):
+        """Returns the string representation of the object."""
+        return json.dumps(del_none_from_dict(self.__dict__()), indent=4, sort_keys=False, default=str)
+
+    # Getter and setter;
+
+    # ...
 
 
 def main():

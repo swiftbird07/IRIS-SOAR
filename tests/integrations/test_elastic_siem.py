@@ -2,7 +2,7 @@
 
 import pytest
 
-from lib.class_helper import Detection, DetectionReport, Rule, Process, LogMessage, ContextFlow
+from lib.class_helper import Detection, DetectionReport, Rule, Process, LogMessage, NetworkFlow
 from integrations.elastic_siem import zs_provide_new_detections, zs_provide_context_for_detections
 import lib.logging_helper as logging_helper
 import lib.config_helper as config_helper
@@ -40,8 +40,8 @@ def test_zs_provide_context_for_detections():
     ), "DetectionReport class could not be initialized"  # Sanity check - should be already tested by test_zsoar_lib.py -> test_class_helper()
 
     # Test the function
-    flows = zs_provide_context_for_detections(integration_config, detection_report, ContextFlow, TEST=True)
-    assert type(flows[0]) == ContextFlow, "zs_provide_context_for_detections() should return a ContextFlow object"
+    flows = zs_provide_context_for_detections(integration_config, detection_report, NetworkFlow, TEST=True)
+    assert type(flows[0]) == NetworkFlow, "zs_provide_context_for_detections() should return a ContextFlow object"
 
     processes = zs_provide_context_for_detections(integration_config, detection_report, Process, TEST=True)
     assert type(processes[0]) == Process, "zs_provide_context_for_detections() should return a ContextProcess object"
