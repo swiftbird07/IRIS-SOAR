@@ -16,7 +16,7 @@ import lib.logging_helper as logging_helper
 from lib.class_helper import Rule, Detection
 
 # For context for detections (remove unused types):
-from lib.class_helper import ContextFlow, ContextLog, ContextProcess
+from lib.class_helper import DetectionReport, ContextFlow, ContextLog, Process
 
 import datetime
 
@@ -82,13 +82,13 @@ def zs_provide_new_detections(config, TEST=False) -> list[Detection]:
 
 
 def zs_provide_context_for_detections(
-    config, detection: Detection, required_type: type, TEST=False
-) -> Union[ContextFlow, ContextLog, ContextProcess]:
+    config, detection_report: DetectionReport, required_type: type, TEST=False
+) -> Union[ContextFlow, ContextLog, Process]:
     """Returns a DetectionReport object with context for the detections from the XXX integration.
 
     Args:
         config (dict): The configuration dictionary for this integration
-        detection (Detection): The Detection object to add context to
+        detection (DetectionReport): The DetectionReport object to add context to
         required_type (type): The type of context to return. Can be one of the following:
             [ContextFlow, ContextLog]
         test (bool, optional): If set to True, dummy context data will be returned. Defaults to False.
@@ -97,12 +97,13 @@ def zs_provide_context_for_detections(
         Union[ContextFlow, ContextLog]: The required context of type 'required_type'
     """
     mlog = init_logging(config)
-    mlog.info("zs_provide_context_for_detections() called with detection: " + str(detection) + " and required_type: " + str(required_type))
+    detection_report_str = "'" + detection_report.get_title() + "' (" + detection_report.uuid + ")"
+    mlog.info(f"zs_provide_context_for_detections() called with detection report: {detection_report_str} and required_type: {required_type}")
 
     provided_typed = []
     provided_typed.append(ContextFlow)
     provided_typed.append(ContextLog)
-    provided_typed.append(ContextProcess)
+    provided_typed.append(Process)
 
     if required_type not in provided_typed:
         mlog.error("The required type is not provided by this integration. '" + str(required_type) + "' is not in " + str(provided_typed))
@@ -110,12 +111,17 @@ def zs_provide_context_for_detections(
 
     if TEST:  # When called from unit tests, return dummy data. Can be removed in production.
         mlog.info("Running in test mode. Returning dummy data.")
+        return_objects = []
         if required_type == ContextFlow:
-            return_object = ContextFlow(datetime.datetime.now(), "Elastic-SIEM", "10.0.0.1", 123, "123.123.123.123", 80, "TCP")
-        elif required_type == ContextProcess:
-            return_object = ContextProcess("test.exe", 123, process_start_time=datetime.datetime.now())
+            context_object = ContextFlow(datetime.datetime.now(), "Elastic-SIEM", "10.0.0.1", 123, "123.123.123.123", 80, "TCP")
+        elif required_type == Process:
+            context_object = Process("test.exe", 123, process_start_time=datetime.datetime.now())
         elif required_type == ContextLog:
-            return_object = ContextLog(datetime.datetime.now(), "Some log message", "Elastic-SIEM")
+            context_object = ContextLog(datetime.datetime.now(), "Some log message", "Elastic-SIEM")
+        return_objects.append(context_object)
+        detection_example = detection_report.detections[0]
+        detection_name = detection_example.name
+        detection_id = detection_example.id
 
     # ...
     # ...
@@ -123,14 +129,22 @@ def zs_provide_context_for_detections(
     # ...
     # ...
 
-    if type(return_object) != required_type:  # Sanity check. 'return_object' is the object to be returned by above code.
-        mlog.error("The returned object is not of the required type. Returning None.")
-        return None
-    if return_object != None:
-        mlog.info("zs_provide_context_for_detections() found context for detection '" + detection.name + "' and required_type: " + str(required_type))
-        mlog.debug("zs_provide_context_for_detections() returned the following context: " + str(return_object) + " for detection: " + str(detection))
-    else:
-        mlog.info(
-            "zs_provide_context_for_detections() found no context for detection: " + str(detection) + " and required_type: " + str(required_type)
-        )
-    return return_object
+    for context_object in return_objects:
+        if context_object != None:
+            if type(context_object) != required_type:  # Sanity check that the 'return_object' has the required type
+                mlog.error("The returned object is not of the required type. Returning None.")
+                return None
+            mlog.info(
+                f"zs_provide_context_for_detections() found context for detection '{detection_name}' ({detection_id}) and required_type: {required_type}"
+            )
+            mlog.debug(
+                "zs_provide_context_for_detections() returned the following context: "
+                + str(context_object)
+                + " for detection: "
+                + str(detection_report)
+            )
+        else:
+            mlog.info(
+                "zs_provide_context_for_detections() found no context for detection: " + detection_name + " and required_type: " + str(required_type)
+            )
+    return return_objects

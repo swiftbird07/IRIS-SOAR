@@ -8,6 +8,7 @@ import datetime
 import ipaddress
 import datetime
 import json
+import uuid
 import pandas as pd
 
 import lib.config_helper as config_helper
@@ -36,6 +37,32 @@ def cast_to_ipaddress(ip) -> Union[ipaddress.IPv4Address, ipaddress.IPv6Address]
         except ValueError:
             raise ValueError("invalid ip address: " + str(ip))
     return ip
+
+
+def del_none_from_dict(d):
+    """
+    Delete keys with the value ``None`` in a dictionary, recursively.
+
+    This alters the input so you may wish to ``copy`` the dict first.
+    """
+    # For Python 3, write `list(d.items())`; `d.items()` won’t work
+    # For Python 2, write `d.items()`; `d.iteritems()` won’t work
+    if d is None:
+        return None
+    for key, value in list(d.items()):
+        if value is None:
+            del d[key]
+        elif type(value) is list:
+            for item in value:
+                if isinstance(item, dict):
+                    del_none_from_dict(item)
+        elif str(value) == "[]":  # Remove trivial empty strings
+            del d[key]
+        elif type(value) is str and value == "":  # Remove trivial empty strings
+            del d[key]
+        elif isinstance(value, dict):
+            del_none_from_dict(value)
+    return d  # For convenience
 
 
 class Rule:
@@ -100,7 +127,7 @@ class Rule:
 
     def __str__(self):
         """Returns the string representation of the object."""
-        return json.dumps(self.__dict__(), indent=4, sort_keys=False, default=str)
+        return json.dumps(del_none_from_dict(self.__dict__()), indent=4, sort_keys=False, default=str)
 
     # Getter and setter;
 
@@ -195,7 +222,7 @@ class Detection:
 
     def __str__(self):
         """Returns the string representation of the object."""
-        return json.dumps(self.__dict__(), indent=4, sort_keys=False, default=str)
+        return json.dumps(del_none_from_dict(self.__dict__()), indent=4, sort_keys=False, default=str)
 
     # Getter and setter;
 
@@ -224,7 +251,7 @@ class Context:
 
     def __str__(self):
         """Returns the string representation of the object."""
-        return json.dumps(self.__dict__(), indent=4, sort_keys=False, default=str)
+        return json.dumps(del_none_from_dict(self.__dict__()), indent=4, sort_keys=False, default=str)
 
     # Getter and setter;
 
@@ -235,6 +262,7 @@ class ContextFlow(Context):
     """This class provides a single context of type flow for a detection. It extends the Context class.
 
     Attributes:
+        related_detection (Detection): The related detection of the context flow
         timestamp (datetime): The timestamp of the flow
         integration (str): The integration of the flow
         source_ip (socket.inet_aton): The source IP of the flow
@@ -263,6 +291,7 @@ class ContextFlow(Context):
 
     def __init__(
         self,
+        related_detection: Detection,
         timestamp: datetime.datetime,
         integration: str,
         source_ip: Union[ipaddress.IPv4Address, ipaddress.IPv6Address],
@@ -365,7 +394,7 @@ class ContextFlow(Context):
 
     def __str__(self):
         """Returns the string representation of the object."""
-        return json.dumps(self.__dict__(), indent=4, sort_keys=False, default=str)
+        return json.dumps(del_none_from_dict(self.__dict__()), indent=4, sort_keys=False, default=str)
 
     # Getter and setter;
 
@@ -471,7 +500,7 @@ class Certificate:
 
     def __str__(self):
         """Returns the string representation of the object."""
-        return json.dumps(self.__dict__(), indent=4, sort_keys=False, default=str)
+        return json.dumps(del_none_from_dict(self.__dict__()), indent=4, sort_keys=False, default=str)
 
 
 class DNSQuery:
@@ -529,7 +558,7 @@ class DNSQuery:
 
     def __str__(self):
         """Returns the string representation of the object."""
-        return json.dumps(self.__dict__(), indent=4, sort_keys=False, default=str)
+        return json.dumps(del_none_from_dict(self.__dict__()), indent=4, sort_keys=False, default=str)
 
 
 class HTTP:
@@ -656,7 +685,7 @@ class HTTP:
 
     def __str__(self):
         """Returns the string representation of the object."""
-        return json.dumps(self.__dict__(), indent=4, sort_keys=False, default=str)
+        return json.dumps(del_none_from_dict(self.__dict__()), indent=4, sort_keys=False, default=str)
 
 
 class File:
@@ -780,11 +809,11 @@ class File:
 
     def __str__(self):
         """Returns the string representation of the object."""
-        return json.dumps(self.__dict__(), indent=4, sort_keys=False, default=str)
+        return json.dumps(del_none_from_dict(self.__dict__()), indent=4, sort_keys=False, default=str)
 
 
-class ContextProcess(Context):
-    """ContextProcess class.
+class Process(Context):
+    """Process class.
 
     Attributes:
         process_name (str): The name of the process
@@ -942,12 +971,12 @@ class ContextProcess(Context):
         self.process_flow = process_flow
 
         for parent in process_parents:
-            if not isinstance(parent, ContextProcess):
+            if not isinstance(parent, Process):
                 raise TypeError("all process_parents must be of type ContextProcess. Got: " + str(type(parent)) + "for " + str(parent))
         self.process_parents = process_parents
 
         for child in process_children:
-            if not isinstance(child, ContextProcess):
+            if not isinstance(child, Process):
                 raise TypeError("all process_children must be of type ContextProcess. Got: " + str(type(child)) + "for " + str(child))
         self.process_children = process_children
 
@@ -1005,7 +1034,7 @@ class ContextProcess(Context):
 
     def __str__(self):
         """Returns the string representation of the object."""
-        return json.dumps(self.__dict__(), indent=4, sort_keys=False, default=str)
+        return json.dumps(del_none_from_dict(del_none_from_dict(self.__dict__())), indent=4, sort_keys=False, default=str)
 
 
 class ContextLog(Context):
@@ -1070,7 +1099,7 @@ class ContextLog(Context):
 
     def __str__(self):
         """Returns the string representation of the object."""
-        return json.dumps(self.__dict__(), indent=4, sort_keys=False, default=str)
+        return json.dumps(del_none_from_dict(self.__dict__()), indent=4, sort_keys=False, default=str)
 
 
 class ThreatIntelDetection:
@@ -1145,7 +1174,7 @@ class ThreatIntelDetection:
 
     def __str__(self):
         """Returns the string representation of the object."""
-        return json.dumps(self.__dict__(), indent=4, sort_keys=False, default=str)
+        return json.dumps(del_none_from_dict(self.__dict__()), indent=4, sort_keys=False, default=str)
 
 
 class ContextThreatIntel:
@@ -1173,7 +1202,7 @@ class ContextThreatIntel:
     def __init__(
         self,
         type: type,
-        indicator: Union[ipaddress.IPv4Address, ipaddress.IPv6Address, HTTP, DNSQuery, File, ContextProcess],
+        indicator: Union[ipaddress.IPv4Address, ipaddress.IPv6Address, HTTP, DNSQuery, File, Process],
         source: str,
         timestamp: datetime.datetime,
         threat_intel_detections: list[ThreatIntelDetection],
@@ -1184,7 +1213,7 @@ class ContextThreatIntel:
         score_known: int = None,
         score_unknown: int = None,
     ):
-        if type not in [ipaddress.IPv4Address, ipaddress.IPv6Address, HTTP, DNSQuery, File, ContextProcess]:
+        if type not in [ipaddress.IPv4Address, ipaddress.IPv6Address, HTTP, DNSQuery, File, Process]:
             raise ValueError("type must be one of IPv4Address, IPv6Address, HTTP, DNSQuery, File or ContextProcess")
         self.type = type
 
@@ -1290,7 +1319,7 @@ class ContextThreatIntel:
 
     def __str__(self):
         """Returns the string representation of the object."""
-        return json.dumps(self.__dict__(), indent=4, sort_keys=False, default=str)
+        return json.dumps(del_none_from_dict(self.__dict__()), indent=4, sort_keys=False, default=str)
 
 
 class DetectionReport:
@@ -1307,6 +1336,7 @@ class DetectionReport:
         context_processes (list[ContextProcess]): The context processes of the report
         context_flows (list[ContextFlow]): The context flows of the report
         context_threat_intel (list[ContextThreatIntel]): The context threat intel of the report
+        uuid (str): The uuid of the report
 
 
     Methods:
@@ -1314,7 +1344,7 @@ class DetectionReport:
         __str__(self): Returns the string representation of the object.
     """
 
-    def __init__(self, detections: list[Detection]):
+    def __init__(self, detections: list):
         self.detections = detections
         self.playbooks: list[str] = []
         self.action = None
@@ -1322,13 +1352,14 @@ class DetectionReport:
         self.action_result_message = None
         self.action_result_data = None
         self.context_logs: list[ContextLog] = []
-        self.context_processes: list[ContextProcess] = []
+        self.context_processes: list[Process] = []
         self.context_flows: list[ContextFlow] = []
         self.context_threat_intel: list[ContextThreatIntel] = []
         self.aggregated_context_logs: DefaultDict = DefaultDict(str)
         self.aggregated_context_processes: dict = {}
         self.aggregated_context_flows: dict = {}
         self.aggregated_context_threat_intel: dict = {}
+        self.uuid = str(uuid.uuid4())
 
     def __dict__(self):
         """Returns the object as a dictionary."""
@@ -1352,7 +1383,7 @@ class DetectionReport:
 
     def __str__(self):
         """Returns the string representation of the object."""
-        return json.dumps(self.__dict__(), indent=4, sort_keys=False, default=str)
+        return json.dumps(del_none_from_dict(self.__dict__()), indent=4, sort_keys=False, default=str)
 
     # Getter and setter;
 
@@ -1367,6 +1398,10 @@ class DetectionReport:
 
         self.aggregated_context_logs = pd.DataFrame(self.context_logs).groupby(["source", "log_message"]).agg({"timestamp": "max"}).reset_index()
         mlog.debug("Aggregated context logs: " + json.dumps(self.aggregated_context_logs, indent=4, sort_keys=False, default=str))
+
+    def get_title(self):
+        """Returns the title of the report."""
+        return self.detections[0].name  # TODO: Make this more sophisticated
 
 
 def main():

@@ -156,12 +156,12 @@ def test_class_helper():
     assert http != None, "HTTP class could not be initialized"
     assert http.full_url == "https://www2.example.com/index.html", "HTTP class full_url not set correctly"
 
-    parent_process = class_helper.ContextProcess("word.exe", 242, "service.exe", 235, "C:\\Microsoft\word.exe")
+    parent_process = class_helper.Process("word.exe", 242, "service.exe", 235, "C:\\Microsoft\word.exe")
     assert parent_process != None, "ContextProcess class (for test parent) could not be initialized"
 
     parents = []
     parents.append(parent_process)
-    process = class_helper.ContextProcess(
+    process = class_helper.Process(
         "virus.exe",
         299,
         "word.exe",
@@ -205,14 +205,12 @@ def test_class_helper():
     ti_detections.append(test_unknwon)
     ti_detections.append(test_clean)
     threat_intel = class_helper.ContextThreatIntel(
-        class_helper.ContextProcess, process, "VirusTotal", datetime.datetime.now(), ti_detections, score_hit=1, score_total=3
+        class_helper.Process, process, "VirusTotal", datetime.datetime.now(), ti_detections, score_hit=1, score_total=3
     )
     assert threat_intel != None, "ContextThreatIntel class could not be initialized (explicit score)"
 
     # Check if score is calculated correctly when not given explicitly
-    threat_intel_impl_score = class_helper.ContextThreatIntel(
-        class_helper.ContextProcess, process, "VirusTotal", datetime.datetime.now(), ti_detections
-    )
+    threat_intel_impl_score = class_helper.ContextThreatIntel(class_helper.Process, process, "VirusTotal", datetime.datetime.now(), ti_detections)
     assert threat_intel_impl_score != None, "ContextThreatIntel class could not be initialized (implicit score)"
     assert threat_intel_impl_score.score_hit == 1, "ContextThreatIntel class score_hit not calculated correctly"
     assert threat_intel_impl_score.score_known == 2, "ContextThreatIntel class score_known not calculated correctly"

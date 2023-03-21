@@ -2,7 +2,7 @@
 
 import pytest
 
-from lib.class_helper import Detection, DetectionReport, Rule, ContextProcess, ContextLog, ContextFlow
+from lib.class_helper import Detection, DetectionReport, Rule, Process, ContextLog, ContextFlow
 from integrations.elastic_siem import zs_provide_new_detections, zs_provide_context_for_detections
 import lib.logging_helper as logging_helper
 import lib.config_helper as config_helper
@@ -34,25 +34,28 @@ def test_zs_provide_context_for_detections():
 
     detectionList = []
     detectionList.append(detection)
-    detectionReport = DetectionReport(detectionList)
+    detection_report = DetectionReport(detectionList)
     assert (
-        detectionReport != None
+        detection_report != None
     ), "DetectionReport class could not be initialized"  # Sanity check - should be already tested by test_zsoar_lib.py -> test_class_helper()
 
     # Test the function
-    flow = zs_provide_context_for_detections(integration_config, detectionReport, ContextFlow, TEST=True)
-    assert type(flow) == ContextFlow, "zs_provide_context_for_detections() should return a ContextFlow object"
+    flows = zs_provide_context_for_detections(integration_config, detection_report, ContextFlow, TEST=True)
+    assert type(flows[0]) == ContextFlow, "zs_provide_context_for_detections() should return a ContextFlow object"
 
-    process = zs_provide_context_for_detections(integration_config, detectionReport, ContextProcess, TEST=True)
-    assert type(process) == ContextProcess, "zs_provide_context_for_detections() should return a ContextProcess object"
+    processes = zs_provide_context_for_detections(integration_config, detection_report, Process, TEST=True)
+    assert type(processes[0]) == Process, "zs_provide_context_for_detections() should return a ContextProcess object"
 
-    event = zs_provide_context_for_detections(integration_config, detectionReport, ContextLog, TEST=True)
-    assert type(event) == ContextLog, "zs_provide_context_for_detections() should return a ContextLog object"
+    events = zs_provide_context_for_detections(integration_config, detection_report, ContextLog, TEST=True)
+    assert type(events[0]) == ContextLog, "zs_provide_context_for_detections() should return a ContextLog object"
 
     # Print the results
     mlog.info("Process context:")
-    mlog.info(process)
+    mlog.info(processes[0])
     mlog.info("Flow context:")
-    mlog.info(flow)
+    mlog.info(flows[0])
     mlog.info("Event context:")
-    mlog.info(event)
+    mlog.info(events[0])
+
+
+test_zs_provide_context_for_detections()

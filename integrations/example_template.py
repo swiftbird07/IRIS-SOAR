@@ -26,7 +26,7 @@ import lib.logging_helper as logging_helper
 from lib.class_helper import Rule, Detection
 
 # For context for detections (remove unused types):
-from lib.class_helper import ContextFlow, ContextLog
+from lib.class_helper import DetectionReport, ContextFlow, ContextLog
 
 LOG_LEVEL = "DEBUG"  # Force log level. Recommended to set to DEBUG during development.
 # from elasticsearch import Elasticsearch
@@ -89,21 +89,22 @@ def zs_provide_new_detections(config, test_return_dummy_data=False) -> list[Dete
     return detections
 
 
-def zs_provide_context_for_detections(config, detection: Detection, required_type: type, test=False) -> Union[ContextFlow, ContextLog]:
+def zs_provide_context_for_detections(config, detection_report: DetectionReport, required_type: type, test=False) -> list:
     """Returns a DetectionReport object with context for the detections from the XXX integration.
 
     Args:
         config (dict): The configuration dictionary for this integration
-        detection (Detection): The Detection object to add context to
+        detection (DetectionReport): The DetectionReport object to add context to
         required_type (type): The type of context to return. Can be one of the following:
             [ContextFlow, ContextLog]
         test (bool, optional): If set to True, dummy context data will be returned. Defaults to False.
 
     Returns:
-        Union[ContextFlow, ContextLog]: The required context of type 'required_type'
+        list of [ContextFlow | ContextLog]: The required contexts of type 'required_type'
     """
     mlog = init_logging(config)
-    mlog.info("zs_provide_context_for_detections() called with detection: " + str(detection) + " and required_type: " + str(required_type))
+    detection_report_str = "'" + detection_report.get_title() + "' (" + detection_report.uuid + ")"
+    mlog.info(f"zs_provide_context_for_detections() called with detection report: {detection_report_str} and required_type: {required_type}")
 
     provided_typed = []
     provided_typed.append(ContextFlow)
@@ -115,20 +116,26 @@ def zs_provide_context_for_detections(config, detection: Detection, required_typ
 
     # ...
     # ...
-    # ... Add code to return the required type here
+    # ... Add code to return the required type objects here
     # ...
     # ...
 
-    return_object = "Some object ..."
-
-    if type(return_object) != required_type:  # Sanity check. 'return_object' is the object to be returned by above code.
-        mlog.error("The returned object is not of the required type. Returning None.")
-        return None
-    if return_object != None:
-        mlog.info("zs_provide_context_for_detections() found context for detection '" + detection.name + "' and required_type: " + str(required_type))
-        mlog.debug("zs_provide_context_for_detections() returned the following context: " + str(return_object) + " for detection: " + str(detection))
-    else:
-        mlog.info(
-            "zs_provide_context_for_detections() found no context for detection: " + str(detection) + " and required_type: " + str(required_type)
-        )
-    return return_object
+    for context_object in return_objects:
+        if context_object != None:
+            if type(context_object) != required_type:  # Sanity check that the 'return_object' has the required type
+                mlog.error("The returned object is not of the required type. Returning None.")
+                return None
+            mlog.info(
+                f"zs_provide_context_for_detections() found context for detection '{detection_name}' ({detection_id}) and required_type: {required_type}"
+            )
+            mlog.debug(
+                "zs_provide_context_for_detections() returned the following context: "
+                + str(context_object)
+                + " for detection: "
+                + str(detection_report)
+            )
+        else:
+            mlog.info(
+                "zs_provide_context_for_detections() found no context for detection: " + detection_name + " and required_type: " + str(required_type)
+            )
+    return return_objects
