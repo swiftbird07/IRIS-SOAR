@@ -1037,7 +1037,7 @@ class Process(Context):
         return json.dumps(del_none_from_dict(del_none_from_dict(self.__dict__())), indent=4, sort_keys=False, default=str)
 
 
-class ContextLog(Context):
+class LogMessage(Context):
     """The ContextLog class. Used for storing log data like syslog from a SIEM.
 
     Attrbutes:
@@ -1351,7 +1351,7 @@ class DetectionReport:
         self.action_result = None
         self.action_result_message = None
         self.action_result_data = None
-        self.context_logs: list[ContextLog] = []
+        self.context_logs: list[LogMessage] = []
         self.context_processes: list[Process] = []
         self.context_flows: list[ContextFlow] = []
         self.context_threat_intel: list[ContextThreatIntel] = []
@@ -1387,7 +1387,7 @@ class DetectionReport:
 
     # Getter and setter;
 
-    def add_context_log(self, context_log: ContextLog, max_logs: int = 1000):
+    def add_context_log(self, context_log: LogMessage, max_logs: int = 1000):
         """Adds a context log to the report."""
         mlog = logging_helper.Log("lib.class_helper")
 

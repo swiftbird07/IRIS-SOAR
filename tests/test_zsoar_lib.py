@@ -181,7 +181,7 @@ def test_class_helper():
     assert file.file_extension == "png", "File class file_extension not set correctly"
 
     assert (
-        class_helper.ContextLog(
+        class_helper.LogMessage(
             datetime.datetime.now(),
             "Failed user logon user=root",
             "Auth Logs @ Server",

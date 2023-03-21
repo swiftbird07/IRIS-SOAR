@@ -16,7 +16,7 @@ import lib.logging_helper as logging_helper
 from lib.class_helper import Rule, Detection
 
 # For context for detections (remove unused types):
-from lib.class_helper import DetectionReport, ContextFlow, ContextLog, Process
+from lib.class_helper import DetectionReport, ContextFlow, LogMessage, Process
 
 import datetime
 
@@ -83,7 +83,7 @@ def zs_provide_new_detections(config, TEST=False) -> list[Detection]:
 
 def zs_provide_context_for_detections(
     config, detection_report: DetectionReport, required_type: type, TEST=False
-) -> Union[ContextFlow, ContextLog, Process]:
+) -> Union[ContextFlow, LogMessage, Process]:
     """Returns a DetectionReport object with context for the detections from the XXX integration.
 
     Args:
@@ -102,7 +102,7 @@ def zs_provide_context_for_detections(
 
     provided_typed = []
     provided_typed.append(ContextFlow)
-    provided_typed.append(ContextLog)
+    provided_typed.append(LogMessage)
     provided_typed.append(Process)
 
     if required_type not in provided_typed:
@@ -116,8 +116,8 @@ def zs_provide_context_for_detections(
             context_object = ContextFlow(datetime.datetime.now(), "Elastic-SIEM", "10.0.0.1", 123, "123.123.123.123", 80, "TCP")
         elif required_type == Process:
             context_object = Process("test.exe", 123, process_start_time=datetime.datetime.now())
-        elif required_type == ContextLog:
-            context_object = ContextLog(datetime.datetime.now(), "Some log message", "Elastic-SIEM")
+        elif required_type == LogMessage:
+            context_object = LogMessage(datetime.datetime.now(), "Some log message", "Elastic-SIEM")
         return_objects.append(context_object)
         detection_example = detection_report.detections[0]
         detection_name = detection_example.name

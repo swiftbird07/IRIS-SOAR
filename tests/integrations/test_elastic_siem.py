@@ -2,7 +2,7 @@
 
 import pytest
 
-from lib.class_helper import Detection, DetectionReport, Rule, Process, ContextLog, ContextFlow
+from lib.class_helper import Detection, DetectionReport, Rule, Process, LogMessage, ContextFlow
 from integrations.elastic_siem import zs_provide_new_detections, zs_provide_context_for_detections
 import lib.logging_helper as logging_helper
 import lib.config_helper as config_helper
@@ -46,8 +46,8 @@ def test_zs_provide_context_for_detections():
     processes = zs_provide_context_for_detections(integration_config, detection_report, Process, TEST=True)
     assert type(processes[0]) == Process, "zs_provide_context_for_detections() should return a ContextProcess object"
 
-    events = zs_provide_context_for_detections(integration_config, detection_report, ContextLog, TEST=True)
-    assert type(events[0]) == ContextLog, "zs_provide_context_for_detections() should return a ContextLog object"
+    events = zs_provide_context_for_detections(integration_config, detection_report, LogMessage, TEST=True)
+    assert type(events[0]) == LogMessage, "zs_provide_context_for_detections() should return a ContextLog object"
 
     # Print the results
     mlog.info("Process context:")

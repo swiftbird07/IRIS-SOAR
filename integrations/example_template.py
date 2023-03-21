@@ -26,7 +26,7 @@ import lib.logging_helper as logging_helper
 from lib.class_helper import Rule, Detection
 
 # For context for detections (remove unused types):
-from lib.class_helper import DetectionReport, ContextFlow, ContextLog
+from lib.class_helper import DetectionReport, ContextFlow, LogMessage
 
 LOG_LEVEL = "DEBUG"  # Force log level. Recommended to set to DEBUG during development.
 # from elasticsearch import Elasticsearch
@@ -108,7 +108,7 @@ def zs_provide_context_for_detections(config, detection_report: DetectionReport,
 
     provided_typed = []
     provided_typed.append(ContextFlow)
-    provided_typed.append(ContextLog)
+    provided_typed.append(LogMessage)
 
     if required_type not in provided_typed:
         mlog.error("The required type is not provided by this integration. '" + str(required_type) + "' is not in " + str(provided_typed))
