@@ -4,6 +4,10 @@ daemon:
 integrations:
   elastic_siem:
     enabled: true
+    logging:
+      log_level_file: debug
+      log_level_stdout: debug
+      log_level_syslog: none
   ibm_qradar:
     enabled: false
   vt_threat_intel:

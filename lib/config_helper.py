@@ -27,7 +27,7 @@ class Config:
     def __init__(self):
         import lib.logging_helper as logging_helper
 
-        mlog = logging_helper.Log("lib_load_config", log_level=LOG_LEVEL)
+        mlog = logging_helper.Log("lib.config_helper", log_level=LOG_LEVEL)
 
         # Check if the config file exists
         if not os.path.isfile(FILE_PATH):
@@ -43,24 +43,18 @@ class Config:
             raise TypeError("The config file is empty.")
 
         if type(self.cfg) != dict:
-            print(
-                "[CRITICAL] The config file is not valid. Please check the config file and try again."
-            )
+            print("[CRITICAL] The config file is not valid. Please check the config file and try again.")
             raise TypeError("The config file is not valid.")
 
         try:
             mlog.set_level(self.cfg["logging"]["log_level_stdout"])
         except:
-            print(
-                "[CRITICAL] Could not load config file: logging_level_stdout not defined. Please check the config file and try again."
-            )
+            print("[CRITICAL] Could not load config file: logging_level_stdout not defined. Please check the config file and try again.")
             raise TypeError("The config file is not valid.")
 
         # Check if the config file is valid
         if not check_config(self.cfg, mlog):
-            mlog.critical(
-                "The config file is not valid. Please check the config file and try again."
-            )
+            mlog.critical("The config file is not valid. Please check the config file and try again.")
             raise TypeError("The config file is not valid.")
         else:
             return None
@@ -92,9 +86,7 @@ def check_config_log_level(log_level, mlog):
         else:
             return True
     except:
-        mlog.critical(
-            f"Could not load config file: {log_level} not defined. Please check the config file and try again."
-        )
+        mlog.critical(f"Could not load config file: {log_level} not defined. Please check the config file and try again.")
         return False
 
 
@@ -110,9 +102,7 @@ def check_config_bool(bool_var, mlog):
 
 def check_config_int(int_var, mlog):
     if type(int_var) != int or int_var < 0:
-        mlog.critical(
-            "daemon_interval_min not a valid integer value. Please check the config file."
-        )
+        mlog.critical("daemon_interval_min not a valid integer value. Please check the config file.")
         return False
     return True
 
@@ -142,9 +132,7 @@ def check_config(cfg, mlog, onload=True):
             "en",
             "de",
         ]:
-            mlog.warning(
-                "language not one of ['en', 'de']. Please check the config file. Will assume value to be 'en'."
-            )
+            mlog.warning("language not one of ['en', 'de']. Please check the config file. Will assume value to be 'en'.")
             if not onload:  # Be more strict when saving TO the config file...
                 return False
             cfg["logging"]["language"] = "en"  # ...If not then assume a default value
@@ -187,11 +175,7 @@ def check_config(cfg, mlog, onload=True):
             mlog.debug(f"Loaded integration: {integration}")
 
     except KeyError as e:
-        mlog.critical(
-            "Could not load config file: Setting not found: {}. Please check the config file and try again.".format(
-                e
-            )
-        )
+        mlog.critical("Could not load config file: Setting not found: {}. Please check the config file and try again.".format(e))
         return False
 
     return True
@@ -239,17 +223,9 @@ def setup_ask(default_response, available_responses_list=[], available_responses
     """
     try:
         if type(available_responses_is_int_goe) == int and available_responses_is_int_goe > -1:
-            print(
-                "Please enter your choice or press enter for default ({}): ".format(
-                    default_response
-                )
-            )
+            print("Please enter your choice or press enter for default ({}): ".format(default_response))
         else:
-            print(
-                "Please enter your choice of either: [{}] or press enter for default ({}):".format(
-                    default_response, available_responses_list
-                )
-            )
+            print("Please enter your choice of either: [{}] or press enter for default ({}):".format(default_response, available_responses_list))
 
         response = input()
 

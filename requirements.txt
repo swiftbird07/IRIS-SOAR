@@ -1,5 +1,6 @@
 pyyaml
 logger
+pandas
 # For dev:
 mock
 pytest

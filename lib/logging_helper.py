@@ -43,25 +43,24 @@ class Log:
             # Create a logging format
             formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
-            # Core modules will use the logging settings from the config file
-            if "zsoar" in module_name and "test" not in module_name:
+            if "lib.config_helper" not in module_name:  # Avoid circular import from config_helper
                 import lib.config_helper as config_helper
 
                 # Load the settings
                 settings = config_helper.Config().cfg
 
                 # Override default paramaters if set in config:
-                log_level_file = settings["logging"]["log_level_file"]
-                log_level_stdout = settings["logging"]["log_level_stdout"]
+                if log_level_file == "none" and log_level == "none":
+                    log_level_file = settings["logging"]["log_level_file"]
+                if log_level_stdout == "none" and log_level == "none":
+                    log_level_stdout = settings["logging"]["log_level_stdout"]
 
             if "none" not in log_level_file:
                 if settings["logging"]["split_files_by_module"]:
                     path = "logs/" + module_name + ".log"
                 else:
                     path = "logs/zsoar.log"
-                os.makedirs(
-                    os.path.dirname(path), exist_ok=True
-                )  # According to documentation of logger, this is not needed, but that is not true
+                os.makedirs(os.path.dirname(path), exist_ok=True)  # According to documentation of logger, this is not needed, but that is not true
                 handlerFile = logging.FileHandler(path)
                 handlerFile.setLevel(log_level_file.upper())
                 handlerFile.setFormatter(formatter)

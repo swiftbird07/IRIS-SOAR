@@ -88,9 +88,7 @@ def test_setup():
     with mock.patch.object(builtins, "input", lambda: "y"):
         zsoar.setup(1, continue_steps=False)
     cfg = zsoar.config_helper.Config().cfg
-    assert (
-        cfg["setup"]["setup_step"] == 2
-    ), "The setup step didn't progress after valid input (bool)."
+    assert cfg["setup"]["setup_step"] == 2, "The setup step didn't progress after valid input (bool)."
     assert cfg["daemon"]["enabled"] == True, "The setup step didn't save new value (bool)."
 
     # Test vaild input Integer
@@ -102,14 +100,10 @@ def test_setup():
         zsoar.setup(2, continue_steps=False)
     cfg = zsoar.config_helper.Config().cfg
     assert cfg["daemon"]["interval"] == 12, "The setup step didn't save new value (int)."
-    assert (
-        cfg["setup"]["setup_step"] == 3
-    ), "The setup step didn't progress after valid input (int)."
+    assert cfg["setup"]["setup_step"] == 3, "The setup step didn't progress after valid input (int)."
 
     # Reset to original config
-    assert (
-        zsoar.config_helper.save_config(tmp) == True
-    ), "Resetting config to original failed (test_setup)."
+    assert zsoar.config_helper.save_config(tmp) == True, "Resetting config to original failed (test_setup)."
 
 
 def test_startup_daemon():
@@ -140,9 +134,7 @@ def test_startup_daemon():
     assert zsoar.get_script_pid(mlog, "zsoar_daemon.py") > 0, "The daemon was not started."
 
     # Reset to original config
-    assert (
-        zsoar.config_helper.save_config(tmp) == True
-    ), "Resetting config to original failed (test_startup_daemon)."
+    assert zsoar.config_helper.save_config(tmp) == True, "Resetting config to original failed (test_startup_daemon)."
 
 
 def test_stop():
@@ -184,7 +176,22 @@ def test_worker():
         None
     """
     config = zsoar.config_helper.Config().cfg
+    mlog = zsoar.logging_helper.Log("zsoar_test_core")
+
     try:
         zsoar.zsoar_worker.main(config)
     except Exception as e:
         pytest.fail("The worker function failed: {}".format(e))
+
+    # Test check_module_exists and check_module_has_function
+    assert zsoar.zsoar_worker.check_module_exists("elastic_siem") == True, "elastic_siem module 'does not exist'"
+    assert zsoar.zsoar_worker.check_module_exists("some_invalid_module") == False, "some_invalid_module module exists"
+    assert (
+        zsoar.zsoar_worker.check_module_has_function("elastic_siem", "zs_provide_new_detections", mlog) == True
+    ), "elastic_siem.zs_provide_new_detections does not exist"
+    assert (
+        zsoar.zsoar_worker.check_module_has_function("elastic_siem", "some_invalid_function", mlog) == False
+    ), "elastic_siem.some_invalid_function exists"
+    assert (
+        zsoar.zsoar_worker.check_module_has_function("some_invalid_module", "some_invalid_function", mlog) == False
+    ), "some_invalid_module.some_invalid_function exists"
