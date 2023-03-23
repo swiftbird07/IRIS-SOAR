@@ -1,6 +1,7 @@
 pyyaml
 logger
 pandas
+psutil
 # For dev:
 mock
 pytest

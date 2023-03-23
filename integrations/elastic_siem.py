@@ -45,7 +45,7 @@ def init_logging(config):
     return mlog
 
 
-def zs_provide_new_detections(config, TEST=False) -> list[Detection]:
+def zs_provide_new_detections(config, TEST=False) -> List[Detection]:
     """Returns a list of new detections.
 
     Args:
@@ -53,7 +53,7 @@ def zs_provide_new_detections(config, TEST=False) -> list[Detection]:
         test_return_dummy_data (bool, optional): If set to True, dummy data will be returned. Defaults to False.
 
     Returns:
-        list[Detection]: A list of new detections
+        List[Detection]: A list of new detections
     """
     mlog = init_logging(config)
     mlog.info("zs_provide_new_detections() called.")

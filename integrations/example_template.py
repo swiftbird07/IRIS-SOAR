@@ -19,7 +19,7 @@
 #
 # Integration Version: x.x.x
 
-from typing import Union
+from typing import Union, List
 import lib.logging_helper as logging_helper
 
 # For new detections:
@@ -53,7 +53,7 @@ def init_logging(config):
     return mlog
 
 
-def zs_provide_new_detections(config, test_return_dummy_data=False) -> list[Detection]:
+def zs_provide_new_detections(config, test_return_dummy_data=False) -> List[Detection]:
     """Returns a list of new detections.
 
     Args:
@@ -61,7 +61,7 @@ def zs_provide_new_detections(config, test_return_dummy_data=False) -> list[Dete
         test_return_dummy_data (bool, optional): If set to True, dummy data will be returned. Defaults to False.
 
     Returns:
-        list[Detection]: A list of new detections
+        List[Detection]: A list of new detections
     """
     mlog = init_logging(config)
     mlog.info("zs_provide_new_detections() called.")

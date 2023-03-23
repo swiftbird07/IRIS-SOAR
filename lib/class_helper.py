@@ -2,7 +2,7 @@
 # Created by: Martin Offermann
 # This module is a helper module that privides important classes and functions for the Z-SOAR project.
 
-from typing import DefaultDict, Union
+from typing import DefaultDict, Union, List
 import random
 import datetime
 import ipaddress
@@ -73,14 +73,14 @@ class Rule:
         name (str): The name of the rule
         description (str): The description of the rule
         severity (int): The severity of the rule
-        tags (list[str]): The tags of the rule
+        tags (List[str]): The tags of the rule
         raw (str): The raw rule
         created_at (datetime): The creation date of the rule
         updated_at (datetime): The last update date of the rule
 
 
     Methods:
-        __init__(self, id: str, name: str, severity: int, description: str = None, tags: list[str] = None, raw: str = None, created_at: datetime = None, updated_at: datetime = None)
+        __init__(self, id: str, name: str, severity: int, description: str = None, tags: List[str] = None, raw: str = None, created_at: datetime = None, updated_at: datetime = None)
         __str__(self)
     """
 
@@ -90,7 +90,7 @@ class Rule:
         name: str,
         severity: int,
         description: str = None,
-        tags: list[str] = None,
+        tags: List[str] = None,
         raw: str = None,
         created_at: datetime.datetime = None,
         updated_at: datetime.datetime = None,
@@ -140,9 +140,9 @@ class Detection:
     Attributes:
         vendor_id (str): The vendor specific ID of the detection, note that for unique identification, the 'uuid' of the detection is used
         name (str): The name of the detection
-        rules (list[Rule]): The rules that triggered the detection
+        rules (List[Rule]): The rules that triggered the detection
         description (str): The description of the detection
-        tags (list[str]): The tags of the detection
+        tags (List[str]): The tags of the detection
         raw (str): The raw detection
         timestamp (datetime): The timestamp of the detection
         source (str): The source of the detection
@@ -156,7 +156,7 @@ class Detection:
         process (ContextProcess): The process of the detection
 
     Methods:
-        __init__(self, id: str, name: str, rules: list[Rule], description: str = None, tags: list[str] = None, raw: str = None, timestamp: datetime = None, source: str = None, source_ip: socket.inet_aton = None, source_port: int = None, destination: str = None, destination_ip: datetime = None, destination_port: int = None, protocol: str = None, severity: int = None, process: ContextProcess = None)
+        __init__(self, id: str, name: str, rules: List[Rule], description: str = None, tags: List[str] = None, raw: str = None, timestamp: datetime = None, source: str = None, source_ip: socket.inet_aton = None, source_port: int = None, destination: str = None, destination_ip: datetime = None, destination_port: int = None, protocol: str = None, severity: int = None, process: ContextProcess = None)
         __str__(self)
     """
 
@@ -164,9 +164,9 @@ class Detection:
         self,
         vendor_id: str,
         name: str,
-        rules: list[Rule],
+        rules: List[Rule],
         description: str = None,
-        tags: list[str] = None,
+        tags: List[str] = None,
         raw: str = None,
         timestamp: datetime = None,
         source: str = None,
@@ -584,8 +584,8 @@ class HTTP:
         status_message: str = None,
         request_body: str = None,
         response_body: str = None,
-        request_headers: list[str] = None,
-        response_headers: list[str] = None,
+        request_headers: List[str] = None,
+        response_headers: List[str] = None,
         http_version: str = None,
     ):
         self.related_detection_uuid = related_detection_uuid
@@ -844,14 +844,14 @@ class Process:
         process_http (HTTP): The HTTP object of the process
         process_flow (ContextFlow): The flow object of the process
         process_parent (ContextProcess): The parent process object of the process
-        process_children (list[ContextProcess]): The children processes of the process
-        process_environment_variables (list[]): The environment variables of the process
-        process_arguments (list[]): The arguments of the process
-        process_modules (list[]): The modules of the process
+        process_children (List[ContextProcess]): The children processes of the process
+        process_environment_variables (List[]): The environment variables of the process
+        process_arguments (List[]): The arguments of the process
+        process_modules (List[]): The modules of the process
         process_thread (str): The threads of the process
 
     Methods:
-        __init__(self, process_name: str, process_id: int, parent_process_name: str = "N/A", parent_process_id: int = 0, process_path: str = "", process_md5: str = "", process_sha1: str = "", process_sha256: str = "", process_command_line: str = "", process_username: str = "", process_integrity_level: str = "", process_is_elevated_token: bool = False, process_token_elevation_type: str = "", process_token_elevation_type_full: str = "", process_token_integrity_level: str = "", process_token_integrity_level_full: str = "", process_privileges: str = "", process_owner: str = "", process_group_id: int = "", process_group_name: str = "", process_logon_guid: str = "", process_logon_id: str = "", process_logon_type: str = "", process_logon_type_full: str = "", process_logon_time: str = "", process_start_time: str = "", process_parent_start_time: str = "", process_current_directory: str = "", process_image_file_device: str = "", process_image_file_directory: str = "", process_image_file_name: str = "", process_image_file_path: str = "", process_dns: DNSQuery = None, process_certificate: Certificate = None, process_http: HTTP = None, process_flow: ContextFlow = None, process_parent: ContextProcess = None, process_children: list[ContextProcess] = None, process_environment_variables: list[] = None, process_arguments: list[] = None, process_modules: list[] = None, process_thread: str = "")
+        __init__(self, process_name: str, process_id: int, parent_process_name: str = "N/A", parent_process_id: int = 0, process_path: str = "", process_md5: str = "", process_sha1: str = "", process_sha256: str = "", process_command_line: str = "", process_username: str = "", process_integrity_level: str = "", process_is_elevated_token: bool = False, process_token_elevation_type: str = "", process_token_elevation_type_full: str = "", process_token_integrity_level: str = "", process_token_integrity_level_full: str = "", process_privileges: str = "", process_owner: str = "", process_group_id: int = "", process_group_name: str = "", process_logon_guid: str = "", process_logon_id: str = "", process_logon_type: str = "", process_logon_type_full: str = "", process_logon_time: str = "", process_start_time: str = "", process_parent_start_time: str = "", process_current_directory: str = "", process_image_file_device: str = "", process_image_file_directory: str = "", process_image_file_name: str = "", process_image_file_path: str = "", process_dns: DNSQuery = None, process_certificate: Certificate = None, process_http: HTTP = None, process_flow: ContextFlow = None, process_parent: ContextProcess = None, process_children: List[ContextProcess] = None, process_environment_variables: List[] = None, process_arguments: List[] = None, process_modules: List[] = None, process_thread: str = "")
         __str__(self)
     """
 
@@ -896,9 +896,9 @@ class Process:
         process_flow: NetworkFlow = None,
         process_parents: list = [],
         process_children: list = [],
-        process_environment_variables: list[str] = [],
-        process_arguments: list[str] = [],
-        process_modules: list[str] = [],
+        process_environment_variables: List[str] = [],
+        process_arguments: List[str] = [],
+        process_modules: List[str] = [],
         process_thread: str = None,
     ):
         self.related_detection_uuid = related_detection_uuid
@@ -1045,7 +1045,7 @@ class LogMessage:
         log_type (str): The type of the log
         log_severity (str): The severity of the log
         log_facility (str): The facility of the log
-        log_tags (list[str]): The tags of the log
+        log_tags (List[str]): The tags of the log
         log_custom_fields (dict): The custom fields of the log
 
     Methods:
@@ -1065,7 +1065,7 @@ class LogMessage:
         log_type: str = "",
         log_severity: str = "",
         log_facility: str = "",
-        log_tags: list[str] = None,
+        log_tags: List[str] = None,
         log_custom_fields: dict = None,
     ):
         self.related_detection_uuid = related_detection_uuid
@@ -1185,7 +1185,7 @@ class ContextThreatIntel:
         indicator(socket.intet_aton | HTTP | DNSQuery | ContextProcess ) The indicator
         source (str): The integration source of the indicator
         timestamp (datetime): The timestamp of the lookup
-        threat_intel_detections (list[ThreatIntelDetection]): The threat intel detections of the indicator
+        threat_intel_detections (List[ThreatIntelDetection]): The threat intel detections of the indicator
         score_hit (int): The hits on the particular indicator
         score_total (int): The total number of engines that were queried
         score_hit_sus (int): The number of suspicious hits on the indicator
@@ -1205,7 +1205,7 @@ class ContextThreatIntel:
         indicator: Union[ipaddress.IPv4Address, ipaddress.IPv6Address, HTTP, DNSQuery, File, Process],
         source: str,
         timestamp: datetime.datetime,
-        threat_intel_detections: list[ThreatIntel],
+        threat_intel_detections: List[ThreatIntel],
         score_hit: int = None,
         score_total: int = None,
         score_hit_sus: int = None,
@@ -1330,35 +1330,35 @@ class DetectionReport:
     """DetectionReport class. This class is used for storing detection reports.
 
     Attributes:
-        detections (list[Detection]): The detections of the report
-        playbooks (list[str]): The playbooks of the report
+        detections (List[Detection]): The detections of the report
+        playbooks (List[str]): The playbooks of the report
         action (str): The action of the report
         action_result (bool): The action result of the report
         action_result_message (str): The action result message of the report
         action_result_data (str): The action result data of the report
-        context_logs (list[ContextLog]): The context logs of the report
-        context_processes (list[ContextProcess]): The context processes of the report
-        context_flows (list[ContextFlow]): The context flows of the report
-        context_threat_intel (list[ContextThreatIntel]): The context threat intel of the report
+        context_logs (List[ContextLog]): The context logs of the report
+        context_processes (List[ContextProcess]): The context processes of the report
+        context_flows (List[ContextFlow]): The context flows of the report
+        context_threat_intel (List[ContextThreatIntel]): The context threat intel of the report
         uuid (str): The uuid of the report
 
 
     Methods:
-        __init__(self, detections: list[Detection], playbooks: list[str] = None, action: str = None, action_result: bool = None, action_result_message: str = None, action_result_data: str = None, contexts: list[Context] = None): Initializes a new DetectionReport object.
+        __init__(self, detections: List[Detection], playbooks: List[str] = None, action: str = None, action_result: bool = None, action_result_message: str = None, action_result_data: str = None, contexts: List[Context] = None): Initializes a new DetectionReport object.
         __str__(self): Returns the string representation of the object.
     """
 
     def __init__(self, detections: list):
         self.detections = detections
-        self.playbooks: list[str] = []
+        self.playbooks: List[str] = []
         self.action = None
         self.action_result = None
         self.action_result_message = None
         self.action_result_data = None
-        self.context_logs: list[LogMessage] = []
-        self.context_processes: list[Process] = []
-        self.context_flows: list[NetworkFlow] = []
-        self.context_threat_intel: list[ContextThreatIntel] = []
+        self.context_logs: List[LogMessage] = []
+        self.context_processes: List[Process] = []
+        self.context_flows: List[NetworkFlow] = []
+        self.context_threat_intel: List[ContextThreatIntel] = []
         self.aggregated_context_logs: DefaultDict = DefaultDict(str)
         self.aggregated_context_processes: dict = {}
         self.aggregated_context_flows: dict = {}
@@ -1415,10 +1415,10 @@ class Context:
 
     Attributes:
         category (str): The category of the context (one of SIEM or ThreatIntel or ITSM)
-        raw (list[str]): The raw data of a context
+        raw (List[str]): The raw data of a context
 
     Methods:
-        __init__(self, category: str, sub_category: str, data: list[str]): Initializes a new Context object.
+        __init__(self, category: str, sub_category: str, data: List[str]): Initializes a new Context object.
         __str__(self): Returns the string representation of the object.
     """
 
