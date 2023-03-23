@@ -19,6 +19,8 @@ from lib.class_helper import Rule, Detection
 from lib.class_helper import DetectionReport, NetworkFlow, LogMessage, Process
 
 import datetime
+import requests
+import elasticsearch
 
 LOG_LEVEL = "DEBUG"  # Force log level. Recommended to set to DEBUG during development.
 # from elasticsearch import Elasticsearch
@@ -72,9 +74,69 @@ def zs_provide_new_detections(config, TEST=False) -> List[Detection]:
 
     # ...
     # ...
-    # ... Add code to return the detections here
+    detections = List(lib.class_helper.Detection)
+
+    try:
+        elastic_url = config["elastic_url"]
+        elastic_user = config["elastic_user"]
+        elastic_password = config["elastic_password"]
+    except KeyError as e:
+        mlog.error("Missing config parameters: " + e)
+        return detections
+
+    requests.packages.urllib3.disable_warnings()
+
+    # Dictionary structured like an Elasticsearch query:
+    query_body = {
+        "query": {"bool": {"must": {"match": {"kibana.alert.workflow_status": "open"}}}}
+    }
+
+    ssl_context = create_default_context()
+    ssl_context.check_hostname = False
+    
+    elastic_client = Elasticsearch(
+    hosts=[ELASTIC_HOST],
+    http_auth=(ELASTIC_USER, ELASTIC_PW),
+    ssl_context=ssl_context,
+    verify_certs=False,
+    )
+
+    # Call the client's search() method, and have it return results
+    result = elastic_client.search(
+        index=".internal.alerts-security.alerts-default-*", body=query_body, size=999
+    )
+
+    # See how many "hits" it returned using the len() function
+    hits = result["hits"]["hits"]
+    mlog.info("Found " + str(len(hits)) + " hits.")
+
+    if len(hits) == 0:
+        mlog.info("No new detections found.")
+        return detections
+    
+    # Iterate the nested dictionaries inside the ["hits"]["hits"] list
+    for num, doc in enumerate(hits):
+        # print the document ID
+        mlog.info("Document ID: {}".format(doc["_id"]))
+        # print the document source
+        mlog.info("Document source: {}".format(document_source))
+        # print the document score
+        mlog.info("Document score: {}".format(doc["_score"]))
+        # print the document index
+        mlog.info("Document index: {}".format(doc["_index"]))
+        # print the document type
+        mlog.info("Document type: {}".format(doc["_type"]))
+
+        # Create a new detection object
+        rule_list = []
+        document_source = doc["_source"]
+        rule_list.append(Rule(doc["_id"], document_source["kibana.alert.rule.name"], document_source["kibana.alert.rule.severity"], description = document_source["kibana.alert.rule.description"], tags=document_source["kibana.alert.rule.tags"], timestamp=document_source["kibana.alert.rule.timestamp"]))
+        detection = Detection(doc["_id"], document_source["kibana.alert.rule.name"], rule_list)
+        mlog.info("Created detection: " + detection)
+        detections.append(detection)
     # ...
     # ...
+
 
     mlog.info("zs_provide_new_detections() found " + str(len(detections)) + " new detections.")
     mlog.debug("zs_provide_new_detections() found the following new detections: " + str(detections))
