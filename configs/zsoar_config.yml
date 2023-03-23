@@ -3,14 +3,15 @@ daemon:
   interval_min: 1
 integrations:
   elastic_siem:
+    elastic_password: something
+    elastic_url: https://10.20.1.6:9200
+    elastic_user: elastic
+    elastic_verify_certs: false
     enabled: true
     logging:
       log_level_file: debug
       log_level_stdout: debug
       log_level_syslog: none
-    elastic_url: https://10.20.1.6:9200
-    elastic_user: elastic
-    elastic_password: something
   ibm_qradar:
     enabled: false
   vt_threat_intel:

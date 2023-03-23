@@ -11,6 +11,7 @@
 
 from typing import Union, List
 import lib.logging_helper as logging_helper
+import logging
 
 # For new detections:
 from lib.class_helper import Rule, Detection
@@ -20,7 +21,9 @@ from lib.class_helper import DetectionReport, NetworkFlow, LogMessage, Process
 
 import datetime
 import requests
-import elasticsearch
+from elasticsearch import Elasticsearch
+from ssl import create_default_context
+
 
 LOG_LEVEL = "DEBUG"  # Force log level. Recommended to set to DEBUG during development.
 # from elasticsearch import Elasticsearch
@@ -44,6 +47,10 @@ def init_logging(config):
     log_level_syslog = config["logging"]["log_level_syslog"]
 
     mlog = logging_helper.Log(__name__, log_level_stdout=log_level_stdout, log_level_file=log_level_file)
+    
+    # Disable elasticsearch warnings (you can remove this if you want to see the warnings)
+    es_log = logging.getLogger("elasticsearch")
+    es_log.setLevel(logging.ERROR)
     return mlog
 
 
@@ -74,12 +81,13 @@ def zs_provide_new_detections(config, TEST=False) -> List[Detection]:
 
     # ...
     # ...
-    detections = List(lib.class_helper.Detection)
+    detections = List[Detection]
 
     try:
         elastic_url = config["elastic_url"]
         elastic_user = config["elastic_user"]
         elastic_password = config["elastic_password"]
+        elastic_verify_certs = config["elastic_verify_certs"]
     except KeyError as e:
         mlog.error("Missing config parameters: " + e)
         return detections
@@ -92,15 +100,15 @@ def zs_provide_new_detections(config, TEST=False) -> List[Detection]:
     }
 
     ssl_context = create_default_context()
-    ssl_context.check_hostname = False
-    
-    elastic_client = Elasticsearch(
-    hosts=[ELASTIC_HOST],
-    http_auth=(ELASTIC_USER, ELASTIC_PW),
-    ssl_context=ssl_context,
-    verify_certs=False,
-    )
+    ssl_context.check_hostname = elastic_verify_certs
 
+    elastic_client = Elasticsearch(
+    hosts=[elastic_url],
+    http_auth=(elastic_user, elastic_password),
+    ssl_context=ssl_context,
+    verify_certs=elastic_verify_certs,
+    )
+    
     # Call the client's search() method, and have it return results
     result = elastic_client.search(
         index=".internal.alerts-security.alerts-default-*", body=query_body, size=999
@@ -134,6 +142,9 @@ def zs_provide_new_detections(config, TEST=False) -> List[Detection]:
         detection = Detection(doc["_id"], document_source["kibana.alert.rule.name"], rule_list)
         mlog.info("Created detection: " + detection)
         detections.append(detection)
+
+    # TODO: Implement acknowledgement of detections
+
     # ...
     # ...
 
