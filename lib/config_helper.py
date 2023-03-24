@@ -72,6 +72,7 @@ class Config:
         else:
             return None
 
+
 def replace_env_vars(cfg, mlog):
     try:
         for key, value in cfg.items():
@@ -97,6 +98,7 @@ def replace_env_vars(cfg, mlog):
             raise
         mlog.error(message="Could not load environment variables from config file: "+str(e))            
         raise Exception("Could not load environment variables from config file: "+str(e))
+
 
 
 def check_config_log_level(log_level, mlog):
@@ -238,22 +240,10 @@ def check_config(cfg, mlog, onload=True):
 
     return True
 
-class env_var_safe_dumper(yaml.SafeDumper):
-    def represent_scalar(self, tag, value, style=None):
-        if value is not None and value.startswith("$"):
-            return yaml.ScalarNode(tag, value, style="")
-        else:
-            return super().represent_scalar(tag, value, style)
-
-def set_by_path(d, path, value):
-    keys = path.split(".")
-    for key in keys[:-1]:
-        d = d.setdefault(key, {})
-    d[keys[-1]] = value
-    return d
 
 def save_config(cfg):
     """The save_config() function is used to save/update the provided config to file.
+        It will also ensure that the values of environment variables are not saved to file.
 
     Args:
         cfg (dict): The config object
@@ -271,41 +261,46 @@ def save_config(cfg):
         return False
 
     try:
-        # Delete current temp file
-        os.remove(FILE_PATH+".tmp")
-        # We have to write to a tmp file first to not immediatly overwrite enviroment variables  in the current file with their respective values
+        # We have to write to a tmp file first to not immediatly overwrite enviroment variables 
+        # in the current file with their respective values
         with open(FILE_PATH+".tmp", "w") as ymlfile:
             yaml.dump(cfg, ymlfile, default_flow_style=False)
     except Exception as e:
-        mlog.critical("Could not save config file: "+ str(e))
+        mlog.critical("Could not save to (temp) config file: "+ str(e))
         return False
 
-    #try:
-    # Check the temp file line by line if the real file line containts a '$'. If it doesn't, copy line from tmp file to the real file
-    
-    # First dump the tmp file to a list
-    with open(FILE_PATH+".tmp", "r") as ymlfile:
-        tmp_file = ymlfile.readlines()
-    
-    # Then dump the real file to a list
-    with open(FILE_PATH, "r") as ymlfile:
-        real_file = ymlfile.readlines()
+    try:
+        # Check the temp file line by line if the real file line containts a '$'.
+        # If it doesn't, copy line from tmp file to the real file
+        
+        # First dump the tmp file to a list
+        with open(FILE_PATH+".tmp", "r") as ymlfile:
+            tmp_file = ymlfile.readlines()
+        
+        # Then dump the real file to a list
+        with open(FILE_PATH, "r") as ymlfile:
+            real_file = ymlfile.readlines()
 
-    # Now compare the two lists and write the tmp file to the real file
-    with open(FILE_PATH, "w") as ymlfile_write:
-        for line, line_tmp in zip(real_file, tmp_file):
-            if '$' not in line or '$' in line_tmp:
-                print("no $ in line. line_tmp: "+line_tmp + " line current: "+line)
-                print(line_tmp, end='', file=ymlfile_write)
-            else:
-                print("found $ in line. line_tmp: "+line_tmp + " line current: "+line)
-                print(line, end='', file=ymlfile_write)
+        # Now compare the two lists and write the tmp file to the real file
+        with open(FILE_PATH, "w") as ymlfile_write:
+            for line, line_tmp in zip(real_file, tmp_file):
+                if '$' not in line or '$' in line_tmp:
+                    print("no $ in line. line_tmp: "+line_tmp + " line current: "+line)
+                    print(line_tmp, end='', file=ymlfile_write)
+                else:
+                    print("found $ in line. line_tmp: "+line_tmp + " line current: "+line)
+                    print(line, end='', file=ymlfile_write)
+        
+        # Delete temp file
+        os.remove(FILE_PATH+".tmp")
+
+        return True
+
+    except Exception as e:
+        mlog.critical("Could not save to (final) config file: "+ str(e))
+        return False
 
 
-    return True
-    #except Exception as e:
-    #    mlog.critical("Could not save config file: "+ str(e))
-    #    return False
 def setup_ask(default_response, available_responses_list=[], available_responses_is_int_goe=-1, available_response_is_url=False, secret=False):
     """The setup_ask() function is used to ask the user for a config value, used for setup.
 
