@@ -11,7 +11,8 @@
             "program": "${file}",
             "console": "integratedTerminal",
             "justMyCode": true,
-            "env": { "PYTHONPATH": "${workspaceRoot}"},
+            "env": { "PYTHONPATH": "${workspaceRoot}",
+                     "zs_enable_daemon": "False" },
             "args": ["--restart", "--debug"]
         }
     ]

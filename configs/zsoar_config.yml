@@ -1,9 +1,9 @@
 daemon:
-  enabled: false
+  enabled: $zs_enable_daemon
   interval_min: 1
 integrations:
   elastic_siem:
-    elastic_password: something
+    elastic_password: $elastic_pw
     elastic_url: https://10.20.1.6:9200
     elastic_user: elastic
     elastic_verify_certs: false
@@ -27,6 +27,7 @@ logging:
   split_files_by_module: false
 setup:
   setup_step: 1
+  load_enviroment_variables: true
 znuny_otrs:
   api_customer_password: null
   api_customer_user: null

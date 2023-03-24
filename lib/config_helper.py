@@ -46,6 +46,16 @@ class Config:
             print("[CRITICAL] The config file is not valid. Please check the config file and try again.")
             raise TypeError("The config file is not valid.")
 
+        
+        # Check if an entry in the config file is supposed to be an environment variable
+        try:
+            if self.cfg["setup"]["load_enviroment_variables"] == True:
+                replace_env_vars(cfg=self.cfg, mlog=mlog)
+            else:
+                mlog.debug(message="Not loading environment variables from config file.")
+        except KeyError:
+            mlog.warning(message="Did not load environment variables from config file. Setting wheither to enable it not found.")
+
         try:
             mlog.set_level(self.cfg["logging"]["log_level_stdout"])
         except:
@@ -59,7 +69,24 @@ class Config:
         else:
             return None
 
-
+def replace_env_vars(cfg, mlog):
+    try:
+        for key, value in cfg.items():
+            if isinstance(value, dict):
+                replace_env_vars(value, mlog)
+            elif isinstance(value, str) and value.startswith("$"):
+                env_var_name = value[1:]
+                env_var_value = os.environ.get(env_var_name)
+                if env_var_value is not None:
+                    cfg[key] = env_var_value
+                else:
+                    mlog.critical("The environment variable '" + value[1:] + "' used in the config '"+key+"' is not set. Export it (or remove the '$' before the value) and try again.")
+                    raise ValueError("The environment variable {} is not set.".format(value[1:]))
+    except Exception as e:
+        if e.__class__.__name__ == "ValueError":
+            raise
+        mlog.error(message="Could not load environment variables from config file: "+str(e))            
+        raise Exception("Could not load environment variables from config file: "+str(e))
 def check_config_log_level(log_level, mlog):
     """The check_config_log_level() function is used to check if the log level is valid.
 
@@ -91,6 +118,14 @@ def check_config_log_level(log_level, mlog):
 
 
 def check_config_bool(bool_var, mlog):
+    """Check if a variable is a valid boolean.
+    
+    Args:
+        bool_var (bool): The variable to check
+
+    Returns:
+        True if the variable is a valid boolean, False if not
+    """
     if type(bool_var) != bool or bool_var not in [
         True,
         False,
@@ -101,6 +136,14 @@ def check_config_bool(bool_var, mlog):
 
 
 def check_config_int(int_var, mlog):
+    """Check if a variable is a valid integer above or equal to 0.
+
+    Args:
+        int_var (int): The variable to check
+
+    Returns:
+        True if the variable is a valid integer, False if not
+    """
     if type(int_var) != int or int_var < 0:
         mlog.critical("daemon_interval_min not a valid integer value. Please check the config file.")
         return False
@@ -271,7 +314,7 @@ def setup_ask(default_response, available_responses_list=[], available_responses
 
 
 def main():
-    # cfg = Config()
+    cfg = Config()
     # print(cfg.cfg)
     pass
 
