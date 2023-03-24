@@ -78,7 +78,14 @@ def replace_env_vars(cfg, mlog):
                 env_var_name = value[1:]
                 env_var_value = os.environ.get(env_var_name)
                 if env_var_value is not None:
-                    cfg[key] = env_var_value
+                    if env_var_value.isdigit():
+                        cfg[key] = int(env_var_value)
+                    elif env_var_value.lower() == "true":
+                        cfg[key] = True
+                    elif env_var_value.lower() == "false":
+                        cfg[key] = False
+                    else:
+                        cfg[key] = env_var_value
                 else:
                     mlog.critical("The environment variable '" + value[1:] + "' used in the config '"+key+"' is not set. Export it (or remove the '$' before the value) and try again.")
                     raise ValueError("The environment variable {} is not set.".format(value[1:]))
@@ -204,6 +211,9 @@ def check_config(cfg, mlog, onload=True):
         # setup
 
         if not check_config_int(cfg["setup"]["setup_step"], mlog):
+            return False
+
+        if not check_config_bool(cfg["setup"]["load_enviroment_variables"], mlog):
             return False
 
         # znuny_otrs

@@ -131,3 +131,6 @@ dmypy.json
 .vscode/
 .vscode/launch.json
 .vscode/settings.json
+
+# Swap files
+.swp
