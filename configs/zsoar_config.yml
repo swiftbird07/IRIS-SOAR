@@ -5,8 +5,8 @@ daemon:
 integrations:
   elastic_siem:
     elastic_password: $ZS_INT_ELASTIC_PW
-    elastic_url: https://localhost:9200
-    elastic_user: elastic
+    elastic_url: https://10.20.1.6:9200
+    elastic_user: zsoar
     elastic_verify_certs: false
     enabled: false
     logging:

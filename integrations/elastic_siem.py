@@ -56,7 +56,7 @@ def zs_integration_setup():
 
     set_int(intgr, "elastic_url", "url", "Enter the Elastic-SIEM URL", additional_info="Example: https://elastic-siem.example.com")
 
-    set_int(intgr, "elastic_user", "str", "Enter the Elastic-SIEM username") 
+    set_int(intgr, "elastic_user", "str", "Enter the Elastic-SIEM username", additional_info="Be aware that this user needs at cluster roles: 'monitor', 'read_ccr' and all access to Kibana 'Security'") 
     
     set_int(intgr, "elastic_password", "secret", "Enter the Elastic-SIEM password for the user")
 
