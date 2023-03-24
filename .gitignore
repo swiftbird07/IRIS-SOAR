@@ -127,5 +127,7 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-#VScode
+#Ignore VSCode files
 .vscode/
+.vscode/launch.json
+.vscode/settings.json
