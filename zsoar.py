@@ -229,7 +229,7 @@ def setup(step=0, continue_steps=True):
             "The config file is located at: " + os.path.join(os.getcwd(), "config", "zsoar.cfg.yml")
         )
         print(
-            "You can also continue the setup by running the setup mode again. To start from the beginning, delete the config file."
+            "\nYou can also continue the setup by running the setup mode again. To start from the beginning, delete the config file."
         )
         print("")
         print("Do you want to start the setup now?")
@@ -323,7 +323,7 @@ def setup(step=0, continue_steps=True):
             "If you want to rotate the log files, please enter the maximum size of the log files in KB (0 to disable log file rotation):"
         )
         size = setup_ask(0, available_responses_is_int_goe=0)
-        if type(size) == int and size > 0:
+        if type(size) == int and size >= 0:
             settings["logging"]["log_file_rotate_size"] = size
             settings["setup"]["setup_step"] = 7
             config_helper.save_config(settings)

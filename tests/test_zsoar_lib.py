@@ -236,3 +236,6 @@ def test_class_helper():
     # Test classes - Negative tests
 
     # TODO: Add negative tests
+
+test_config_loading()
+test_config_saving()

@@ -24,6 +24,7 @@ import requests
 from elasticsearch import Elasticsearch, AuthenticationException
 from ssl import create_default_context
 from functools import reduce
+import sys
 
 
 LOG_LEVEL = "DEBUG"  # Force log level. Recommended to set to DEBUG during development.
@@ -31,7 +32,65 @@ LOG_LEVEL = "DEBUG"  # Force log level. Recommended to set to DEBUG during devel
 
 
 def main():
-    pass
+    # Check if argumemnt 'setup' was passed to the script
+    if len(sys.argv) > 1 and sys.argv[1] == "--setup":
+        zs_integration_setup()
+    elif len(sys.argv) > 1:
+        print("Unknown argument: " + sys.argv[1])
+        print("Usage: python3 " + sys.argv[0] + " --setup")
+        sys.exit(1)
+
+
+def zs_integration_setup():
+    # Import here because this is only needed for setup
+    from lib.config_helper import setup_integration as set_int
+    from lib.config_helper import setup_ask
+    import tests.integrations.test_elastic_siem as test_elastic_siem
+    
+    intgr = "elastic_siem"
+
+    print("This script will setup the integration 'Elastic SIEM' for Z-SOAR.")
+    print("Please enter the required information below.")
+    print("")
+    
+
+    set_int(intgr, "elastic_url", "url", "Enter the Elastic-SIEM URL", additional_info="Example: https://elastic-siem.example.com")
+
+    set_int(intgr, "elastic_user", "str", "Enter the Elastic-SIEM username") 
+    
+    set_int(intgr, "elastic_password", "secret", "Enter the Elastic-SIEM password for the user")
+
+    set_int(intgr, "elastic_verify_certs", "y/n", "Verify Elastic-SIEM certificates?", additional_info="If set to 'n', the connection will be insecure, but you can use self-signed certificates.")
+
+    set_int(intgr, "logging", "log_level", "Enter the log level to stdout", sub_config="log_level_stdout")
+
+    set_int(intgr, "logging", "log_level", "Enter the log level to file", sub_config="log_level_file")
+
+    set_int(intgr, "logging", "log_level", "Enter the log level to syslog", sub_config="log_level_syslog")
+
+    print("")
+    print("")
+    print("Do you want to test the integration before enabling it?")
+    test_now = setup_ask("y", available_responses_list=["y", "n"])
+    if test_now == "y":
+        print("Testing the integration...")
+        result = test_elastic_siem.test_zs_provide_new_detections()
+        if result:
+            print("Test successful!")
+        else:
+            print("Test failed!")
+            print("Please check the log file for more information.")
+            print("Please fix the issue and try again.")
+            print("NOTICE: Not enabling the integration because the test failed.")
+            sys.exit(1)
+
+    set_int(intgr, "enabled", "y/n", message="Enable the integration now?")
+
+    print("")
+    print("Setup finished.")
+    print("You can now use the integration in Z-SOAR!")
+
+
 
 
 def init_logging(config):
@@ -327,3 +386,7 @@ def zs_provide_context_for_detections(
                 "zs_provide_context_for_detections() found no context for detection: " + detection_name + " and required_type: " + str(required_type)
             )
     return return_objects
+
+if __name__ == "__main__":
+    # This integration should not be called directly besides running the integration setup!
+    main()
