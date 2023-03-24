@@ -23,6 +23,7 @@ import datetime
 import requests
 from elasticsearch import Elasticsearch
 from ssl import create_default_context
+from functools import reduce
 
 
 LOG_LEVEL = "DEBUG"  # Force log level. Recommended to set to DEBUG during development.
@@ -47,11 +48,100 @@ def init_logging(config):
     log_level_syslog = config["logging"]["log_level_syslog"]
 
     mlog = logging_helper.Log(__name__, log_level_stdout=log_level_stdout, log_level_file=log_level_file)
-    
+
     # Disable elasticsearch warnings (you can remove this if you want to see the warnings)
     es_log = logging.getLogger("elasticsearch")
     es_log.setLevel(logging.ERROR)
     return mlog
+
+
+def deep_get(dictionary, keys, default=None):
+    """Gets a value from a nested dictionary.
+
+    Args:
+        dictionary (dict): The dictionary to get the value from
+        keys (str): The keys to get the value from
+        default (any): The default value to return if the key does not exist
+
+    Returns:
+        any: The value of the key or the default value
+    """
+    return reduce(
+        lambda d, key: d.get(key, default) if isinstance(d, dict) else default,
+        keys.split("."),
+        dictionary,
+    )
+
+
+def acknowledge_alert(mlog, config, alert_id):
+    """Acknowledges an alert in Elastic-SIEM.
+
+    Args:
+        mlog (logging_helper.Log): The logging object
+        config (dict): The configuration dictionary for this integration
+        alert_id (str): The ID of the alert to acknowledge
+
+    Returns:
+        None
+    """
+    mlog.debug("acknowledge_alert() called with alert_id: " + alert_id)
+
+    elastic_host = config["elastic_url"]
+    elastic_user = config["elastic_user"]
+    elastic_pw = config["elastic_password"]
+
+    indices = requests.get(
+        elastic_host + "/_cat/indices/.internal.alerts-security.alerts-default-*?h=idx",
+        auth=(elastic_user, elastic_pw),
+        verify=False,
+    )
+    if indices.status_code != 200:
+        mlog.warning(
+            "Failed to acknowledged alert with id: "
+            + alert_id
+            + " -> Failed to get Kibana security indices. Got status code: "
+            + str(indices.status_code)
+            + " and response: "
+            + indices.text
+        )
+        return False
+
+    mlog.debug("found {} matching indices for acknowleding".format(len(indices.text.splitlines())))
+
+    for index in indices.text.splitlines():
+        mlog.debug("found Kibana security index: " + index)
+
+        headers = {"Accept": "application/json", "Content-Type": "application/json"}
+        request_data = '{"doc": {"kibana.alert.workflow_status": "acknowledged"}}'
+        posturl = elastic_host + "/" + index + "/_update/" + id
+
+        response = requests.post(
+            posturl,
+            data=request_data,
+            headers=headers,
+            auth=(elastic_user, elastic_pw),
+            verify=False,
+        )
+        if response.status_code == 200:
+            mlog.dlog("got 200 response from Kibana.")
+            response = response.json()
+
+            if deep_get(response, "_shards.successful", False):
+                mlog.info("Successfully acknowledged alert with id: " + alert_id)
+                return True
+            else:
+                mlog.debug("couldn't acknowledge alert for index '" + index + "'\n" + response.text + ". Trying next index...")
+        else:
+            mlog.warning(
+                "Failed to acknowledge alert with id: "
+                + alert_id
+                + ". Got status code: "
+                + str(response.status_code)
+                + " and response: "
+                + response.text
+            )
+            return False
+    mlog.warning("Failed to acknowledge alert with id: " + alert_id + " -> Tried all indices ({})".format(len(indices.text.splitlines())))
 
 
 def zs_provide_new_detections(config, TEST=False) -> List[Detection]:
@@ -95,24 +185,20 @@ def zs_provide_new_detections(config, TEST=False) -> List[Detection]:
     requests.packages.urllib3.disable_warnings()
 
     # Dictionary structured like an Elasticsearch query:
-    query_body = {
-        "query": {"bool": {"must": {"match": {"kibana.alert.workflow_status": "open"}}}}
-    }
+    query_body = {"query": {"bool": {"must": {"match": {"kibana.alert.workflow_status": "open"}}}}}
 
     ssl_context = create_default_context()
     ssl_context.check_hostname = elastic_verify_certs
 
     elastic_client = Elasticsearch(
-    hosts=[elastic_url],
-    http_auth=(elastic_user, elastic_password),
-    ssl_context=ssl_context,
-    verify_certs=elastic_verify_certs,
+        hosts=[elastic_url],
+        http_auth=(elastic_user, elastic_password),
+        ssl_context=ssl_context,
+        verify_certs=elastic_verify_certs,
     )
-    
+
     # Call the client's search() method, and have it return results
-    result = elastic_client.search(
-        index=".internal.alerts-security.alerts-default-*", body=query_body, size=999
-    )
+    result = elastic_client.search(index=".internal.alerts-security.alerts-default-*", body=query_body, size=999)
 
     # See how many "hits" it returned using the len() function
     hits = result["hits"]["hits"]
@@ -121,7 +207,7 @@ def zs_provide_new_detections(config, TEST=False) -> List[Detection]:
     if len(hits) == 0:
         mlog.info("No new detections found.")
         return detections
-    
+
     # Iterate the nested dictionaries inside the ["hits"]["hits"] list
     for num, doc in enumerate(hits):
         # print the document ID
@@ -138,16 +224,27 @@ def zs_provide_new_detections(config, TEST=False) -> List[Detection]:
         # Create a new detection object
         rule_list = []
         document_source = doc["_source"]
-        rule_list.append(Rule(doc["_id"], document_source["kibana.alert.rule.name"], document_source["kibana.alert.rule.severity"], description = document_source["kibana.alert.rule.description"], tags=document_source["kibana.alert.rule.tags"], timestamp=document_source["kibana.alert.rule.timestamp"]))
+        rule_list.append(
+            Rule(
+                doc["_id"],
+                document_source["kibana.alert.rule.name"],
+                document_source["kibana.alert.rule.severity"],
+                description=document_source["kibana.alert.rule.description"],
+                tags=document_source["kibana.alert.rule.tags"],
+                timestamp=document_source["kibana.alert.rule.timestamp"],
+            )
+        )
         detection = Detection(doc["_id"], document_source["kibana.alert.rule.name"], rule_list)
         mlog.info("Created detection: " + detection)
         detections.append(detection)
 
-    # TODO: Implement acknowledgement of detections
+    try:
+        acknowledge_alert(mlog, config, detection.id)
+    except Exception as e:
+        mlog.error("Failed to acknowledge alert with id: " + detection.id + ". Error: " + str(e))
 
     # ...
     # ...
-
 
     mlog.info("zs_provide_new_detections() found " + str(len(detections)) + " new detections.")
     mlog.debug("zs_provide_new_detections() found the following new detections: " + str(detections))

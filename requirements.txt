@@ -2,6 +2,9 @@ pyyaml
 logger
 pandas
 psutil
+# for elastic_siem integration
+requests
+elasticsearch
 # For dev:
 mock
 pytest

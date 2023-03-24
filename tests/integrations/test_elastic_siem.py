@@ -3,7 +3,7 @@
 import pytest
 
 from lib.class_helper import Detection, DetectionReport, Rule, Process, LogMessage, NetworkFlow
-from integrations.elastic_siem import zs_provide_new_detections, zs_provide_context_for_detections
+from integrations.elastic_siem import zs_provide_new_detections, zs_provide_context_for_detections, acknowledge_alert
 import lib.logging_helper as logging_helper
 import lib.config_helper as config_helper
 
@@ -58,4 +58,14 @@ def test_zs_provide_context_for_detections():
     mlog.info(events[0])
 
 
-test_zs_provide_context_for_detections()
+def test_acknowledge_alert():
+    # Prepare the config and logger
+    mlog = logging_helper.Log("test_elastic_siem")
+    cfg = config_helper.Config().cfg
+    integration_config = cfg["integrations"]["elastic_siem"]
+
+    # Get a valid alert ID from kibana
+
+    # Test the function
+    result = acknowledge_alert(mlog, integration_config, "123")
+    assert result == True, "acknowledge_alert() did not return True"
