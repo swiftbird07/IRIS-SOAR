@@ -21,7 +21,7 @@ from lib.class_helper import DetectionReport, NetworkFlow, LogMessage, Process
 
 import datetime
 import requests
-from elasticsearch import Elasticsearch
+from elasticsearch import Elasticsearch, AuthenticationException
 from ssl import create_default_context
 from functools import reduce
 
@@ -198,7 +198,14 @@ def zs_provide_new_detections(config, TEST=False) -> List[Detection]:
     )
 
     # Call the client's search() method, and have it return results
-    result = elastic_client.search(index=".internal.alerts-security.alerts-default-*", body=query_body, size=999)
+    try:
+        result = elastic_client.search(index=".internal.alerts-security.alerts-default-*", body=query_body, size=999)
+    except AuthenticationException:
+        mlog.critical("Elasticsearch authentication with user '" + elastic_user + "' failed. Check your config. Aborting.")
+        return detections
+    except ConnectionError as e:
+        mlog.critical("Elasticsearch connection failed with error: " + e + ". Aborting.")
+        return detections
 
     # See how many "hits" it returned using the len() function
     hits = result["hits"]["hits"]

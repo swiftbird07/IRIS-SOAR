@@ -102,7 +102,7 @@ def main(config, fromDaemon=False, debug=False):
 
         # Check if module provides getting new detections
         if not check_module_has_function(module_name, "zs_provide_new_detections", mlog):
-            mlog.debug("The module " + module_name + " does not provide the function zs_provide_new_detections. Skipping.")
+            mlog.debug("The module " + module_name + " does not provide the function zs_provide_new_detections. Skipping Integration.")
             continue
 
         # Make the actual call to the integration
@@ -113,17 +113,27 @@ def main(config, fromDaemon=False, debug=False):
             integration_config = config["integrations"][module_name]
             new_detections = module_import.zs_provide_new_detections(integration_config)
         except Exception as e:
-            mlog.error("The module " + module_name + " failed to provide new detections. Error: " + str(e))
+            mlog.warning(
+                "The module "
+                + module_name
+                + " had an unhandled error when trying to provide new detections. Error: "
+                + str(e)
+                + ". Skipping Integration."
+            )
+            continue
+
+        # Check if the returned type is valid
+        if type(new_detections) is not list:
+            mlog.warning("The module " + module_name + " provided invalid detection(s). Skipping Integration.")
             continue
 
         # Check if the module provided any detections
-        if not new_detections:
+        if not new_detections or len(new_detections) == 0:
             mlog.info("The module " + module_name + " did not provide any detections.")
             continue
         else:
             mlog.info("The module " + module_name + " provided " + str(len(new_detections)) + " new detections.")
 
-        # Check if the detections are valid and add them to the array
         for detection in new_detections:
             if not isinstance(detection, class_helper.Detection):
                 mlog.warning("The module " + module_name + " provided an invalid detection. Skipping.")
