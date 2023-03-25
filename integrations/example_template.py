@@ -53,6 +53,11 @@ def init_logging(config):
     return mlog
 
 
+############################################
+#### zs_provide_new_detections ####
+############################################
+
+
 def zs_provide_new_detections(config, test_return_dummy_data=False) -> List[Detection]:
     """Returns a list of new detections.
 
@@ -87,6 +92,11 @@ def zs_provide_new_detections(config, test_return_dummy_data=False) -> List[Dete
     mlog.info("zs_provide_new_detections() found " + str(len(detections)) + " new detections.")
     mlog.debug("zs_provide_new_detections() found the following new detections: " + str(detections))
     return detections
+
+
+############################################
+#### zs_provide_context_for_detections ####
+############################################
 
 
 def zs_provide_context_for_detections(config, detection_report: DetectionReport, required_type: type, test=False) -> list:

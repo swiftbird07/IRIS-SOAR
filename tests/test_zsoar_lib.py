@@ -323,6 +323,3 @@ def test_class_helper():
     # Test classes - Negative tests
 
     # TODO: Add negative tests
-
-
-test_class_helper()

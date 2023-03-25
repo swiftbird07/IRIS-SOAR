@@ -67,14 +67,19 @@ def test_acknowledge_alert():
     # Get a valid alert ID from kibana
 
     # Test the function
-    result = acknowledge_alert(mlog, integration_config, "123")
+    result = acknowledge_alert(
+        mlog,
+        integration_config,
+        "add1dd52e51cea326ba6fdb35b4c9400a768ad9d2c5ef02d94d852b72c51c1f3",
+        ".internal.alerts-security.alerts-default-000001",
+    )
     assert result == True, "acknowledge_alert() did not return True"
 
 
 # Omline tests
 
 
-def test_new_detections_online():
+def test_online_new_detections():
     # Prepare the config
     cfg = config_helper.Config().cfg
     integration_config = cfg["integrations"]["elastic_siem"]
@@ -85,5 +90,5 @@ def test_new_detections_online():
         assert type(detection) == Detection, "zs_provide_new_detections() found an invalid Detection object in the list"
 
 
-def test_context_for_detections_online():
+def test_online_context_for_detections():
     pass

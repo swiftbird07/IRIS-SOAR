@@ -235,8 +235,8 @@ class Vulnerability:
         cwe: str = None,
         references: List[str] = None,
         exploit_available: bool = None,
-        exploit_frameworks: List[str] = None,
-        exploit_mitigations: List[str] = None,
+        exploit_frameworks: List[str] = [],
+        exploit_mitigations: List[str] = [],
         exploitability_ease: str = None,
         published_at: datetime = None,
         last_modified_at: datetime = None,
@@ -247,8 +247,8 @@ class Vulnerability:
         solution_url: str = None,
         solution_advisory: str = None,
         solution_advisory_url: str = None,
-        services_affected: List = None,  # type is Service for each item
-        services_vulnerable: List = None,  # type is Service for each item
+        services_affected: List = [],  # type is Service for each item
+        services_vulnerable: List = [],  # type is Service for each item
         attack_vector: str = None,
         attack_complexity: str = None,
         privileges_required: str = None,
@@ -397,15 +397,15 @@ class Service:
         name: str,
         vendor: str = None,
         description: str = None,
-        tags: List[str] = None,
+        tags: List[str] = [],
         created_at: datetime = None,
         updated_at: datetime = None,
-        current_vulnerabilities: List[Vulnerability] = None,
-        fixed_vulnerabilities: List[Vulnerability] = None,
+        current_vulnerabilities: List[Vulnerability] = [],
+        fixed_vulnerabilities: List[Vulnerability] = [],
         installed_version: str = None,
         latest_version: str = None,
         outdated: bool = None,
-        ports: List[int] = None,
+        ports: List[int] = [],
         protocol: str = None,
         required_availability: int = None,
         required_confidentiality: int = None,
@@ -414,8 +414,8 @@ class Service:
         impact_score: int = None,
         risk_score: int = None,
         risk_score_vector: str = None,
-        child_services: List = None,  # type is Service for each item
-        parent_services: List = None,  # type is Service for each item
+        child_services: List = [],  # type is Service for each item
+        parent_services: List = [],  # type is Service for each item
     ):
         self.name = name
         self.vendor = vendor
@@ -515,13 +515,13 @@ class Person:
         name: str,
         email: str = None,
         phone: str = None,
-        tags: List[str] = None,
+        tags: List[str] = [],
         created_at: datetime = None,
         updated_at: datetime = None,
         primary_location: Location = None,
-        locations: List[Location] = None,
-        roles: List[str] = None,
-        access_to: List = None,  # type is 'Device' for each entry
+        locations: List[Location] = [],
+        roles: List[str] = [],
+        access_to: List = [],  # type is 'Device' for each entry
     ):
         self.name = name
         self.email = email
@@ -892,10 +892,10 @@ class Detection:
         vendor_id: str,
         name: str,
         rules: List[Rule],
+        timestamp: datetime,
         description: str = None,
         tags: List[str] = None,
         raw: str = None,
-        timestamp: datetime = None,
         source: str = None,
         source_ip: Union[ipaddress.IPv4Address, ipaddress.IPv6Address] = DEFAULT_IP,
         source_port: int = None,
@@ -1955,7 +1955,7 @@ class ContextThreatIntel:
         self.timestamp = timestamp
         self.threat_intel_detections = threat_intel_detections
 
-        if score_hit is not None and score_total is not None:
+        if score_hit is not None and score_total is not None and score_hit_sus is not None and score_hit_mal is not None:
             if score_total < 0:
                 raise ValueError("score_total must be greater or equal to 0 if not None")
             if score_hit < 0:
@@ -2032,6 +2032,8 @@ class ContextThreatIntel:
 
         self.related_detection_uuid = related_detection_uuid
 
+        print(score_hit_sus, score_hit_mal, score_known, score_unknown)
+
     def __dict__(self):
         """Returns the object as a dictionary."""
         dict_ = {
@@ -2052,7 +2054,8 @@ class ContextThreatIntel:
 
     def __str__(self):
         """Returns the string representation of the object."""
-        return json.dumps(del_none_from_dict(self.__dict__()), indent=4, sort_keys=False, default=str)
+        clean_dict = del_none_from_dict(self.__dict__())
+        return json.dumps(clean_dict, indent=4, sort_keys=False, default=str)
 
 
 class DetectionReport:
