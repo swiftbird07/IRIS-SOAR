@@ -213,6 +213,7 @@ class Vulnerability:
         integrity_impact (str): The integrity impact of the vulnerability
         availability_impact (str): The availability impact of the vulnerability
         scope (str): The scope of the vulnerability
+        version (str): The version of the scoring system used for the vulnerability
 
     Methods:
         __init__(self, name: str, description: str = None, tags: List[str] = None, created_at: datetime = None, updated_at: datetime = None, cve: str = None, cvss: float = None, cvss_vector: str = None, cvss3: float = None, cvss3_vector: str = None, cwe: str = None, references: List[str] = None, exploit_available: bool = None, exploit_frameworks: List[str] = None, exploit_mitigations: List[str] = None, exploitability_ease: str = None, published_at: datetime = None, last_modified_at: datetime = None, patched_at: datetime = None, solution: str = None, solution_date: datetime = None, solution_type: str = None, solution_link: str = None, solution_description: str = None, solution_tags: List[str] = None, services_affected: List[Service] = None, services_vulnerable: List[Service] = None, attack_vector: str = None, attack_complexity: str = None, privileges_required: str = None, user_interaction: str = None, confidentiality_impact: str = None, integrity_impact: str = None, availability_impact: str = None, scope: str = None)
@@ -256,6 +257,7 @@ class Vulnerability:
         integrity_impact: str = None,
         availability_impact: str = None,
         scope: str = None,
+        version: str = None,
     ):
         self.description = description
         self.tags = tags
@@ -307,15 +309,15 @@ class Vulnerability:
         self.integrity_impact = integrity_impact
         self.availability_impact = availability_impact
         self.scope = scope
+        self.version = version
 
     def __dict__(self):
         dict_ = {
-            "name": self.name,
+            "cve": self.cve,
             "description": self.description,
             "tags": self.tags,
             "created_at": str(self.created_at),
             "updated_at": str(self.updated_at),
-            "cve": self.cve,
             "cvss": self.cvss,
             "cvss_vector": self.cvss_vector,
             "cvss3": self.cvss3,
@@ -345,6 +347,7 @@ class Vulnerability:
             "integrity_impact": self.integrity_impact,
             "availability_impact": self.availability_impact,
             "scope": self.scope,
+            "version": self.version,
         }
 
         return dict_
@@ -662,7 +665,12 @@ class Device:
         self.name = name
         self.local_ip = cast_to_ipaddress(local_ip)
         self.global_ip = cast_to_ipaddress(global_ip)
-        self.ips = [cast_to_ipaddress(ip) for ip in ips]
+
+        if ips is None:
+            self.ips = []
+        else:
+            self.ips = [cast_to_ipaddress(ip) for ip in ips]
+
         self.mac = mac
         self.vendor = vendor
         self.os = os
@@ -717,7 +725,6 @@ class Device:
         else:
             self.network = None
 
-        network_casted = ipaddress.ip_network(network)
         self.interfaces = interfaces
         self.ports = ports
         self.protocols = protocols
@@ -843,6 +850,8 @@ class Rule:
             "updated_at": str(self.updated_at),
         }
 
+        return dict_
+
     def __str__(self):
         """Returns the string representation of the object."""
         return json.dumps(del_none_from_dict(self.__dict__()), indent=4, sort_keys=False, default=str)
@@ -937,6 +946,8 @@ class Detection:
             "raw": self.raw,
             "rules": self.rules,
         }
+
+        return dict_
 
     def __str__(self):
         """Returns the string representation of the object."""

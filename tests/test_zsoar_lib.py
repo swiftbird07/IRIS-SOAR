@@ -220,22 +220,109 @@ def test_class_helper():
     assert threat_intel_impl_score.score_known == 2, "ContextThreatIntel class score_known not calculated correctly"
     assert threat_intel_impl_score.score_total == 3, "ContextThreatIntel class score_total not calculated correctly"
 
+    location = class_helper.Location(
+        "Germany", "Berlin", -13.0, 52.0, "Europe/Berlin", "AS/295", "Microsoft", "Microsoft Corp.", 85, datetime.datetime.now()
+    )
+    assert location != None, "Location class could not be initialized"
+
+    vulnerability = class_helper.Vulnerability(
+        "CVE-2020-1234",
+        "A very bad vulnerability",
+        "https://example.com/vuln",
+        datetime.datetime.now(),
+        patched_at=datetime.datetime.now(),
+        attack_complexity="Low",
+        attack_vector="Network",
+        availability_impact="High",
+        confidentiality_impact="High",
+        integrity_impact="High",
+        privileges_required="None",
+        scope="Unchanged",
+        user_interaction="None",
+        cvss_vector="CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+        version="3.1",
+        updated_at=datetime.datetime.now(),
+    )
+    assert vulnerability != None, "Vulnerability class could not be initialized"
+    assert vulnerability.cvss_vector == "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H", "Vulnerability class cvss_vector not set correctly"
+    assert vulnerability.version == "3.1", "Vulnerability class cvss_version not set correctly"
+    assert vulnerability.user_interaction == "None", "Vulnerability class user_interaction not set correctly"
+    assert type(vulnerability.updated_at) == datetime.datetime, "Vulnerability class updated_at not set correctly"
+
+    service = class_helper.Service(
+        "Microsoft Exchange",
+        "Microsoft",
+        tags=["Exchange", "Microsoft"],
+        latest_version="2016",
+        ports=[443, 25],
+        protocol="HTTPS",
+        risk_score=12,
+        child_services=[],
+    )
+    assert service != None, "Service class could not be initialized"
+    service.child_services.append(class_helper.Service("SSH", "-", tags=["SSH", "Authentication"], ports=[22], protocol="TCP"))
+    service.child_services.append(class_helper.Service("HTTP", "-", tags=["HTTP", "Web"], ports=[80], protocol="TCP"))
+    assert len(service.child_services) == 2, "Service class child_services not set correctly"
+
+    person = class_helper.Person(
+        "John Doe", "mail@doe.com", "1234567890", tags=["John", "Doe"], access_to=[service], roles=["Admin"], primary_location=location
+    )
+    assert person != None, "Person class could not be initialized"
+    assert len(person.access_to) == 1, "Person class access_to not set correctly"
+    assert len(person.roles) == 1, "Person class roles not set correctly"
+
+    device = class_helper.Device(
+        "MacBook Pro von John Doe",
+        "10.12.2.4",
+        mac="00:00:00:00:00:00",
+        tags=["MacBook", "John", "Doe"],
+        os="macOS",
+        os_version="10.15.7",
+        location=location,
+        services=[service],
+    )
+    assert device != None, "Device class could not be initialized"
+    assert len(device.services) == 1, "Device class services not set correctly"
+    assert device.services[0].name == "Microsoft Exchange", "Device class services not set correctly"
+
     mlog.info("Test for printing objects: ")
+    mlog.info("Rule: ")
     mlog.info(rule)
+    mlog.info("Flow: ")
     mlog.info(flow)
+    mlog.info("HTTP: ")
     mlog.info(http)
+    mlog.info("PROCESS 1: ")
     mlog.info(parent_process)
+    mlog.info("PROCESS 2: ")
     mlog.info(process)
+    mlog.info("FILE: ")
     mlog.info(file)
+    mlog.info("TEST_HIT: ")
     mlog.info(test_hit)
+    mlog.info("TEST_UNKNWON: ")
     mlog.info(test_unknwon)
+    mlog.info("TEST_CLEAN: ")
     mlog.info(test_clean)
+    mlog.info("THREAT INTEL: ")
     mlog.info(threat_intel)
+    mlog.info("THREAT INTEL IMPL SCORE: ")
     mlog.info(threat_intel_impl_score)
+    mlog.info("LOCATION: ")
+    mlog.info(location)
+    mlog.info("VULNERABILITY: ")
+    mlog.info(vulnerability)
+    mlog.info("SERVICE: ")
+    mlog.info(service)
+    mlog.info("PERSON: ")
+    mlog.info(person)
+    mlog.info("DEVICE: ")
+    mlog.info(device)
+    mlog.info("Test for printing objects done.")
 
     # Test classes - Negative tests
 
     # TODO: Add negative tests
 
-test_config_loading()
-test_config_saving()
+
+test_class_helper()
