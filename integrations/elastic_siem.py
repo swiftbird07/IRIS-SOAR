@@ -17,7 +17,7 @@ import logging
 from lib.class_helper import Rule, Detection
 
 # For context for detections (remove unused types):
-from lib.class_helper import DetectionReport, NetworkFlow, LogMessage, Process
+from lib.class_helper import DetectionReport, NetworkFlow, LogMessage, Process, cast_to_ipaddress
 
 import datetime
 import requests
@@ -28,7 +28,7 @@ import sys
 
 
 LOG_LEVEL = "DEBUG"  # Force log level. Recommended to set to DEBUG during development.
-# from elasticsearch import Elasticsearch
+ELASTIC_MAX_RESULTS = 50  # Maximum number of results to return from Elastic-SIEM in one query
 
 
 def main():
@@ -46,21 +46,32 @@ def zs_integration_setup():
     from lib.config_helper import setup_integration as set_int
     from lib.config_helper import setup_ask
     import tests.integrations.test_elastic_siem as test_elastic_siem
-    
+
     intgr = "elastic_siem"
 
     print("This script will setup the integration 'Elastic SIEM' for Z-SOAR.")
     print("Please enter the required information below.")
     print("")
-    
 
     set_int(intgr, "elastic_url", "url", "Enter the Elastic-SIEM URL", additional_info="Example: https://elastic-siem.example.com")
 
-    set_int(intgr, "elastic_user", "str", "Enter the Elastic-SIEM username", additional_info="Be aware that this user needs at cluster roles: 'monitor', 'read_ccr' and all access to Kibana 'Security'") 
-    
+    set_int(
+        intgr,
+        "elastic_user",
+        "str",
+        "Enter the Elastic-SIEM username",
+        additional_info="Be aware that this user needs at cluster roles: 'monitor', 'read_ccr' and all access to Kibana 'Security'",
+    )
+
     set_int(intgr, "elastic_password", "secret", "Enter the Elastic-SIEM password for the user")
 
-    set_int(intgr, "elastic_verify_certs", "y/n", "Verify Elastic-SIEM certificates?", additional_info="If set to 'n', the connection will be insecure, but you can use self-signed certificates.")
+    set_int(
+        intgr,
+        "elastic_verify_certs",
+        "y/n",
+        "Verify Elastic-SIEM certificates?",
+        additional_info="If set to 'n', the connection will be insecure, but you can use self-signed certificates.",
+    )
 
     set_int(intgr, "logging", "log_level", "Enter the log level to stdout", sub_config="log_level_stdout")
 
@@ -89,8 +100,6 @@ def zs_integration_setup():
     print("")
     print("Setup finished.")
     print("You can now use the integration in Z-SOAR!")
-
-
 
 
 def init_logging(config):
@@ -203,7 +212,7 @@ def acknowledge_alert(mlog, config, alert_id):
     mlog.warning("Failed to acknowledge alert with id: " + alert_id + " -> Tried all indices ({})".format(len(indices.text.splitlines())))
 
 
-def zs_provide_new_detections(config, TEST=False) -> List[Detection]:
+def zs_provide_new_detections(config, TEST="") -> List[Detection]:
     """Returns a list of new detections.
 
     Args:
@@ -217,9 +226,10 @@ def zs_provide_new_detections(config, TEST=False) -> List[Detection]:
     mlog.info("zs_provide_new_detections() called.")
 
     detections = []
+    global ELASTIC_MAX_RESULTS
 
-    if TEST:  # When called from unit tests, return dummy data. Can be removed in production.
-        mlog.info("Running in test mode. Returning dummy data.")
+    if TEST == "OFFLINE":  # When called from offline tests, return dummy data. Can be removed in production.
+        mlog.info("Running in offline-test mode. Returning dummy data.")
         rule = Rule("123", "Some Rule", 0)
         ruleList = []
         ruleList.append(rule)
@@ -228,7 +238,10 @@ def zs_provide_new_detections(config, TEST=False) -> List[Detection]:
         detection2 = Detection("789", "Some Detection", ruleList)
         detections.append(detection2)
 
+        return detections
+
     # ...
+    # Begin main logik
     # ...
     detections = List[Detection]
 
@@ -238,7 +251,7 @@ def zs_provide_new_detections(config, TEST=False) -> List[Detection]:
         elastic_password = config["elastic_password"]
         elastic_verify_certs = config["elastic_verify_certs"]
     except KeyError as e:
-        mlog.error("Missing config parameters: " + e)
+        mlog.critical("Missing config parameters: " + e)
         return detections
 
     requests.packages.urllib3.disable_warnings()
@@ -246,6 +259,13 @@ def zs_provide_new_detections(config, TEST=False) -> List[Detection]:
     # Dictionary structured like an Elasticsearch query:
     query_body = {"query": {"bool": {"must": {"match": {"kibana.alert.workflow_status": "open"}}}}}
 
+    # When called from online tests, search for acknowledged alerts instead, to guarentee results and not interfere with the real system.
+    if TEST == "ONLINE":
+        mlog.debug("Running in online-test mode. Searching for acknowledged alerts.")
+        query_body = {"query": {"bool": {"must": {"match": {"kibana.alert.workflow_status": "acknowledged"}}}}}
+        ELASTIC_MAX_RESULTS = 2  # Limit the number of results to 2, to make testing faster
+
+    # Create an Elasticsearch client
     ssl_context = create_default_context()
     ssl_context.check_hostname = elastic_verify_certs
 
@@ -258,7 +278,7 @@ def zs_provide_new_detections(config, TEST=False) -> List[Detection]:
 
     # Call the client's search() method, and have it return results
     try:
-        result = elastic_client.search(index=".internal.alerts-security.alerts-default-*", body=query_body, size=999)
+        result = elastic_client.search(index=".internal.alerts-security.alerts-default-*", body=query_body, size=ELASTIC_MAX_RESULTS)
     except AuthenticationException:
         mlog.critical("Elasticsearch authentication with user '" + elastic_user + "' failed. Check your config. Aborting.")
         return detections
@@ -277,30 +297,49 @@ def zs_provide_new_detections(config, TEST=False) -> List[Detection]:
     # Iterate the nested dictionaries inside the ["hits"]["hits"] list
     for num, doc in enumerate(hits):
         # print the document ID
-        mlog.info("Document ID: {}".format(doc["_id"]))
+        mlog.debug("Document ID: {}".format(doc["_id"]))
         # print the document source
-        mlog.info("Document source: {}".format(document_source))
+        mlog.debug("Document source: {}".format(doc["_source"]))
         # print the document score
-        mlog.info("Document score: {}".format(doc["_score"]))
+        mlog.debug("Document score: {}".format(doc["_score"]))
         # print the document index
-        mlog.info("Document index: {}".format(doc["_index"]))
-        # print the document type
-        mlog.info("Document type: {}".format(doc["_type"]))
+        mlog.debug("Document index: {}".format(doc["_index"]))
 
         # Create a new detection object
         rule_list = []
         document_source = doc["_source"]
         rule_list.append(
             Rule(
-                doc["_id"],
+                document_source["kibana.alert.rule.uuid"],
                 document_source["kibana.alert.rule.name"],
                 document_source["kibana.alert.rule.severity"],
                 description=document_source["kibana.alert.rule.description"],
                 tags=document_source["kibana.alert.rule.tags"],
-                timestamp=document_source["kibana.alert.rule.timestamp"],
+                timestamp=document_source["@timestamp"],
             )
         )
-        detection = Detection(doc["_id"], document_source["kibana.alert.rule.name"], rule_list)
+
+        # Get the most relevant IP address of the host
+        host_ip = None
+        for ip in doc["host"]["ip"]:
+            ip_casted = cast_to_ipaddress(ip)
+            if ip_casted is not None and ip_casted.is_private:
+                if ip.startswith("10."):
+                    host_ip = ip_casted
+                    break
+                elif ip.startswith("192.168."):
+                    host_ip = ip_casted
+
+        detection = Detection(
+            doc["_id"],
+            document_source["kibana.alert.rule.name"],
+            rule_list,
+            description=document_source["kibana.alert.rule.description"],
+            tags=document_source["kibana.alert.rule.tags"],
+            timestamp=document_source["@timestamp"],
+            source=doc["host"]["hostname"],
+            source_ip=host_ip,
+        )
         mlog.info("Created detection: " + detection)
         detections.append(detection)
 
@@ -386,6 +425,7 @@ def zs_provide_context_for_detections(
                 "zs_provide_context_for_detections() found no context for detection: " + detection_name + " and required_type: " + str(required_type)
             )
     return return_objects
+
 
 if __name__ == "__main__":
     # This integration should not be called directly besides running the integration setup!

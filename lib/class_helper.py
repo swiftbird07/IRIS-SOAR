@@ -16,7 +16,7 @@ import lib.logging_helper as logging_helper
 
 DEFAULT_IP = ipaddress.ip_address("127.0.0.1")  # When no IP address is provided, this is used
 
-# TODO: Implement all classes and functions used by zsoar_worker.py and its modules
+# TODO: Implement all functions used by zsoar_worker.py and its modules
 
 
 def cast_to_ipaddress(ip) -> Union[ipaddress.IPv4Address, ipaddress.IPv6Address]:
@@ -44,6 +44,12 @@ def del_none_from_dict(d):
     Delete keys with the value ``None`` in a dictionary, recursively.
 
     This alters the input so you may wish to ``copy`` the dict first.
+
+    Args:
+        d (dict): The dictionary to remove the keys from
+
+    Returns:
+        dict: The cleaned dictionary
     """
     # For Python 3, write `list(d.items())`; `d.items()` won’t work
     # For Python 2, write `d.items()`; `d.iteritems()` won’t work
@@ -63,6 +69,718 @@ def del_none_from_dict(d):
         elif isinstance(value, dict):
             del_none_from_dict(value)
     return d  # For convenience
+
+
+def handle_percentage(percentage):
+    """Handles a percentage value.
+
+    Args:
+        percentage (int): The percentage value
+
+    Returns:
+        int: The percentage value
+
+    Raises:
+        TypeError: If the percentage value is not an integer
+        ValueError: If the percentage value is higher than 100 or lower than 0
+    """
+    if percentage is None:
+        return None
+    if type(percentage) != int:
+        raise TypeError("Percentage value must be an integer")
+    if percentage > 100:
+        raise ValueError("Percentage value cannot be higher than 100")
+    if percentage < 0:
+        raise ValueError("Percentage value cannot be lower than 0")
+    return percentage
+
+
+class Location:
+    """Location class. This class is used for storing location information.
+
+    Attributes:
+        country (str): The country of the location
+        city (str): The city of the location
+        latitude (float): The latitude of the location
+        longitude (float): The longitude of the location
+        timezone (str): The timezone of the location
+        asn (int): The ASN of the location
+        asn_corperation (str): The ASN corperation of the location
+        org (str): The organization of the location
+        certainty (int): The certainty of the location. This has to be a percentage value between 0 and 100 (inclusive)
+        last_updated (datetime): The date and time when the location was last updated
+
+    Methods:
+        __dict__(self): Returns the dictionary representation of the Location object.
+        __str__(self): Returns the string representation of the Location object.
+    """
+
+    def __init__(
+        self,
+        country: str = None,
+        city: str = None,
+        latitude: float = None,
+        longitude: float = None,
+        timezone: str = None,
+        asn: int = None,
+        asn_corperation: str = None,
+        org: str = None,
+        certainty: int = None,
+        last_updated: datetime = None,
+    ):
+        # Check that at least one of the parameters is not None
+        if (
+            country is None
+            and city is None
+            and latitude is None
+            and longitude is None
+            and timezone is None
+            and asn is None
+            and asn_corperation is None
+            and org is None
+        ):
+            raise ValueError("At least one parameter must be set")
+
+        self.country = country
+        self.city = city
+        self.latitude = latitude
+        self.longitude = longitude
+        self.timezone = timezone
+        self.asn = asn
+        self.asn_corperation = asn_corperation
+        self.org = org
+
+        self.certainty = handle_percentage(certainty)
+        self.last_updated = last_updated
+
+    def __dict__(self):
+        """Returns the dictionary representation of the Location object."""
+        dict_ = {
+            "country": self.country,
+            "city": self.city,
+            "latitude": self.latitude,
+            "longitude": self.longitude,
+            "timezone": self.timezone,
+            "asn": self.asn,
+            "asn_corperation": self.asn_corperation,
+            "org": self.org,
+            "certainty": self.certainty,
+            "last_updated": str(self.last_updated),
+        }
+
+        return dict_
+
+    def __str__(self):
+        """Returns the string representation of the Vulnerability object."""
+        return json.dumps(del_none_from_dict(self.__dict__()), indent=4, sort_keys=False, default=str)
+
+
+class Vulnerability:
+    """Vulnerability class. This class is used for storing vulnerability information.
+
+    Attributes:
+        cve (str): The CVE ID of the vulnerability
+        description (str): The description of the vulnerability
+        tags (List[str]): A list of tags for the vulnerability
+        created_at (datetime): The date and time when the vulnerability was created
+        updated_at (datetime): The date and time when the vulnerability was last updated
+        cvss (float): The CVSS score of the vulnerability
+        cvss_vector (str): The CVSS vector of the vulnerability
+        cvss3 (float): The CVSS3 score of the vulnerability
+        cvss3_vector (str): The CVSS3 vector of the vulnerability
+        cwe (str): The CWE ID of the vulnerability
+        references (List[str]): A list of references for the vulnerability
+        exploit_available (bool): Whether an exploit is available for the vulnerability
+        exploit_frameworks (List[str]): A list of exploit frameworks for the vulnerability
+        exploit_mitigations (List[str]): A list of exploit mitigations for the vulnerability
+        exploitability_ease (str): The exploitability ease of the vulnerability
+        published_at (datetime): The date and time when the vulnerability was published
+        last_modified_at (datetime): The date and time when the vulnerability was last modified
+        patched_at (datetime): The date and time when the vulnerability was patched
+        solution (str): The solution for the vulnerability
+        solution_date (datetime): The date and time when the solution was published
+        solution_type (str): The type of the solution
+        solution_link (str): The link to the solution
+        solution_description (str): The description of the solution
+        solution_tags (List[str]): A list of tags for the solution
+        services_affected (List[Service]): A list of services affected by the vulnerability
+        services_vulnerable (List[Service]): A list of services vulnerable to the vulnerability
+        attack_vector (str): The attack vector of the vulnerability
+        attack_complexity (str): The attack complexity of the vulnerability
+        privileges_required (str): The privileges required for the vulnerability
+        user_interaction (str): Whether user interaction is required for the vulnerability
+        confidentiality_impact (str): The confidentiality impact of the vulnerability
+        integrity_impact (str): The integrity impact of the vulnerability
+        availability_impact (str): The availability impact of the vulnerability
+        scope (str): The scope of the vulnerability
+
+    Methods:
+        __init__(self, name: str, description: str = None, tags: List[str] = None, created_at: datetime = None, updated_at: datetime = None, cve: str = None, cvss: float = None, cvss_vector: str = None, cvss3: float = None, cvss3_vector: str = None, cwe: str = None, references: List[str] = None, exploit_available: bool = None, exploit_frameworks: List[str] = None, exploit_mitigations: List[str] = None, exploitability_ease: str = None, published_at: datetime = None, last_modified_at: datetime = None, patched_at: datetime = None, solution: str = None, solution_date: datetime = None, solution_type: str = None, solution_link: str = None, solution_description: str = None, solution_tags: List[str] = None, services_affected: List[Service] = None, services_vulnerable: List[Service] = None, attack_vector: str = None, attack_complexity: str = None, privileges_required: str = None, user_interaction: str = None, confidentiality_impact: str = None, integrity_impact: str = None, availability_impact: str = None, scope: str = None)
+        __dict__(self)
+        __str__(self)
+    """
+
+    def __init__(
+        self,
+        cve: str,
+        description: str = None,
+        tags: List[str] = None,
+        created_at: datetime = None,
+        updated_at: datetime = None,
+        cvss: float = None,
+        cvss_vector: str = None,
+        cvss3: float = None,
+        cvss3_vector: str = None,
+        cwe: str = None,
+        references: List[str] = None,
+        exploit_available: bool = None,
+        exploit_frameworks: List[str] = None,
+        exploit_mitigations: List[str] = None,
+        exploitability_ease: str = None,
+        published_at: datetime = None,
+        last_modified_at: datetime = None,
+        patched_at: datetime = None,
+        solution: str = None,
+        solution_date: datetime = None,
+        solution_type: str = None,
+        solution_url: str = None,
+        solution_advisory: str = None,
+        solution_advisory_url: str = None,
+        services_affected: List = None,  # type is Service for each item
+        services_vulnerable: List = None,  # type is Service for each item
+        attack_vector: str = None,
+        attack_complexity: str = None,
+        privileges_required: str = None,
+        user_interaction: str = None,
+        confidentiality_impact: str = None,
+        integrity_impact: str = None,
+        availability_impact: str = None,
+        scope: str = None,
+    ):
+        self.description = description
+        self.tags = tags
+        self.created_at = created_at
+        self.updated_at = updated_at
+        self.cve = cve
+        self.cvss = cvss
+        self.cvss_vector = cvss_vector
+        self.cvss3 = cvss3
+        self.cvss3_vector = cvss3_vector
+        self.cwe = cwe
+        self.references = references
+        self.exploit_available = exploit_available
+        self.exploit_frameworks = exploit_frameworks
+        self.exploit_mitigations = exploit_mitigations
+        self.exploitability_ease = exploitability_ease
+        self.published_at = published_at
+        self.last_modified_at = last_modified_at
+        self.patched_at = patched_at
+        self.solution = solution
+        self.solution_date = solution_date
+        self.solution_type = solution_type
+        self.solution_url = solution_url
+        self.solution_advisory = solution_advisory
+        self.solution_advisory_url = solution_advisory_url
+        self.services_affected = services_affected
+
+        if services_vulnerable is None:
+            self.services_vulnerable = services_affected
+        else:
+            for service in services_vulnerable:
+                if not isinstance(service, Service):
+                    raise TypeError("services_vulnerable must be a subset of services_affected")
+            self.services_vulnerable = services_vulnerable
+
+        if services_affected is None:
+            self.services_affected = services_vulnerable
+        else:
+            for service in services_affected:
+                if not isinstance(service, Service):
+                    raise TypeError("services_affected must be a subset of services_vulnerable")
+            self.services_affected = services_affected
+
+        self.attack_vector = attack_vector
+        self.attack_complexity = attack_complexity
+        self.privileges_required = privileges_required
+        self.user_interaction = user_interaction
+        self.confidentiality_impact = confidentiality_impact
+        self.integrity_impact = integrity_impact
+        self.availability_impact = availability_impact
+        self.scope = scope
+
+    def __dict__(self):
+        dict_ = {
+            "name": self.name,
+            "description": self.description,
+            "tags": self.tags,
+            "created_at": str(self.created_at),
+            "updated_at": str(self.updated_at),
+            "cve": self.cve,
+            "cvss": self.cvss,
+            "cvss_vector": self.cvss_vector,
+            "cvss3": self.cvss3,
+            "cvss3_vector": self.cvss3_vector,
+            "cwe": self.cwe,
+            "references": self.references,
+            "exploit_available": self.exploit_available,
+            "exploit_frameworks": self.exploit_frameworks,
+            "exploit_mitigations": self.exploit_mitigations,
+            "exploitability_ease": self.exploitability_ease,
+            "published_at": str(self.published_at),
+            "last_modified_at": str(self.last_modified_at),
+            "patched_at": str(self.patched_at),
+            "solution": self.solution,
+            "solution_date": str(self.solution_date),
+            "solution_type": self.solution_type,
+            "solution_url": self.solution_url,
+            "solution_advisory": self.solution_advisory,
+            "solution_advisory_url": self.solution_advisory_url,
+            "services_affected": [str(service) for service in self.services_affected],
+            "services_vulnerable": [str(service) for service in self.services_vulnerable],
+            "attack_vector": self.attack_vector,
+            "attack_complexity": self.attack_complexity,
+            "privileges_required": self.privileges_required,
+            "user_interaction": self.user_interaction,
+            "confidentiality_impact": self.confidentiality_impact,
+            "integrity_impact": self.integrity_impact,
+            "availability_impact": self.availability_impact,
+            "scope": self.scope,
+        }
+
+        return dict_
+
+    def __str__(self):
+        """Returns the string representation of the Vulnerability object."""
+        return json.dumps(del_none_from_dict(self.__dict__()), indent=4, sort_keys=False, default=str)
+
+
+class Service:
+    """Service class. This class is used for storing service information.
+
+    Attributes:
+        name (str): The name of the service
+        vendor (str, optional): The vendor of the service. Defaults to None.
+        description (str, optional): The description of the service. Defaults to None.
+        tags (List[str], optional): A list of tags for the service. Defaults to None.
+        created_at (datetime, optional): The date and time when the service was created. Defaults to None.
+        updated_at (datetime, optional): The date and time when the service was last updated. Defaults to None.
+        current_vulnerabilities (List[Vulnerability], optional): A list of current vulnerabilities. Defaults to None.
+        fixed_vulnerabilities (List[Vulnerability], optional): A list of fixed vulnerabilities. Defaults to None.
+        installed_version (str, optional): The installed version of the service. Defaults to None.
+        latest_version (str, optional): The latest version of the service. Defaults to None.
+        outdated (bool, optional): Whether the service is outdated. Defaults to None.
+        ports (List[int], optional): A list of ports the service is running on. Defaults to None.
+        protocol (str, optional): The protocol the service is using. Defaults to None.
+        required_availability (int, optional): The required availability of the service. Defaults to None.
+        required_confidentiality (int, optional): The required confidentiality of the service. Defaults to None.
+        required_integrity (int, optional): The required integrity of the service. Defaults to None.
+        colleteral_damage_potential (int, optional): The potential damage of the service. Defaults to None.
+        impact_score (int, optional): The impact score of the service. Defaults to None.
+        risk_score (int, optional): The risk score of the service. Defaults to None.
+        risk_score_vector (str, optional): The risk score vector of the service. Defaults to None.
+        child_services (List[Service], optional): A list of child services. Defaults to None.
+        parent_services (List[Service], optional): A list of parent services. Defaults to None.
+
+        Be aware that every 'int' attribute has to be a percentage value between 0 and 100 (inclusive).
+
+    Methods:
+        __init__(): Initializes the Service class
+        __dict__(): Converts the Service class to a dictionary
+        __str__(): Converts the Service class to a string
+    """
+
+    def __init__(
+        self,
+        name: str,
+        vendor: str = None,
+        description: str = None,
+        tags: List[str] = None,
+        created_at: datetime = None,
+        updated_at: datetime = None,
+        current_vulnerabilities: List[Vulnerability] = None,
+        fixed_vulnerabilities: List[Vulnerability] = None,
+        installed_version: str = None,
+        latest_version: str = None,
+        outdated: bool = None,
+        ports: List[int] = None,
+        protocol: str = None,
+        required_availability: int = None,
+        required_confidentiality: int = None,
+        required_integrity: int = None,
+        colleteral_damage_potential: int = None,
+        impact_score: int = None,
+        risk_score: int = None,
+        risk_score_vector: str = None,
+        child_services: List = None,  # type is Service for each item
+        parent_services: List = None,  # type is Service for each item
+    ):
+        self.name = name
+        self.vendor = vendor
+        self.description = description
+        self.tags = tags
+        self.created_at = created_at
+        self.updated_at = updated_at
+        self.current_vulnerabilities = current_vulnerabilities
+        self.fixed_vulnerabilities = fixed_vulnerabilities
+        self.installed_version = installed_version
+        self.latest_version = latest_version
+        self.outdated = outdated
+        self.ports = ports
+        self.protocol = protocol
+        self.required_availability = handle_percentage(required_availability)
+        self.required_confidentiality = handle_percentage(required_confidentiality)
+        self.required_integrity = handle_percentage(required_integrity)
+        self.colleteral_damage_potential = handle_percentage(colleteral_damage_potential)
+        self.impact_score = handle_percentage(impact_score)
+        self.risk_score = handle_percentage(risk_score)
+        self.risk_score_vector = risk_score_vector
+
+        if child_services is None:
+            self.child_services = []
+        else:
+            for service in child_services:
+                if not isinstance(service, Service):
+                    raise TypeError("Child services must be of type Service")
+            self.child_services = child_services
+
+        if parent_services is None:
+            self.parent_services = []
+        else:
+            for service in parent_services:
+                if not isinstance(service, Service):
+                    raise TypeError("Parent services must be of type Service")
+            self.parent_services = parent_services
+
+    def __dict__(self):
+        """Converts the Service class to a dictionary."""
+
+        dict_ = {
+            "name": self.name,
+            "vendor": self.vendor,
+            "description": self.description,
+            "tags": self.tags,
+            "created_at": str(self.created_at),
+            "updated_at": str(self.updated_at),
+            "current_vulnerabilities": [str(vuln) for vuln in self.current_vulnerabilities],
+            "fixed_vulnerabilities": [str(vuln) for vuln in self.fixed_vulnerabilities],
+            "installed_version": self.installed_version,
+            "latest_version": self.latest_version,
+            "outdated": self.outdated,
+            "ports": self.ports,
+            "protocol": self.protocol,
+            "required_availability": str(self.required_availability),
+            "required_confidentiality": str(self.required_confidentiality),
+            "required_integrity": str(self.required_integrity),
+            "colleteral_damage_potential": str(self.colleteral_damage_potential),
+            "impact_score": str(self.impact_score),
+            "risk_score": str(self.risk_score),
+            "risk_score_vector": self.risk_score_vector,
+            "child_services": [str(service) for service in self.child_services],
+            "parent_services": [str(service) for service in self.parent_services],
+        }
+
+        return dict_
+
+    def __str__(self) -> str:
+        """Returns the Person class as a string."""
+        return json.dumps(del_none_from_dict(self.__dict__()), indent=4, sort_keys=False, default=str)
+
+
+class Person:
+    """Person class. This class is used for storing person information.
+
+    Attributes:
+        name (str): The name of the person
+        email (str): The email address of the person
+        phone (str): The phone number of the person
+        tags (List[str]): A list of tags assigned to the person
+        created_at (datetime): The date and time when the person was created
+        updated_at (datetime): The date and time when the person was last updated
+        primary_location (Location): The primary location of the person
+        locations (List[Location]): A list of locations of the person
+        roles (List[str]): A list of roles assigned to the person
+        access_to (List[Device]): A list of devices the person has access to
+
+    Methods:
+        __init__(): Initializes the Person class
+        __dict__(): Converts the Person class to a dictionary
+        __str__(): Converts the Person class to a string
+    """
+
+    def __init__(
+        self,
+        name: str,
+        email: str = None,
+        phone: str = None,
+        tags: List[str] = None,
+        created_at: datetime = None,
+        updated_at: datetime = None,
+        primary_location: Location = None,
+        locations: List[Location] = None,
+        roles: List[str] = None,
+        access_to: List = None,  # type is 'Device' for each entry
+    ):
+        self.name = name
+        self.email = email
+        self.phone = phone
+        self.tags = tags
+        self.created_at = created_at
+        self.updated_at = updated_at
+        self.primary_location = primary_location
+        self.locations = locations
+        self.roles = roles
+        self.access_to = access_to
+
+    def __dict__(self):
+        """Converts the Person class to a dictionary.
+
+        Returns:
+            dict: The dictionary representation of the Person class
+        """
+        return {
+            "name": self.name,
+            "email": self.email,
+            "phone": self.phone,
+            "tags": self.tags,
+            "created_at": str(self.created_at),
+            "updated_at": str(self.updated_at),
+            "primary_location": str(self.primary_location),
+            "locations": [str(location) for location in self.locations],
+            "roles": self.roles,
+            "access_to": [str(device) for device in self.access_to],
+        }
+
+    def __str__(self) -> str:
+        """Returns the Person class as a string."""
+        return json.dumps(del_none_from_dict(self.__dict__()), indent=4, sort_keys=False, default=str)
+
+
+class Device:
+    """Device class. This class is used for storing device information.
+
+    Attributes:
+        name (str): The name of the device
+        local_ip (Union[ipaddress.IPv4Address, ipaddress.IPv6Address]): The local IP address of the device
+        global_ip (Union[ipaddress.IPv4Address, ipaddress.IPv6Address]): The global IP address of the device
+        ips (List[Union[ipaddress.IPv4Address, ipaddress.IPv6Address]]): A list of all IP addresses of the device
+        mac (str): The MAC address of the device
+        vendor (str): The vendor of the device
+        os (str): The operating system of the device
+        os_version (str): The version of the operating system of the device
+        os_family (str): The family of the operating system of the device
+        os_last_update (datetime): The last update of the operating system of the device
+        in_scope (bool): Whether the device is in scope or not
+        tags (List[str]): A list of tags assigned to the device
+        created_at (datetime): The date and time when the device was created
+        updated_at (datetime): The date and time when the device was last updated
+        in_use (bool): Whether the device is in use or not
+        type (str): The type of the device
+        owner (Person): The owner of the device
+        uuid (uuid.UUID): The UUID of the device
+        aliases (List[str]): A list of aliases of the device
+        description (str): The description of the device
+        location (Location): The location of the device
+        notes (str): The notes of the device
+        last_seen (datetime): The date and time when the device was last seen
+        first_seen (datetime): The date and time when the device was first seen
+        last_scan (datetime): The date and time when the device was last scanned
+        last_update (datetime): The date and time when the device was last updated
+        user (List[Person]): A list of users of the device
+        group (str): The group of the device
+        auth_types (List[str]): A list of authentication types of the device
+        auth_stored_in (List[str]): A list of authentication storages of the device
+        stored_credentials (List[str]): A list of stored credentials of the device
+        should_state (str): The state the device should be in
+        is_state (str): The state the device is in
+        is_state_reason (str): The reason why the device is in the state it is in
+        hypervisor (Device): The hypervisor of the device
+        virtualization_type (str): The virtualization type of the device
+        virtual_locations (List[str]): A list of virtual locations of the device
+        services (List[Service]): A list of services of the device
+        vulnerabilities (List[Vulnerability]): A list of vulnerabilities of the device
+        domains (List[str]): A list of domains of the device
+        network (Union[ipaddress.IPv4Network, ipaddress.IPv6Network]): The network of the device
+        interfaces (List[str]): A list of interfaces of the device
+        ports (List[int]): A list of ports of the device
+        protocols (List[str]): A list of protocols of the device
+
+    Methods:
+        __init__(self, name: str, local_ip: Union[ipaddress.IPv4Address, ipaddress.IPv6Address] = DEFAULT_IP, global_ip: Union[ipaddress.IPv4Address, ipaddress.IPv6Address] = DEFAULT_IP, ips: List[Union[ipaddress.IPv4Address, ipaddress.IPv6Address]] = [], mac: str = None, vendor: str = None, os: str = None, os_version: str = None, os_family: str = None, os_last_update: datetime = None, in_scope: bool = True, tags: List[str] = None, created_at: datetime = None, updated_at: datetime = None, in_use: bool = True, type: str = None, owner: Person = None, uuid: uuid.UUID = None, aliases: List[str] = None, description: str = None, location: Location = None, notes: str = None, last_seen: datetime = None, first_seen: datetime = None, last_scan: datetime = None, last_update: datetime = None, user: List[Person] = None, group: str = None, auth_types: List[str] = None, auth_stored_in: List[str] = None, stored_credentials: List[str] = None, should_state: str = None, is_state: str = None, is_state_reason: str = None, hypervisor: Device = None, virtualization_type: str = None, virtual_locations: List[str] = None, services: List[Service] = None, vulnerabilities: List[Vulnerability] = None, domains: List[str] = None, network: Union[ipaddress.IPv4Network, ipaddress.IPv6Network] = None, interfaces: List[str] = None, ports: List[int] = None, protocols: List[str] = None)
+        __str__(self)
+        __dict__(self)
+    """
+
+    def __init__(
+        self,
+        name: str,
+        local_ip: Union[ipaddress.IPv4Address, ipaddress.IPv6Address] = DEFAULT_IP,
+        global_ip: Union[ipaddress.IPv4Address, ipaddress.IPv6Address] = DEFAULT_IP,
+        ips: List[Union[ipaddress.IPv4Address, ipaddress.IPv6Address]] = [],
+        mac: str = None,
+        vendor: str = None,
+        os: str = None,
+        os_version: str = None,
+        os_family: str = None,
+        os_last_update: datetime = None,
+        in_scope: bool = True,
+        tags: List[str] = None,
+        created_at: datetime = None,
+        updated_at: datetime = None,
+        in_use: bool = True,
+        type: str = None,
+        owner: Person = None,
+        uuid: uuid.UUID = None,
+        aliases: List[str] = None,
+        description: str = None,
+        location: Location = None,
+        notes: str = None,
+        last_seen: datetime = None,
+        first_seen: datetime = None,
+        last_scan: datetime = None,
+        last_update: datetime = None,
+        user: List[Person] = [],
+        group: str = None,
+        auth_types: List[str] = None,
+        auth_stored_in: List[str] = None,
+        stored_credentials: List[str] = None,
+        should_state: str = None,
+        is_state: str = None,
+        is_state_reason: str = None,
+        hypervisor=None,  # can't state that here, but type has to be 'Device'
+        virtualization_type: str = None,
+        virtual_locations: List[str] = [],
+        services: List[Service] = [],
+        vulnerabilities: List[Vulnerability] = [],
+        domains: List[str] = [],
+        network: Union[ipaddress.IPv4Network, ipaddress.IPv6Network] = None,
+        interfaces: List[str] = [],
+        ports: List[int] = [],
+        protocols: List[str] = [],
+    ):
+        mlog = logging_helper.Log("lib.class_helper")
+
+        self.name = name
+        self.local_ip = cast_to_ipaddress(local_ip)
+        self.global_ip = cast_to_ipaddress(global_ip)
+        self.ips = [cast_to_ipaddress(ip) for ip in ips]
+        self.mac = mac
+        self.vendor = vendor
+        self.os = os
+        self.os_version = os_version
+        self.os_family = os_family
+        self.os_last_update = os_last_update
+        self.in_scope = in_scope
+        self.tags = tags
+        self.created_at = created_at
+        self.updated_at = updated_at
+        self.in_use = in_use
+        self.type = type
+        self.owner = owner
+        self.uuid = uuid
+        self.aliases = aliases
+        self.description = description
+        self.location = location
+        self.notes = notes
+        self.last_seen = last_seen
+        self.first_seen = first_seen
+        self.last_scan = last_scan
+        self.last_update = last_update
+        self.user = user
+        self.group = group
+        self.auth_types = auth_types
+        self.auth_stored_in = auth_stored_in
+        self.stored_credentials = stored_credentials
+        self.should_state = should_state
+        self.is_state = is_state
+        self.is_state_reason = is_state_reason
+
+        if hypervisor is not None:
+            if type(hypervisor) == Device:
+                self.hypervisor = hypervisor
+            else:
+                mlog.error("hypervisor has to be of type 'Device'")
+                raise TypeError("hypervisor has to be of type 'Device'")
+        else:
+            self.hypervisor = None
+
+        self.virtualization_type = virtualization_type
+        self.virtual_locations = virtual_locations
+        self.services = services
+        self.vulnerabilities = vulnerabilities
+        self.domains = domains
+
+        if network is not None:
+            if type(network) == ipaddress.IPv4Network or type(network) == ipaddress.IPv6Network:
+                self.network = network
+            else:
+                self.network = ipaddress.ip_network(network)
+        else:
+            self.network = None
+
+        network_casted = ipaddress.ip_network(network)
+        self.interfaces = interfaces
+        self.ports = ports
+        self.protocols = protocols
+
+        if self.local_ip == DEFAULT_IP and self.global_ip == DEFAULT_IP:
+            mlog.error("No IP address was specified")
+            raise ValueError("No IP address was specified")
+
+    def __dict__(self):
+        """Returns the object as a dict."""
+
+        dict_ = {
+            "name": self.name,
+            "local_ip": str(self.local_ip),
+            "global_ip": str(self.global_ip),
+            "ips": [str(ip) for ip in self.ips],
+            "mac": self.mac,
+            "vendor": self.vendor,
+            "os": self.os,
+            "os_version": self.os_version,
+            "os_family": self.os_family,
+            "os_last_update": self.os_last_update,
+            "in_scope": self.in_scope,
+            "tags": self.tags,
+            "created_at": str(self.created_at),
+            "updated_at": str(self.updated_at),
+            "in_use": self.in_use,
+            "type": self.type,
+            "owner": str(self.owner),
+            "uuid": self.uuid,
+            "aliases": self.aliases,
+            "description": self.description,
+            "location": str(self.location),
+            "notes": self.notes,
+            "last_seen": str(self.last_seen),
+            "first_seen": str(self.first_seen),
+            "last_scan": str(self.last_scan),
+            "last_update": str(self.last_update),
+            "user": [str(user) for user in self.user],
+            "group": self.group,
+            "auth_types": self.auth_types,
+            "auth_stored_in": self.auth_stored_in,
+            "stored_credentials": self.stored_credentials,
+            "should_state": self.should_state,
+            "is_state": self.is_state,
+            "is_state_reason": self.is_state_reason,
+            "hypervisor": self.hypervisor,
+            "virtualization_type": self.virtualization_type,
+            "virtual_locations": self.virtual_locations,
+            "services": [str(service) for service in self.services],
+            "vulnerabilities": [str(vulnerability) for vulnerability in self.vulnerabilities],
+            "domains": self.domains,
+            "network": str(self.network),
+            "interfaces": self.interfaces,
+            "ports": self.ports,
+            "protocols": self.protocols,
+        }
+
+        return dict_
+
+    def __str__(self):
+        """Returns the object as a string."""
+        return json.dumps(del_none_from_dict(self.__dict__()), indent=4, sort_keys=False, default=str)
 
 
 class Rule:
@@ -341,7 +1059,7 @@ class NetworkFlow:
 
         dict_ = {
             "related_detection_uuid": self.related_detection_uuid,
-            "timestamp": self.timestamp,
+            "timestamp": str(self.timestamp),
             "data": self.data,
             "integration": self.integration,
             "source_ip": str(self.source_ip),

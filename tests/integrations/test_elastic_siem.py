@@ -13,7 +13,7 @@ def test_zs_provide_new_detections():
     cfg = config_helper.Config().cfg
     integration_config = cfg["integrations"]["elastic_siem"]
 
-    detectionArray = zs_provide_new_detections(integration_config, TEST=True)
+    detectionArray = zs_provide_new_detections(integration_config, TEST="OFFLINE")
     assert type(detectionArray) == list, "zs_provide_new_detections() should return a list of Detection objects"
     for detection in detectionArray:
         assert type(detection) == Detection, "zs_provide_new_detections() found an invalid Detection object in the list"
@@ -69,3 +69,21 @@ def test_acknowledge_alert():
     # Test the function
     result = acknowledge_alert(mlog, integration_config, "123")
     assert result == True, "acknowledge_alert() did not return True"
+
+
+# Omline tests
+
+
+def test_new_detections_online():
+    # Prepare the config
+    cfg = config_helper.Config().cfg
+    integration_config = cfg["integrations"]["elastic_siem"]
+
+    detectionArray = zs_provide_new_detections(integration_config, TEST="ONLINE")
+    assert type(detectionArray) == list, "zs_provide_new_detections() should return a list of Detection objects"
+    for detection in detectionArray:
+        assert type(detection) == Detection, "zs_provide_new_detections() found an invalid Detection object in the list"
+
+
+def test_context_for_detections_online():
+    pass
