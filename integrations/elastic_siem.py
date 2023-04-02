@@ -322,7 +322,6 @@ def zs_provide_new_detections(config, TEST="") -> List[Detection]:
             description=document_source["kibana.alert.rule.description"],
             tags=document_source["kibana.alert.rule.tags"],
             source=document_source["host"]["hostname"],
-            source_ip=host_ip,
         )
         mlog.info("Created detection: " + str(detection))
         detections.append(detection)

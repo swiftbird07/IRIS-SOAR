@@ -882,103 +882,6 @@ class Rule:
     # ...
 
 
-class Detection:
-    """Detection class. This class is used for storing detections.
-
-    Attributes:
-        vendor_id (str): The vendor specific ID of the detection, note that for unique identification, the 'uuid' of the detection is used
-        name (str): The name of the detection
-        rules (List[Rule]): The rules that triggered the detection
-        description (str): The description of the detection
-        tags (List[str]): The tags of the detection
-        raw (str): The raw detection
-        timestamp (datetime): The timestamp of the detection
-        source (str): The source of the detection
-        source_ip (socket.inet_aton): The source IP of the detection
-        source_port (int): The source port of the detection
-        destination (str): The destination of the detection
-        destination_ip (datetime): The destination IP of the detection
-        destination_port (int): The destination port of the detection
-        protocol (str): The protocol of the detection
-        severity (int): The severity of the detection
-        process (ContextProcess): The process of the detection
-
-    Methods:
-        __init__(self, id: str, name: str, rules: List[Rule], description: str = None, tags: List[str] = None, raw: str = None, timestamp: datetime = None, source: str = None, source_ip: socket.inet_aton = None, source_port: int = None, destination: str = None, destination_ip: datetime = None, destination_port: int = None, protocol: str = None, severity: int = None, process: ContextProcess = None)
-        __str__(self)
-    """
-
-    def __init__(
-        self,
-        vendor_id: str,
-        name: str,
-        rules: List[Rule],
-        timestamp: datetime,
-        description: str = None,
-        tags: List[str] = None,
-        raw: str = None,
-        source: str = None,
-        source_ip: Union[ipaddress.IPv4Address, ipaddress.IPv6Address] = DEFAULT_IP,
-        source_port: int = None,
-        destination: str = None,
-        destination_ip: Union[ipaddress.IPv4Address, ipaddress.IPv6Address] = DEFAULT_IP,
-        destination_port: int = None,
-        protocol: str = None,
-        severity: int = None,
-        uuid: uuid.UUID = uuid.uuid4(),
-    ):
-        source_ip = cast_to_ipaddress(source_ip)
-        destination_ip = cast_to_ipaddress(destination_ip)
-
-        self.vendor_id = vendor_id
-        self.name = name
-        self.description = description
-        self.timestamp = timestamp
-        self.source = source
-        self.source_ip = source_ip
-        self.source_port = source_port
-        self.destination = destination
-        self.destination_ip = destination_ip
-        self.destination_port = destination_port
-        self.protocol = protocol
-        self.severity = severity
-        self.tags = tags
-        self.raw = raw
-        self.rules = rules
-
-        self.uuid = uuid
-
-    def __dict__(self):
-        """Returns the dictionary representation of the object."""
-        dict_ = {
-            "id": self.vendor_id,
-            "name": self.name,
-            "description": self.description,
-            "timestamp": self.timestamp,
-            "source": self.source,
-            "source_ip": str(self.source_ip),
-            "source_port": self.source_port,
-            "destination": self.destination,
-            "destination_ip": str(self.destination_ip),
-            "destination_port": self.destination_port,
-            "protocol": self.protocol,
-            "severity": self.severity,
-            "tags": self.tags,
-            "raw": self.raw,
-            "rules": self.rules,
-        }
-
-        return dict_
-
-    def __str__(self):
-        """Returns the string representation of the object."""
-        return json.dumps(del_none_from_dict(self.__dict__()), indent=4, sort_keys=False, default=str)
-
-    # Getter and setter;
-
-    # ...
-
-
 class NetworkFlow:
     """This class provides a single context of type flow for a detection.
 
@@ -2148,6 +2051,167 @@ class ContextThreatIntel:
         return json.dumps(clean_dict, indent=4, sort_keys=False, default=str)
 
 
+class Detection:
+    """Detection class. This class is used for storing detections.
+
+    Attributes:
+        vendor_id (str): The vendor specific ID of the detection, note that for unique identification, the 'uuid' of the detection is used
+        name (str): The name of the detection
+        rules (List[Rule]): The rules that triggered the detection
+        timestamp (datetime): The timestamp of the detection
+        description (str): The description of the detection
+        tags (List[str]): The tags of the detection
+        raw (str): The raw detection
+        source (str): The source of the detection
+        severity (int): The severity of the detection
+        log (LogMessage): The log object of the detection if applicable
+        process (Process): The process related to the detection
+        flow (NetworkFlow): The flow related to the detection (source and destination IP and port etc.)
+        threat_intel (ContextThreatIntel): The threat intel directly related to the detection
+        location (Location): The location of the detection (e.g. country)
+        device (Device): The device that triggered the detection
+        user (Person): The user that triggered the detection
+        file (File): A file related to the detection
+        http_request (HTTP): A HTTP request related to the detection
+        dns_request (DNS): A DNS request related to the detection
+        certificate (Certificate): A certificate related to the detection
+        uuid (str): The universal unique ID of the detection (UUID v4 - random if not set)
+
+    Methods:
+        __init__(self, id: str, name: str, rules: List[Rule], description: str = None, tags: List[str] = None, raw: str = None, timestamp: datetime = None, source: str = None, source_ip: socket.inet_aton = None, source_port: int = None, destination: str = None, destination_ip: datetime = None, destination_port: int = None, protocol: str = None, severity: int = None, process: ContextProcess = None)
+        __str__(self)
+    """
+
+    def __init__(
+        self,
+        vendor_id: str,
+        name: str,
+        rules: List[Rule],
+        timestamp: datetime,
+        description: str = None,
+        tags: List[str] = None,
+        raw: str = None,
+        source: str = None,
+        severity: int = None,
+        # Context for every type of context
+        log: LogMessage = None,
+        process: Process = None,
+        flow: NetworkFlow = None,
+        threat_intel: ContextThreatIntel = None,
+        location: Location = None,
+        device: Device = None,
+        user: Person = None,
+        file: File = None,
+        http_request: HTTP = None,
+        dns_request: DNSQuery = None,
+        certificate: Certificate = None,
+        uuid: uuid.UUID = uuid.uuid4(),
+    ):
+        self.vendor_id = vendor_id
+        self.name = name
+        self.description = description
+        self.timestamp = timestamp
+        self.source = source
+        self.severity = severity
+        self.tags = tags
+        self.raw = raw
+        self.rules = rules
+
+        # Context for every type of context with checks
+        if log != None:
+            if not isinstance(log, LogMessage):
+                raise TypeError("log must be of type LogMessage")
+        self.log = log
+
+        if process != None:
+            if not isinstance(process, Process):
+                raise TypeError("process must be of type Process")
+        self.process = process
+
+        if flow != None:
+            if not isinstance(flow, NetworkFlow):
+                raise TypeError("flow must be of type NetworkFlow")
+        self.flow = flow
+
+        if threat_intel != None:
+            if not isinstance(threat_intel, ContextThreatIntel):
+                raise TypeError("threat_intel must be of type ContextThreatIntel")
+        self.threat_intel = threat_intel
+
+        if location != None:
+            if not isinstance(location, Location):
+                raise TypeError("location must be of type Location")
+        self.location = location
+
+        if device != None:
+            if not isinstance(device, Device):
+                raise TypeError("device must be of type Device")
+        self.device = device
+
+        if user != None:
+            if not isinstance(user, Person):
+                raise TypeError("user must be of type Person")
+        self.user = user
+
+        if file != None:
+            if not isinstance(file, File):
+                raise TypeError("file must be of type File")
+        self.file = file
+
+        if http_request != None:
+            if not isinstance(http_request, HTTP):
+                raise TypeError("http_request must be of type HTTP")
+        self.http_request = http_request
+
+        if dns_request != None:
+            if not isinstance(dns_request, DNSQuery):
+                raise TypeError("dns_request must be of type DNSQuery")
+        self.dns_request = dns_request
+
+        if certificate != None:
+            if not isinstance(certificate, Certificate):
+                raise TypeError("certificate must be of type Certificate")
+        self.certificate = certificate
+
+        self.uuid = uuid
+
+    def __dict__(self):
+        """Returns the dictionary representation of the object."""
+        dict_ = {
+            "id": self.vendor_id,
+            "name": self.name,
+            "description": self.description,
+            "timestamp": self.timestamp,
+            "source": self.source,
+            "severity": self.severity,
+            "tags": self.tags,
+            "raw": self.raw,
+            "rules": self.rules,
+            "log": str(self.log),
+            "process": str(self.process),
+            "flow": str(self.flow),
+            "threat_intel": str(self.threat_intel),
+            "location": str(self.location),
+            "device": str(self.device),
+            "user": str(self.user),
+            "file": str(self.file),
+            "http_request": str(self.http_request),
+            "dns_request": str(self.dns_request),
+            "certificate": str(self.certificate),
+            "uuid": self.uuid,
+        }
+
+        return dict_
+
+    def __str__(self):
+        """Returns the string representation of the object."""
+        return json.dumps(del_none_from_dict(self.__dict__()), indent=4, sort_keys=False, default=str)
+
+    # Getter and setter;
+
+    # ...
+
+
 class DetectionReport:
     """DetectionReport class. This class is used for storing detection reports.
 
@@ -2166,15 +2230,15 @@ class DetectionReport:
         context_http_requests (List[HTTP]): The context http requests of the report
         context_dns_requests (List[DNS]): The context dns requests of the report
         context_certificates (List[Certificate]): The context certificates of the report
-        uuid (str): The uuid of the report
+        uuid (str): The universal unique ID of the report (uuid4 - random if not set)
 
 
     Methods:
-        __init__(self, detections: List[Detection], playbooks: List[str] = None, action: str = None, action_result: bool = None, action_result_message: str = None, action_result_data: str = None, contexts: List[Context] = None): Initializes a new DetectionReport object.
+        __init__(self, detections: List[Detection], uuid: uuid.UUID = uuid.uuid4()): Initializes the DetectionReport object.
         __str__(self): Returns the string representation of the object.
     """
 
-    def __init__(self, detections: list):
+    def __init__(self, detections: list, uuid: uuid.UUID = uuid.uuid4()):
         self.detections = detections
         self.playbooks: List[str] = []
         self.action = None
@@ -2195,7 +2259,7 @@ class DetectionReport:
         self.context_dns_requests: List[DNSQuery] = []
         self.context_certificates: List[Certificate] = []
 
-        self.uuid = uuid.uuid4()
+        self.uuid = uuid
 
     def __dict__(self):
         """Returns the object as a dictionary."""
@@ -2226,17 +2290,11 @@ class DetectionReport:
 
     # Getter and setter;
 
-    def add_context_log(self, context_log: LogMessage, max_logs: int = 1000):
-        """Adds a context log to the report."""
-        mlog = logging_helper.Log("lib.class_helper")
-
-        if len(self.context_logs) >= max_logs:
-            mlog.warning("Reached maximum number of context logs (" + str(max_logs) + "). Skipping context log.")
-            return
-        self.context_logs.append(context_log)
-
-        self.aggregated_context_logs = pd.DataFrame(self.context_logs).groupby(["source", "log_message"]).agg({"timestamp": "max"}).reset_index()
-        mlog.debug("Aggregated context logs: " + json.dumps(self.aggregated_context_logs, indent=4, sort_keys=False, default=str))
+    def add_context(
+        context: Union[LogMessage, Process, NetworkFlow, ContextThreatIntel, Location, Device, Person, File, HTTP, DNSQuery, Certificate]
+    ):
+        """Adds a context to the detection report"""
+        pass
 
     def get_title(self):
         """Returns the title of the report."""
