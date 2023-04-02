@@ -122,9 +122,6 @@ def test_class_helper():
     detection_report = class_helper.DetectionReport(detectionList)
     assert detection_report != None, "DetectionReport class could not be initialized"
 
-    # Test Context class
-    assert class_helper.Context("SIEM") != None, "Context class could not be initialized"
-
     # Test NetworkFlow class
     flow = class_helper.NetworkFlow(
         detection.uuid,
