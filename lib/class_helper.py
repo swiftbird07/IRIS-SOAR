@@ -909,7 +909,7 @@ class Detection:
         source_ip = cast_to_ipaddress(source_ip)
         destination_ip = cast_to_ipaddress(destination_ip)
 
-        self.id = vendor_id
+        self.vendor_id = vendor_id
         self.name = name
         self.description = description
         self.timestamp = timestamp
@@ -930,7 +930,7 @@ class Detection:
     def __dict__(self):
         """Returns the dictionary representation of the object."""
         dict_ = {
-            "id": self.id,
+            "id": self.vendor_id,
             "name": self.name,
             "description": self.description,
             "timestamp": self.timestamp,

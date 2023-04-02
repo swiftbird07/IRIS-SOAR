@@ -217,11 +217,10 @@ def zs_provide_new_detections(config, TEST="") -> List[Detection]:
         rule = Rule("123", "Some Rule", 0)
         ruleList = []
         ruleList.append(rule)
-        detection1 = Detection("456", "Some Detection", ruleList)
+        detection1 = Detection("456", "Some Detection", ruleList, datetime.datetime.now())
         detections.append(detection1)
-        detection2 = Detection("789", "Some Detection", ruleList)
+        detection2 = Detection("789", "Some Detection", ruleList, datetime.datetime.now())
         detections.append(detection2)
-
         return detections
 
     # ...
@@ -389,7 +388,7 @@ def zs_provide_context_for_detections(
         return_objects.append(context_object)
         detection_example = detection_report.detections[0]
         detection_name = detection_example.name
-        detection_id = detection_example.id
+        detection_id = detection_example.vendor_id
 
     # ...
     # ...

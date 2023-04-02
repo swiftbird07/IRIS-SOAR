@@ -6,6 +6,7 @@ from lib.class_helper import Detection, DetectionReport, Rule, Process, LogMessa
 from integrations.elastic_siem import zs_provide_new_detections, zs_provide_context_for_detections, acknowledge_alert
 import lib.logging_helper as logging_helper
 import lib.config_helper as config_helper
+import datetime
 
 
 def test_zs_provide_new_detections():
@@ -30,7 +31,7 @@ def test_zs_provide_context_for_detections():
 
     ruleList = []
     ruleList.append(rule)
-    detection = Detection("456", "Some Detection", ruleList)
+    detection = Detection("456", "Some Detection", ruleList, datetime.datetime.now())
 
     detectionList = []
     detectionList.append(detection)

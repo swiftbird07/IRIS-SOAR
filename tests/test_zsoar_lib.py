@@ -102,21 +102,29 @@ def test_class_helper():
     mlog = zsoar.logging_helper.Log("test_zsoar_lib")
     import lib.class_helper as class_helper
 
-    # Test classes - Postivie tests
+    # Test classes - Postivie tests #
+
+    # Test Rule class
     rule = class_helper.Rule("123", "Some Rule", 0)
     assert rule != None, "Rule class could not be initialized"
 
     ruleList = []
     ruleList.append(rule)
-    detection = class_helper.Detection("456", "Some Detection", ruleList)
+
+    # Test Detection class
+    detection = class_helper.Detection("456", "Some Detection", ruleList, datetime.datetime.now())
     assert detection != None, "Detection class could not be initialized"
 
     detectionList = []
     detectionList.append(detection)
+
+    # Test DetectionReport class
     assert class_helper.DetectionReport(detectionList) != None, "DetectionReport class could not be initialized"
 
+    # Test Context class
     assert class_helper.Context("SIEM") != None, "Context class could not be initialized"
 
+    # Test NetworkFlow class
     flow = class_helper.NetworkFlow(
         detection.uuid,
         datetime.datetime.now(),
@@ -145,18 +153,22 @@ def test_class_helper():
     assert flow.flow_direction == "R2L", "ContextFlow wrong flow direction calculation"
     assert flow.flow_id > 0, "ContextFlow id is not set"
 
+    # Test Certificate class
     assert (
         class_helper.Certificate(flow, "example.com", "Pytest Inc.", "Pytest CN", public_key_size=2048) != None
     ), "Certificate class could not be initialized"
 
+    # Test DNSQuery class
     assert (
         class_helper.DNSQuery(detection.uuid, flow, "A", "www2.example.com", has_response=True, query_response="10.10.10.10") != None
     ), "DNSQuery class could not be initialized"
 
+    # Test HTTP class
     http = class_helper.HTTP(detection.uuid, flow, "GET", "HTTPS", "www2.example.com", 200, path="index.html", user_agent="PyTest")
     assert http != None, "HTTP class could not be initialized"
     assert http.full_url == "https://www2.example.com/index.html", "HTTP class full_url not set correctly"
 
+    # Test Process class
     parent_process = class_helper.Process(detection.uuid, "word.exe", 242, "service.exe", 235, "C:\\Microsoft\word.exe")
     assert parent_process != None, "ContextProcess class (for test parent) could not be initialized"
 
@@ -178,10 +190,12 @@ def test_class_helper():
     )
     assert process != None, "ContextProcessclass (for test child) could not be initialized"
 
+    # Test File class
     file = class_helper.File("image.png", "C:\\Tmp\image.png", 512456, is_directory=False, file_extension=".png")
     assert file != None, "File class could not be initialized"
     assert file.file_extension == "png", "File class file_extension not set correctly"
 
+    # Test LogMessage class
     assert (
         class_helper.LogMessage(
             datetime.datetime.now(),
@@ -193,6 +207,7 @@ def test_class_helper():
         != None
     ), "ContextLog class could not be initialized"
 
+    # Test ThreatIntel class
     ti_detections = []
     test_hit = class_helper.ThreatIntel(datetime.datetime.now(), "Microsoft Defender", True, True, "Malicious", "GenVirus Trojan/32")
     assert test_hit != None, "ThreatIntelDetection class could not be initialized (test hit)"
@@ -206,6 +221,8 @@ def test_class_helper():
     ti_detections.append(test_hit)
     ti_detections.append(test_unknwon)
     ti_detections.append(test_clean)
+
+    # Test ContextThreatIntel class
     threat_intel = class_helper.ContextThreatIntel(
         class_helper.Process, process, "VirusTotal", datetime.datetime.now(), ti_detections, score_hit=1, score_total=3
     )
@@ -220,11 +237,13 @@ def test_class_helper():
     assert threat_intel_impl_score.score_known == 2, "ContextThreatIntel class score_known not calculated correctly"
     assert threat_intel_impl_score.score_total == 3, "ContextThreatIntel class score_total not calculated correctly"
 
+    # Test Location class
     location = class_helper.Location(
         "Germany", "Berlin", -13.0, 52.0, "Europe/Berlin", "AS/295", "Microsoft", "Microsoft Corp.", 85, datetime.datetime.now()
     )
     assert location != None, "Location class could not be initialized"
 
+    # Test Vulnerability class
     vulnerability = class_helper.Vulnerability(
         "CVE-2020-1234",
         "A very bad vulnerability",
@@ -249,6 +268,7 @@ def test_class_helper():
     assert vulnerability.user_interaction == "None", "Vulnerability class user_interaction not set correctly"
     assert type(vulnerability.updated_at) == datetime.datetime, "Vulnerability class updated_at not set correctly"
 
+    # Test Service class
     service = class_helper.Service(
         "Microsoft Exchange",
         "Microsoft",
@@ -264,6 +284,7 @@ def test_class_helper():
     service.child_services.append(class_helper.Service("HTTP", "-", tags=["HTTP", "Web"], ports=[80], protocol="TCP"))
     assert len(service.child_services) == 2, "Service class child_services not set correctly"
 
+    # Test Person class
     person = class_helper.Person(
         "John Doe", "mail@doe.com", "1234567890", tags=["John", "Doe"], access_to=[service], roles=["Admin"], primary_location=location
     )
@@ -271,6 +292,7 @@ def test_class_helper():
     assert len(person.access_to) == 1, "Person class access_to not set correctly"
     assert len(person.roles) == 1, "Person class roles not set correctly"
 
+    # Test Device class
     device = class_helper.Device(
         "MacBook Pro von John Doe",
         "10.12.2.4",
@@ -285,6 +307,7 @@ def test_class_helper():
     assert len(device.services) == 1, "Device class services not set correctly"
     assert device.services[0].name == "Microsoft Exchange", "Device class services not set correctly"
 
+    # Test String printings
     mlog.info("Test for printing objects: ")
     mlog.info("Rule: ")
     mlog.info(rule)
