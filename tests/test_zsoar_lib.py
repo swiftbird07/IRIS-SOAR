@@ -119,7 +119,8 @@ def test_class_helper():
     detectionList.append(detection)
 
     # Test DetectionReport class
-    assert class_helper.DetectionReport(detectionList) != None, "DetectionReport class could not be initialized"
+    detection_report = class_helper.DetectionReport(detectionList)
+    assert detection_report != None, "DetectionReport class could not be initialized"
 
     # Test Context class
     assert class_helper.Context("SIEM") != None, "Context class could not be initialized"
@@ -308,6 +309,12 @@ def test_class_helper():
     assert len(device.services) == 1, "Device class services not set correctly"
     assert device.services[0].name == "Microsoft Exchange", "Device class services not set correctly"
 
+    # Test DetectionReport
+    detection_report.add_context(flow)
+    assert detection_report.context_flows != None, "Could not add context to detection"
+    assert len(detection_report.context_flows) == 1, "Could not add context to detection"
+    assert str(detection_report.context_flows[0].source_ip) == "123.123.123.123", "Could not add context to detection"
+
     # Test String printings
     mlog.info("Test for printing objects: ")
     mlog.info("Rule: ")
@@ -342,6 +349,8 @@ def test_class_helper():
     mlog.info(person)
     mlog.info("DEVICE: ")
     mlog.info(device)
+    mlog.info("DETECTION REPORT: ")
+    mlog.info(detection_report)
     mlog.info("Test for printing objects done.")
 
     # Test classes - Negative tests

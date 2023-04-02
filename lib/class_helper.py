@@ -95,6 +95,20 @@ def handle_percentage(percentage):
     return percentage
 
 
+def add_to_timeline(context_list, context, timestamp: datetime):
+    """Adds a context to a context list, respecting the timeline."""
+    if len(context_list) == 0:
+        context_list.append(context)
+    else:
+        for i in range(len(context_list)):
+            if context_list[i].timestamp > timestamp:
+                context_list.insert(i, context)
+                break
+            elif i == len(context_list) - 1:
+                context_list.append(context)
+                break
+
+
 class Location:
     """Location class. This class is used for storing location information.
 
@@ -2291,10 +2305,38 @@ class DetectionReport:
     # Getter and setter;
 
     def add_context(
-        context: Union[LogMessage, Process, NetworkFlow, ContextThreatIntel, Location, Device, Person, File, HTTP, DNSQuery, Certificate]
+        self, context: Union[LogMessage, Process, NetworkFlow, ContextThreatIntel, Location, Device, Person, File, HTTP, DNSQuery, Certificate]
     ):
-        """Adds a context to the detection report"""
-        pass
+        """Adds a context to the detection report, respecting the timeline"""
+        try:
+            timestamp = context.timestamp
+        except:
+            raise ValueError("Context object has no timestamp.")
+
+        if isinstance(context, LogMessage):
+            add_to_timeline(self.context_logs, context, timestamp)
+        elif isinstance(context, Process):
+            add_to_timeline(self.context_processes, context, timestamp)
+        elif isinstance(context, NetworkFlow):
+            add_to_timeline(self.context_flows, context, timestamp)
+        elif isinstance(context, ContextThreatIntel):
+            add_to_timeline(self.context_threat_intel, context, timestamp)
+        elif isinstance(context, Location):
+            add_to_timeline(self.context_locations, context, timestamp)
+        elif isinstance(context, Device):
+            add_to_timeline(self.context_devices, context, timestamp)
+        elif isinstance(context, Person):
+            add_to_timeline(self.context_persons, context, timestamp)
+        elif isinstance(context, File):
+            add_to_timeline(self.context_files, context, timestamp)
+        elif isinstance(context, HTTP):
+            add_to_timeline(self.context_http_requests, context, timestamp)
+        elif isinstance(context, DNSQuery):
+            add_to_timeline(self.context_dns_requests, context, timestamp)
+        elif isinstance(context, Certificate):
+            add_to_timeline(self.context_certificates, context, timestamp)
+        else:
+            raise TypeError("Unknown context type.")
 
     def get_title(self):
         """Returns the title of the report."""
