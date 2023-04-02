@@ -1151,7 +1151,6 @@ class Certificate:
 
     Attributes:
         related_detection_uuid (str): The UUID of the related detection
-        flow (ContextFlow): The flow of the certificate
         subject (str): The subject of the certificate
         issuer (str): The issuer of the certificate
         issuer_common_name (str): The issuer common name of the certificate
@@ -1178,7 +1177,6 @@ class Certificate:
     def __init__(
         self,
         related_detection_uuid: uuid.UUID,
-        flow: NetworkFlow,
         subject: str,
         issuer: str,
         issuer_common_name: str = None,
@@ -1197,7 +1195,6 @@ class Certificate:
         public_key_size: int = None,
     ):
         self.related_detection_uuid = related_detection_uuid
-        self.flow = flow
         self.issuer = issuer
         self.issuer_common_name = issuer_common_name
         self.issuer_organization = issuer_organization
@@ -1227,7 +1224,6 @@ class Certificate:
     def __dict__(self):
         dict_ = {
             "related_detection_uuid": self.related_detection_uuid,
-            "flow": self.flow,
             "subject": self.subject,
             "issuer": self.issuer,
             "issuer_common_name": self.issuer_common_name,
@@ -1292,7 +1288,7 @@ class DNSQuery:
             raise ValueError("query_response must be DEFAULT_IP if has_response is False")
         if has_response and query_response == DEFAULT_IP:
             mlog = logging_helper.Log("lib.class_helper")
-            mlog.warning("DNSQuery Object __init__: query_response is still DEFAULT_IP while has_response is True.", str(self))
+            mlog.warning("DNSQuery __init__: query_response is still DEFAULT_IP while has_response is True.", str(self))
         self.query_response = query_response
 
         self.rcode = rcode
@@ -1358,6 +1354,7 @@ class HTTP:
         request_headers: List[str] = None,
         response_headers: List[str] = None,
         http_version: str = None,
+        certificate: Certificate = None,
     ):
         self.related_detection_uuid = related_detection_uuid
         mlog = logging_helper.Log("lib.class_helper")
@@ -1408,6 +1405,15 @@ class HTTP:
         if http_version != None and ["1.", "2.", "3."] not in http_version:
             raise ValueError("http_version must be one of 1.x, 2.x, 3.x if not None")
         self.http_version = http_version
+
+        # Check if certificate is valid
+        if certificate != None:
+            if type != "HTTPS":
+                raise ValueError("certificate must be None if type is not HTTPS")
+            if host not in certificate.hosts and host not in certificate.subject_alternative_names:
+                mlog = logging_helper.Log("lib.class_helper")
+                mlog.warning("HTTP __init__: Certificate: HTTP.host does not match certificate subject nor subject_alternative_names")
+        self.certificate = certificate
 
     def __dict__(self):
         try:
@@ -1671,6 +1677,12 @@ class Process:
         process_arguments: List[str] = [],
         process_modules: List[str] = [],
         process_thread: str = None,
+        created_files: List[File] = [],
+        deleted_files: List[File] = [],
+        modified_files: List[File] = [],
+        created_registry_keys: List[str] = [],
+        deleted_registry_keys: List[str] = [],
+        modified_registry_keys: List[str] = [],
     ):
         self.related_detection_uuid = related_detection_uuid
 
@@ -1737,18 +1749,26 @@ class Process:
 
         for parent in process_parents:
             if not isinstance(parent, Process):
-                raise TypeError("all process_parents must be of type ContextProcess. Got: " + str(type(parent)) + "for " + str(parent))
+                raise TypeError("all process_parents must be of type Process. Got: " + str(type(parent)) + "for " + str(parent))
         self.process_parents = process_parents
 
         for child in process_children:
             if not isinstance(child, Process):
-                raise TypeError("all process_children must be of type ContextProcess. Got: " + str(type(child)) + "for " + str(child))
+                raise TypeError("all process_children must be of type Process. Got: " + str(type(child)) + "for " + str(child))
         self.process_children = process_children
 
         self.process_environment_variables = process_environment_variables
         self.process_arguments = process_arguments
         self.process_modules = process_modules
         self.process_thread = process_thread
+
+        self.created_files = created_files
+        self.deleted_files = deleted_files
+        self.modified_files = modified_files
+
+        self.created_registry_keys = created_registry_keys
+        self.deleted_registry_keys = deleted_registry_keys
+        self.modified_registry_keys = modified_registry_keys
 
     def __dict__(self):
         _dict = {
@@ -1786,15 +1806,21 @@ class Process:
             "process_image_file_name": self.process_image_file_name,
             "process_image_file_path": self.process_image_file_path,
             "process_dns": self.process_dns,
-            "process_certificate": self.process_certificate,
-            "process_http": self.process_http,
-            "process_flow": self.process_flow,
-            "process_parents": self.process_parents,
-            "process_children": self.process_children,
+            "process_certificate": str(self.process_certificate),
+            "process_http": str(self.process_http),
+            "process_flow": str(self.process_flow),
+            "process_parents": str(self.process_parents),
+            "process_children": str(self.process_children),
             "process_environment_variables": self.process_environment_variables,
             "process_arguments": self.process_arguments,
             "process_modules": self.process_modules,
             "process_thread": self.process_thread,
+            "created_files": str(self.created_files),
+            "deleted_files": str(self.deleted_files),
+            "modified_files": str(self.modified_files),
+            "created_registry_keys": self.created_registry_keys,
+            "deleted_registry_keys": self.deleted_registry_keys,
+            "modified_registry_keys": self.modified_registry_keys,
         }
         return _dict
 
@@ -2132,10 +2158,14 @@ class DetectionReport:
         action_result (bool): The action result of the report
         action_result_message (str): The action result message of the report
         action_result_data (str): The action result data of the report
-        context_logs (List[ContextLog]): The context logs of the report
-        context_processes (List[ContextProcess]): The context processes of the report
-        context_flows (List[ContextFlow]): The context flows of the report
+        context_logs (List[LogMessage]): The context logs of the report
+        context_processes (List[Process]): The context processes of the report
+        context_flows (List[NetworkFlow]): The context flows of the report
         context_threat_intel (List[ContextThreatIntel]): The context threat intel of the report
+        context_files (List[File]): The context files of the report
+        context_http_requests (List[HTTP]): The context http requests of the report
+        context_dns_requests (List[DNS]): The context dns requests of the report
+        context_certificates (List[Certificate]): The context certificates of the report
         uuid (str): The uuid of the report
 
 
@@ -2158,10 +2188,13 @@ class DetectionReport:
         self.context_flows: List[NetworkFlow] = []
         self.context_threat_intel: List[ContextThreatIntel] = []
         self.context_locations: List[Location] = []
-        self.aggregated_context_logs: DefaultDict = DefaultDict(str)
-        self.aggregated_context_processes: dict = {}
-        self.aggregated_context_flows: dict = {}
-        self.aggregated_context_threat_intel: dict = {}
+        self.context_devices: List[Device] = []
+        self.context_persons: List[Person] = []
+        self.context_files: List[File] = []
+        self.context_http_requests: List[HTTP] = []
+        self.context_dns_requests: List[DNSQuery] = []
+        self.context_certificates: List[Certificate] = []
+
         self.uuid = uuid.uuid4()
 
     def __dict__(self):
@@ -2173,14 +2206,17 @@ class DetectionReport:
             "action_result": self.action_result,
             "action_result_message": self.action_result_message,
             "action_result_data": self.action_result_data,
-            "context_logs": self.context_logs,
-            "context_processes": self.context_processes,
-            "context_flows": self.context_flows,
-            "context_threat_intel": self.context_threat_intel,
-            "aggregated_context_logs": self.aggregated_context_logs,
-            "aggregated_context_processes": self.aggregated_context_processes,
-            "aggregated_context_flows": self.aggregated_context_flows,
-            "aggregated_context_threat_intel": self.aggregated_context_threat_intel,
+            "context_logs": str(self.context_logs),
+            "context_processes": str(self.context_processes),
+            "context_flows": str(self.context_flows),
+            "context_threat_intel": str(self.context_threat_intel),
+            "context_locations": str(self.context_locations),
+            "context_devices": str(self.context_devices),
+            "context_persons": str(self.context_persons),
+            "context_files": str(self.context_files),
+            "context_http_requests": str(self.context_http_requests),
+            "context_dns_requests": str(self.context_dns_requests),
+            "context_certificates": str(self.context_certificates),
         }
         return dict_
 
