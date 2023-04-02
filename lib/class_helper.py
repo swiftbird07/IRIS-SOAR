@@ -174,6 +174,19 @@ class Location:
         """Returns the string representation of the Vulnerability object."""
         return json.dumps(del_none_from_dict(self.__dict__()), indent=4, sort_keys=False, default=str)
 
+    def is_valid(self):
+        """Returns whether the Location object is valid or not."""
+        if self.country is not None:
+            return True
+
+        if self.latitude is not None and self.longitude is not None:
+            return True
+
+        if self.org is not None:
+            return True
+
+        return False
+
 
 class Vulnerability:
     """Vulnerability class. This class is used for storing vulnerability information.
@@ -687,7 +700,15 @@ class Device:
         self.uuid = uuid
         self.aliases = aliases
         self.description = description
+
+        # Check if location objects are valid if given
+        if location:
+            if not isinstance(location, Location):
+                raise TypeError("location must be of type Location")
+            if not location.is_valid():
+                raise ValueError("location is not valid")
         self.location = location
+
         self.notes = notes
         self.last_seen = last_seen
         self.first_seen = first_seen
@@ -983,6 +1004,8 @@ class NetworkFlow:
         network (str): The network of the flow
         network_type (str): The network type of the flow
         flow_source (str): The flow source of the flow
+        source_location (Location): The source location of the flow
+        destination_location (Location): The destination location of the flow
 
     Methods:
         __init__(self, timestamp: datetime.datetime, integration: str, source_ip: socket.inet_aton, source_port: int, destination_ip: socket.inet_aton, destination_port: int, protocol: str, application: str, data: str = None, source_mac: socket.mac = None, destination_mac: str = None, source_hostname: str = None, destination_hostname: str = None, category: str = "Generic Flow", sub_category: str = "Generic HTTP(S) Traffic", flow_direction: str = "L2R", flow_id: int = random.randint(1, 1000000000), interface: str = None, network: str = None, network_type: str = None, flow_source: str = None)
@@ -1013,6 +1036,8 @@ class NetworkFlow:
         network: str = None,
         network_type: str = None,
         flow_source: str = None,
+        source_location: Location = None,
+        destination_location: Location = None,
     ):
         source_ip = cast_to_ipaddress(source_ip)
         destination_ip = cast_to_ipaddress(destination_ip)
@@ -1065,6 +1090,21 @@ class NetworkFlow:
         self.network_type = network_type
         self.flow_source = flow_source
 
+        # Check if location objects are valid if given
+        if source_location:
+            if not isinstance(source_location, Location):
+                raise TypeError("source_location must be of type Location")
+            if not source_location.is_valid():
+                raise ValueError("source_location is not valid")
+        self.source_location = source_location
+
+        if destination_location:
+            if not isinstance(destination_location, Location):
+                raise TypeError("destination_location must be of type Location")
+            if not destination_location.is_valid():
+                raise ValueError("destination_location is not valid")
+        self.destination_location = destination_location
+
     def __dict__(self):
         # Have to overwrite the __dict__ method because of the ipaddress objects
 
@@ -1074,8 +1114,10 @@ class NetworkFlow:
             "data": self.data,
             "integration": self.integration,
             "source_ip": str(self.source_ip),
+            "source_location": str(self.source_location),
             "source_port": self.source_port,
             "destination_ip": str(self.destination_ip),
+            "destination_location": str(self.destination_location),
             "destination_port": self.destination_port,
             "protocol": self.protocol,
             "application": self.application,
@@ -1763,11 +1805,14 @@ class Process:
 
 class LogMessage:
     """The LogMessage class. Used for storing log data like syslog from a SIEM.
+    Be aware that either log_source_ip or log_source_device must be set.
 
     Attrbutes:
         related_detection_uuid (uuid.UUID): The UUID of the detection this log is related to
         log_message (str): The message of the log
-        log_source (str): The source of the log
+        log_source_name (str): The source of the log (e.g. Syslog @ Linux Server)
+        log_source_ip (ipaddress.IPv4Address or ipaddress.IPv6Address): The IP address of the source of the log
+        log_source_device (Device): The device object related to the log
         log_flow (ContextFlow): The flow object related to the log
         log_protocol (str): The protocol of the log
         log_timestamp (datetime.datetime): The timestamp of the log
@@ -1788,7 +1833,9 @@ class LogMessage:
         related_detection_uuid: uuid.UUID,
         log_timestamp: datetime.datetime,
         log_message: str,
-        log_source: str,
+        log_source_name: str,
+        log_source_ip: Union[ipaddress.IPv4Address, ipaddress.IPv6Address] = DEFAULT_IP,
+        log_source_device: Device = None,
         log_flow: NetworkFlow = None,
         log_protocol: str = "",
         log_type: str = "",
@@ -1800,7 +1847,22 @@ class LogMessage:
         self.related_detection_uuid = related_detection_uuid
         self.log_timestamp = log_timestamp
         self.log_message = log_message
-        self.log_source = log_source
+        self.log_source_name = log_source_name
+
+        # Check log source IP if set
+        if log_source_ip != DEFAULT_IP:
+            self.log_source_ip = cast_to_ipaddress(log_source_ip)
+
+        # Check log source device if set
+        if log_source_device is not None:
+            if not isinstance(log_source_device, Device):
+                raise TypeError(f"Expected type Device for log_source_device, got {type(log_source_device)}")
+        self.log_source_device = log_source_device
+
+        # Check if either log_source_device or log_source_ip is set
+        if log_source_device is None and log_source_ip == DEFAULT_IP:
+            raise ValueError("Either log_source_device or log_source_ip must be set.")
+
         self.log_flow = log_flow
         self.log_protocol = log_protocol
         self.log_type = log_type
@@ -1814,7 +1876,9 @@ class LogMessage:
             "related_detection_uuid": str(self.related_detection_uuid),
             "log_timestamp": str(self.log_timestamp),
             "log_message": self.log_message,
-            "log_source": self.log_source,
+            "log_source_name": self.log_source_name,
+            "log_source_ip": str(self.log_source_ip),
+            "log_source_device": str(self.log_source_device),
             "log_flow": self.log_flow,
             "log_protocol": self.log_protocol,
             "log_type": self.log_type,
@@ -2087,10 +2151,13 @@ class DetectionReport:
         self.action_result = None
         self.action_result_message = None
         self.action_result_data = None
+
+        # Context for every type of context
         self.context_logs: List[LogMessage] = []
         self.context_processes: List[Process] = []
         self.context_flows: List[NetworkFlow] = []
         self.context_threat_intel: List[ContextThreatIntel] = []
+        self.context_locations: List[Location] = []
         self.aggregated_context_logs: DefaultDict = DefaultDict(str)
         self.aggregated_context_processes: dict = {}
         self.aggregated_context_flows: dict = {}

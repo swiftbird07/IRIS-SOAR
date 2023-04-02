@@ -203,6 +203,7 @@ def test_class_helper():
             "Auth Logs @ Server",
             flow,
             log_custom_fields={"Username": "root", "Account Name": "Something"},
+            log_source_ip="10.12.0.1",
         )
         != None
     ), "ContextLog class could not be initialized"

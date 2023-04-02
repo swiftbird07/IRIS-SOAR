@@ -384,7 +384,7 @@ def zs_provide_context_for_detections(
         elif required_type == Process:
             context_object = Process(detection_report.uuid, "test.exe", 123, process_start_time=datetime.datetime.now())
         elif required_type == LogMessage:
-            context_object = LogMessage(detection_report.uuid, datetime.datetime.now(), "Some log message", "Elastic-SIEM")
+            context_object = LogMessage(detection_report.uuid, datetime.datetime.now(), "Some log message", "Elastic-SIEM", log_source_ip="10.0.0.3")
         return_objects.append(context_object)
         detection_example = detection_report.detections[0]
         detection_name = detection_example.name
