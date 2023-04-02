@@ -96,7 +96,16 @@ def handle_percentage(percentage):
 
 
 def add_to_timeline(context_list, context, timestamp: datetime):
-    """Adds a context to a context list, respecting the timeline."""
+    """Adds a context to a context list, respecting the timeline.
+
+    Args:
+        context_list (list): The context list
+        context (dict): The context to add
+        timestamp (datetime): The timestamp of the context
+
+    Returns:
+        None
+    """
     if len(context_list) == 0:
         context_list.append(context)
     else:
@@ -2307,7 +2316,15 @@ class DetectionReport:
     def add_context(
         self, context: Union[LogMessage, Process, NetworkFlow, ContextThreatIntel, Location, Device, Person, File, HTTP, DNSQuery, Certificate]
     ):
-        """Adds a context to the detection report, respecting the timeline"""
+        """Adds a context to the detection report, respecting the timeline
+
+        Args:
+            context (Union[LogMessage, Process, NetworkFlow, ContextThreatIntel, Location, Device, Person, File, HTTP, DNSQuery, Certificate]): The context to add
+
+        Raises:
+            ValueError: If the context object has no timestamp
+            TypeError: If the context object is not of a valid type
+        """
         try:
             timestamp = context.timestamp
         except:
