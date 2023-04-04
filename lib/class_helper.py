@@ -118,6 +118,25 @@ def add_to_timeline(context_list, context, timestamp: datetime):
                 break
 
 
+def remove_duplicates_from_dict(d):
+    """Removes duplicate values from a dictionary.
+
+    Args:
+        d (dict): The dictionary to remove the duplicates from
+
+    Returns:
+        dict: The dictionary without duplicates
+    """
+    if d is None:
+        return None
+    for key, value in list(d.items()):
+        if type(value) is list:
+            d[key] = list(dict.fromkeys(value))
+        elif isinstance(value, dict):
+            remove_duplicates_from_dict(value)
+    return d  # For convenience
+
+
 class Location:
     """Location class. This class is used for storing location information.
 
@@ -175,6 +194,11 @@ class Location:
 
         self.certainty = handle_percentage(certainty)
         self.last_updated = last_updated
+
+        if not last_updated:
+            self.timestamp = datetime.datetime.now()  # when the object was created (for cross-context compatibility)
+        else:
+            self.timestamp = last_updated
 
     def __dict__(self):
         """Returns the dictionary representation of the Location object."""
@@ -395,6 +419,8 @@ class Vulnerability:
 
 class Service:
     """Service class. This class is used for storing service information.
+       ! This class is not a stand-alone context. !
+       Use it in a Device context if a device is running a service.
 
     Attributes:
         name (str): The name of the service
@@ -570,6 +596,11 @@ class Person:
         self.roles = roles
         self.access_to = access_to
 
+        if not updated_at:
+            self.timestamp = datetime.datetime.now()  # when the object was created (for cross-context compatibility)
+        else:
+            self.timestamp = updated_at
+
     def __dict__(self):
         """Converts the Person class to a dictionary.
 
@@ -623,7 +654,7 @@ class Device:
         last_seen (datetime): The date and time when the device was last seen
         first_seen (datetime): The date and time when the device was first seen
         last_scan (datetime): The date and time when the device was last scanned
-        last_update (datetime): The date and time when the device was last updated
+        last_update (datetime): The date and time when the device properties were last updated
         user (List[Person]): A list of users of the device
         group (str): The group of the device
         auth_types (List[str]): A list of authentication types of the device
@@ -777,6 +808,11 @@ class Device:
             mlog.error("No IP address was specified")
             raise ValueError("No IP address was specified")
 
+        if not last_update:
+            self.timestamp = datetime.datetime.now()  # when the object was created (for cross-context compatibility)
+        else:
+            self.timestamp = last_update
+
     def __dict__(self):
         """Returns the object as a dict."""
 
@@ -907,6 +943,7 @@ class Rule:
 
 class NetworkFlow:
     """This class provides a single context of type flow for a detection.
+       ! Use only if the context of type "DNSQuery" or "HTTP" is not applicable !
 
     Attributes:
         related_detection_uuid (str): The related detection unique ID of the context flow
@@ -1074,6 +1111,8 @@ class NetworkFlow:
 
 class Certificate:
     """Certificate class.
+        ! This class is not a stand-alone context. !
+       Use it in Process/File context if th certificate is a signature of a process/file. Use it in HTTP context if the certificate is related to https traffic.
 
     Attributes:
         related_detection_uuid (str): The UUID of the related detection
@@ -1112,7 +1151,7 @@ class Certificate:
         subject_common_name: str = None,
         subject_organization: str = None,
         subject_organizational_unit: str = None,
-        subject_alternative_name: str = None,
+        subject_alternative_names: List[str] = None,
         valid_from: datetime = None,
         valid_to: datetime = None,
         version: str = None,
@@ -1130,7 +1169,7 @@ class Certificate:
         self.subject_common_name = subject_common_name
         self.subject_organization = subject_organization
         self.subject_organizational_unit = subject_organizational_unit
-        self.subject_alternative_name = subject_alternative_name
+        self.subject_alternative_names = subject_alternative_names
 
         if valid_from != None and valid_to != None:
             if valid_from > valid_to:
@@ -1146,9 +1185,11 @@ class Certificate:
             raise ValueError("public_key_size must be positive")
 
         self.public_key_size = public_key_size
+        self.timestamp = datetime.datetime.now()  # when the object was created (for cross-context compatibility)
 
     def __dict__(self):
         dict_ = {
+            "timestamp": self.timestamp,
             "related_detection_uuid": self.related_detection_uuid,
             "subject": self.subject,
             "issuer": self.issuer,
@@ -1159,7 +1200,7 @@ class Certificate:
             "subject_common_name": self.subject_common_name,
             "subject_organization": self.subject_organization,
             "subject_organizational_unit": self.subject_organizational_unit,
-            "subject_alternative_name": self.subject_alternative_name,
+            "subject_alternative_names": self.subject_alternative_names,
             "valid_from": str(self.valid_from),
             "valid_to": str(self.valid_to),
             "version": self.version,
@@ -1218,9 +1259,11 @@ class DNSQuery:
         self.query_response = query_response
 
         self.rcode = rcode
+        self.timestamp = flow.timestamp
 
     def __dict__(self):
         dict_ = {
+            "timestamp": self.timestamp,
             "related_detection_uuid": self.related_detection_uuid,
             "flow": self.flow,
             "type": self.type,
@@ -1228,6 +1271,146 @@ class DNSQuery:
             "has_response": self.has_response,
             "query_response": str(self.query_response),
             "rcode": self.rcode,
+        }
+        return dict_
+
+    def __str__(self):
+        """Returns the string representation of the object."""
+        return json.dumps(del_none_from_dict(self.__dict__()), indent=4, sort_keys=False, default=str)
+
+
+class File:
+    """File class. Represents a file.
+       ! This class is not a stand-alone context. !
+       Use the Process context if th file is related to process activity. Use in NetworkFlow context if the file is related to network activity.
+
+    Attributes:
+        related_detection_uuid (uuid.UUID): The UUID of the detection the file is related to
+        file_name (str): The name of the file
+        file_path (str): The path of the file
+        file_size (int): The size of the file
+        file_md5 (str): The MD5 hash of the file
+        file_sha1 (str): The SHA1 hash of the file
+        file_sha256 (str): The SHA256 hash of the file
+        file_type (str): The type of the file
+        file_extension (str): The extension of the file
+        file_signature (Certificate): The signature of the file
+        last_modified (datetime): The last modified time of the file
+        is_encrypted (bool): Whether the file is encrypted
+        is_compressed (bool): Whether the file is compressed
+        is_archive (bool): Whether the file is an archive
+        is_executable (bool): Whether the file is executable
+        is_readable (bool): Whether the file is readable
+        is_writable (bool): Whether the file is writable
+        is_hidden (bool): Whether the file is hidden
+        is_system (bool): Whether the file is a system file
+        is_temporary (bool): Whether the file is a temporary file
+        is_virtual (bool): Whether the file is a virtual file
+        is_directory (bool): Whether the file is a directory
+        is_symlink (bool): Whether the file is a symlink
+        is_special (bool): Whether the file is a special file (socket, pipe, pid, etc.)
+        is_unknown (bool): Whether the file has unknown type or content
+
+    Methods:
+        __init__(self, file_name: str, file_path: str, file_size: int, file_md5: str, file_sha1: str, file_sha256: str,
+            file_type: str, file_extension: str, is_encrypted: bool, is_compressed: bool, is_archive: bool, is_executable: bool,
+            is_readable: bool, is_writable: bool, is_hidden: bool, is_system: bool, is_temporary: bool, is_virtual: bool,
+            is_directory: bool, is_symlink: bool, is_special: bool, is_unknown: bool): The constructor of the File class
+        __str__(self): The string representation of the File class
+    """
+
+    def __init__(
+        self,
+        related_detection_uuid: uuid.UUID,
+        file_name: str,
+        file_path: str = "",
+        file_size: int = 0,
+        file_md5: str = "",
+        file_sha1: str = "",
+        file_sha256: str = "",
+        file_type: str = "",
+        file_extension: str = "",
+        file_signature: Certificate = None,
+        last_modified: datetime = datetime.datetime(1970, 1, 1, 0, 0, 0),
+        is_encrypted: bool = False,
+        is_compressed: bool = False,
+        is_archive: bool = False,
+        is_executable: bool = False,
+        is_readable: bool = False,
+        is_writable: bool = False,
+        is_hidden: bool = False,
+        is_system: bool = False,
+        is_temporary: bool = False,
+        is_virtual: bool = False,
+        is_directory: bool = False,
+        is_symlink: bool = False,
+        is_special: bool = False,
+        is_unknown: bool = False,
+    ):
+        self.related_detection_uuid = related_detection_uuid
+        self.file_name = file_name
+        self.file_path = file_path
+
+        if file_size < 0:
+            raise ValueError("file_size must not be negative")
+        self.file_size = file_size
+
+        self.file_md5 = file_md5
+        self.file_sha1 = file_sha1
+        self.file_sha256 = file_sha256
+
+        self.file_type = file_type
+
+        if file_extension != "" and file_extension[0] == ".":  # File extension should not start with a dot in the variable
+            file_extension = file_extension[1:]
+        self.file_extension = file_extension
+
+        self.file_signature = file_signature
+
+        self.is_encrypted = is_encrypted
+        self.is_compressed = is_compressed
+        self.is_archive = is_archive
+        self.is_executable = is_executable
+        self.is_readable = is_readable
+        self.is_writable = is_writable
+        self.is_hidden = is_hidden
+        self.is_system = is_system
+        self.is_temporary = is_temporary
+        self.is_virtual = is_virtual
+        self.is_directory = is_directory
+        self.is_symlink = is_symlink
+        self.is_special = is_special
+        self.is_unknown = is_unknown
+
+        self.last_modified = last_modified
+        self.timestamp = last_modified  # For cross-context compatibility
+
+    def __dict__(self):
+        dict_ = {
+            "related_detection_uuid": self.related_detection_uuid,
+            "file_name": self.file_name,
+            "file_path": self.file_path,
+            "file_size": self.file_size,
+            "file_md5": self.file_md5,
+            "file_sha1": self.file_sha1,
+            "file_sha256": self.file_sha256,
+            "file_type": self.file_type,
+            "file_extension": self.file_extension,
+            "file_signature": str(self.file_signature),
+            "is_encrypted": self.is_encrypted,
+            "is_compressed": self.is_compressed,
+            "is_archive": self.is_archive,
+            "is_executable": self.is_executable,
+            "is_readable": self.is_readable,
+            "is_writable": self.is_writable,
+            "is_hidden": self.is_hidden,
+            "is_system": self.is_system,
+            "is_temporary": self.is_temporary,
+            "is_virtual": self.is_virtual,
+            "is_directory": self.is_directory,
+            "is_symlink": self.is_symlink,
+            "is_special": self.is_special,
+            "is_unknown": self.is_unknown,
         }
         return dict_
 
@@ -1256,6 +1439,7 @@ class HTTP:
         request_headers (str): The request headers of the HTTP request
         response_headers (str): The response headers of the HTTP request
         http_version (str): The HTTP version of the HTTP request
+        file (File): The file transported by the HTTP request
 
     Methods:
 
@@ -1281,6 +1465,7 @@ class HTTP:
         response_headers: List[str] = None,
         http_version: str = None,
         certificate: Certificate = None,
+        file: File = None,
     ):
         self.related_detection_uuid = related_detection_uuid
         mlog = logging_helper.Log("lib.class_helper")
@@ -1341,9 +1526,13 @@ class HTTP:
                 mlog.warning("HTTP __init__: Certificate: HTTP.host does not match certificate subject nor subject_alternative_names")
         self.certificate = certificate
 
+        self.file = file
+        self.timestamp = self.flow.timestamp  # for cross-context compatibility
+
     def __dict__(self):
         try:
             dict_ = {
+                "timestamp": self.timestamp,
                 "related_detection_uuid": self.related_detection_uuid,
                 "flow": self.flow,
                 "method": self.method,
@@ -1360,6 +1549,8 @@ class HTTP:
                 "request_headers": self.request_headers,
                 "response_headers": self.response_headers,
                 "http_version": self.http_version,
+                "certificate": str(self.certificate),
+                "file": str(self.file),
             }
         except AttributeError:
             dict_ = {
@@ -1377,138 +1568,11 @@ class HTTP:
         return json.dumps(del_none_from_dict(self.__dict__()), indent=4, sort_keys=False, default=str)
 
 
-class File:
-    """File class. Represents a file.
-
-    Attributes:
-        related_detection_uuid (uuid.UUID): The UUID of the detection the file is related to
-        file_name (str): The name of the file
-        file_path (str): The path of the file
-        file_size (int): The size of the file
-        file_md5 (str): The MD5 hash of the file
-        file_sha1 (str): The SHA1 hash of the file
-        file_sha256 (str): The SHA256 hash of the file
-        file_type (str): The type of the file
-        file_extension (str): The extension of the file
-        is_encrypted (bool): Whether the file is encrypted
-        is_compressed (bool): Whether the file is compressed
-        is_archive (bool): Whether the file is an archive
-        is_executable (bool): Whether the file is executable
-        is_readable (bool): Whether the file is readable
-        is_writable (bool): Whether the file is writable
-        is_hidden (bool): Whether the file is hidden
-        is_system (bool): Whether the file is a system file
-        is_temporary (bool): Whether the file is a temporary file
-        is_virtual (bool): Whether the file is a virtual file
-        is_directory (bool): Whether the file is a directory
-        is_symlink (bool): Whether the file is a symlink
-        is_special (bool): Whether the file is a special file (socket, pipe, pid, etc.)
-        is_unknown (bool): Whether the file has unknown type or content
-
-    Methods:
-        __init__(self, file_name: str, file_path: str, file_size: int, file_md5: str, file_sha1: str, file_sha256: str,
-            file_type: str, file_extension: str, is_encrypted: bool, is_compressed: bool, is_archive: bool, is_executable: bool,
-            is_readable: bool, is_writable: bool, is_hidden: bool, is_system: bool, is_temporary: bool, is_virtual: bool,
-            is_directory: bool, is_symlink: bool, is_special: bool, is_unknown: bool): The constructor of the File class
-        __str__(self): The string representation of the File class
-    """
-
-    def __init__(
-        self,
-        related_detection_uuid: uuid.UUID,
-        file_name: str,
-        file_path: str = "",
-        file_size: int = 0,
-        file_md5: str = "",
-        file_sha1: str = "",
-        file_sha256: str = "",
-        file_type: str = "",
-        file_extension: str = "",
-        is_encrypted: bool = False,
-        is_compressed: bool = False,
-        is_archive: bool = False,
-        is_executable: bool = False,
-        is_readable: bool = False,
-        is_writable: bool = False,
-        is_hidden: bool = False,
-        is_system: bool = False,
-        is_temporary: bool = False,
-        is_virtual: bool = False,
-        is_directory: bool = False,
-        is_symlink: bool = False,
-        is_special: bool = False,
-        is_unknown: bool = False,
-    ):
-        self.related_detection_uuid = related_detection_uuid
-        self.file_name = file_name
-        self.file_path = file_path
-
-        if file_size < 0:
-            raise ValueError("file_size must not be negative")
-        self.file_size = file_size
-
-        self.file_md5 = file_md5
-        self.file_sha1 = file_sha1
-        self.file_sha256 = file_sha256
-
-        self.file_type = file_type
-
-        if file_extension != "" and file_extension[0] == ".":  # File extension should not start with a dot in the variable
-            file_extension = file_extension[1:]
-        self.file_extension = file_extension
-
-        self.is_encrypted = is_encrypted
-        self.is_compressed = is_compressed
-        self.is_archive = is_archive
-        self.is_executable = is_executable
-        self.is_readable = is_readable
-        self.is_writable = is_writable
-        self.is_hidden = is_hidden
-        self.is_system = is_system
-        self.is_temporary = is_temporary
-        self.is_virtual = is_virtual
-        self.is_directory = is_directory
-        self.is_symlink = is_symlink
-        self.is_special = is_special
-        self.is_unknown = is_unknown
-
-    def __dict__(self):
-        dict_ = {
-            "related_detection_uuid": self.related_detection_uuid,
-            "file_name": self.file_name,
-            "file_path": self.file_path,
-            "file_size": self.file_size,
-            "file_md5": self.file_md5,
-            "file_sha1": self.file_sha1,
-            "file_sha256": self.file_sha256,
-            "file_type": self.file_type,
-            "file_extension": self.file_extension,
-            "is_encrypted": self.is_encrypted,
-            "is_compressed": self.is_compressed,
-            "is_archive": self.is_archive,
-            "is_executable": self.is_executable,
-            "is_readable": self.is_readable,
-            "is_writable": self.is_writable,
-            "is_hidden": self.is_hidden,
-            "is_system": self.is_system,
-            "is_temporary": self.is_temporary,
-            "is_virtual": self.is_virtual,
-            "is_directory": self.is_directory,
-            "is_symlink": self.is_symlink,
-            "is_special": self.is_special,
-            "is_unknown": self.is_unknown,
-        }
-        return dict_
-
-    def __str__(self):
-        """Returns the string representation of the object."""
-        return json.dumps(del_none_from_dict(self.__dict__()), indent=4, sort_keys=False, default=str)
-
-
 class Process:
     """Process class.
 
     Attributes:
+        timestamp (datetime.datetime): The timestamp of the event
         related_detection_uuid (uuid.UUID): The UUID of the detection this process is related to
         process_name (str): The name of the process
         process_id (int): The ID of the process
@@ -1543,7 +1607,7 @@ class Process:
         process_image_file_name (str): The image file name of the process
         process_image_file_path (str): The image file path of the process
         process_dns (DNSQuery): The DNS object of the process
-        process_certificate (Certificate): The certificate object of the process
+        process_signature (Certificate): The signature's certificate object of the process
         process_http (HTTP): The HTTP object of the process
         process_flow (ContextFlow): The flow object of the process
         process_parent (ContextProcess): The parent process object of the process
@@ -1560,6 +1624,7 @@ class Process:
 
     def __init__(
         self,
+        timestamp: datetime.datetime,
         related_detection_uuid: uuid.UUID,
         process_name: str,
         process_id: int,
@@ -1594,7 +1659,7 @@ class Process:
         process_image_file_name: str = "",
         process_image_file_path: str = "",
         process_dns: DNSQuery = None,
-        process_certificate: Certificate = None,
+        process_signature: Certificate = None,
         process_http: HTTP = None,
         process_flow: NetworkFlow = None,
         process_parents: list = [],
@@ -1610,6 +1675,7 @@ class Process:
         deleted_registry_keys: List[str] = [],
         modified_registry_keys: List[str] = [],
     ):
+        self.timestamp = timestamp
         self.related_detection_uuid = related_detection_uuid
 
         if process_name == "":
@@ -1669,7 +1735,7 @@ class Process:
         self.process_image_file_name = process_image_file_name
         self.process_image_file_path = process_image_file_path
         self.process_dns = process_dns
-        self.process_certificate = process_certificate
+        self.process_signature = process_signature
         self.process_http = process_http
         self.process_flow = process_flow
 
@@ -1698,6 +1764,7 @@ class Process:
 
     def __dict__(self):
         _dict = {
+            "timestamp": self.timestamp,
             "related_detection_uuid": self.related_detection_uuid,
             "process_name": self.process_name,
             "process_id": self.process_id,
@@ -1732,7 +1799,7 @@ class Process:
             "process_image_file_name": self.process_image_file_name,
             "process_image_file_path": self.process_image_file_path,
             "process_dns": self.process_dns,
-            "process_certificate": str(self.process_certificate),
+            "process_signature": str(self.process_signature),
             "process_http": str(self.process_http),
             "process_flow": str(self.process_flow),
             "process_parents": str(self.process_parents),
@@ -1756,18 +1823,19 @@ class Process:
 
 
 class LogMessage:
-    """The LogMessage class. Used for storing log data like syslog from a SIEM.
-    Be aware that either log_source_ip or log_source_device must be set.
+    """The LogMessage class. The most basic context class. Used for storing genric log data like syslog from a SIEM.
+       ! Only use this context if no other context is applicable. !
+       Be aware that either log_source_ip or log_source_device must be set.
 
     Attrbutes:
         related_detection_uuid (uuid.UUID): The UUID of the detection this log is related to
+        timestamp (datetime.datetime): The timestamp of the log
         log_message (str): The message of the log
         log_source_name (str): The source of the log (e.g. Syslog @ Linux Server)
         log_source_ip (ipaddress.IPv4Address or ipaddress.IPv6Address): The IP address of the source of the log
         log_source_device (Device): The device object related to the log
         log_flow (ContextFlow): The flow object related to the log
         log_protocol (str): The protocol of the log
-        log_timestamp (datetime.datetime): The timestamp of the log
         log_type (str): The type of the log
         log_severity (str): The severity of the log
         log_facility (str): The facility of the log
@@ -1783,7 +1851,7 @@ class LogMessage:
     def __init__(
         self,
         related_detection_uuid: uuid.UUID,
-        log_timestamp: datetime.datetime,
+        timestamp: datetime.datetime,
         log_message: str,
         log_source_name: str,
         log_source_ip: Union[ipaddress.IPv4Address, ipaddress.IPv6Address] = DEFAULT_IP,
@@ -1797,7 +1865,7 @@ class LogMessage:
         log_custom_fields: dict = None,
     ):
         self.related_detection_uuid = related_detection_uuid
-        self.log_timestamp = log_timestamp
+        self.timestamp = timestamp
         self.log_message = log_message
         self.log_source_name = log_source_name
 
@@ -1826,7 +1894,7 @@ class LogMessage:
     def __dict__(self):
         dict_ = {
             "related_detection_uuid": str(self.related_detection_uuid),
-            "log_timestamp": str(self.log_timestamp),
+            "timestamp": str(self.timestamp),
             "log_message": self.log_message,
             "log_source_name": self.log_source_name,
             "log_source_ip": str(self.log_source_ip),
@@ -1848,6 +1916,8 @@ class LogMessage:
 
 class ThreatIntel:
     """Detection by an idividual threat intel engine (e.g. Kaspersky, Avast, Microsoft, etc.).
+       ! This class is not a stand-alone context. !
+       Use it in ContextThreatIntel context to store multiple threat intel engines.
 
     Attributes:
         engine (str): The name of the detection engine
@@ -2139,21 +2209,36 @@ class Detection:
         self.tags = tags
         self.raw = raw
         self.rules = rules
+        self.indicators = {"ip": [], "domain": [], "url": [], "hash": [], "email": [], "countries": [], "other": []}
 
         # Context for every type of context with checks
         if log != None:
             if not isinstance(log, LogMessage):
                 raise TypeError("log must be of type LogMessage")
+            if log.log_flow:
+                self.indicators["ip"].append(log.log_flow.source_ip)
+                self.indicators["ip"].append(log.log_flow.destination_ip)
         self.log = log
 
         if process != None:
             if not isinstance(process, Process):
                 raise TypeError("process must be of type Process")
+            if process.process_flow:
+                self.indicators["ip"].append(process.process_flow.source_ip)
+                self.indicators["ip"].append(process.process_flow.destination_ip)
+            if process.process_md5:
+                self.indicators["hash"].append(process.process_md5)
+            if process.process_sha1:
+                self.indicators["hash"].append(process.process_sha1)
+            if process.process_sha256:
+                self.indicators["hash"].append(process.process_sha256)
         self.process = process
 
         if flow != None:
             if not isinstance(flow, NetworkFlow):
                 raise TypeError("flow must be of type NetworkFlow")
+            self.indicators["ip"].append(flow.source_ip)
+            self.indicators["ip"].append(flow.destination_ip)
         self.flow = flow
 
         if threat_intel != None:
@@ -2164,6 +2249,8 @@ class Detection:
         if location != None:
             if not isinstance(location, Location):
                 raise TypeError("location must be of type Location")
+            if location.country:
+                self.indicators["countries"].append(location.country)
         self.location = location
 
         if device != None:
@@ -2179,24 +2266,65 @@ class Detection:
         if file != None:
             if not isinstance(file, File):
                 raise TypeError("file must be of type File")
+            self.indicators["other"].append(file.file_name)
+            if file.file_md5:
+                self.indicators["hash"].append(file.file_md5)
+            if file.file_sha1:
+                self.indicators["hash"].append(file.file_sha1)
+            if file.file_sha256:
+                self.indicators["hash"].append(file.file_sha256)
         self.file = file
 
         if http_request != None:
             if not isinstance(http_request, HTTP):
                 raise TypeError("http_request must be of type HTTP")
+            self.indicators["domain"].append(http_request.host)
+            self.indicators["url"].append(http_request.full_url)
+            self.indicators["ip"].append(http_request.flow.source_ip)
+            self.indicators["ip"].append(http_request.flow.destination_ip)
+            if http_request.request_body:
+                self.indicators["other"].append(http_request.request_body)
+            if http_request.file:
+                self.indicators["other"].append(http_request.file.file_name)
+                if http_request.file.file_md5:
+                    self.indicators["hash"].append(http_request.file.file_md5)
+                if http_request.file.file_sha1:
+                    self.indicators["hash"].append(http_request.file.file_sha1)
+                if http_request.file.file_sha256:
+                    self.indicators["hash"].append(http_request.file.file_sha256)
         self.http_request = http_request
 
         if dns_request != None:
             if not isinstance(dns_request, DNSQuery):
                 raise TypeError("dns_request must be of type DNSQuery")
+            self.indicators["domain"].append(dns_request.query)
+            self.indicators["ip"].append(dns_request.flow.source_ip)
+            self.indicators["ip"].append(dns_request.flow.destination_ip)
+            if dns_request.query_response and cast_to_ipaddress(dns_request.query_response):
+                self.indicators["ip"].append(dns_request.query_response)
         self.dns_request = dns_request
 
         if certificate != None:
             if not isinstance(certificate, Certificate):
                 raise TypeError("certificate must be of type Certificate")
+            self.indicators["domain"].append(certificate.subject)
+            if certificate.subject_alternative_names is not None and len(certificate.subject_alternative_names) > 0:
+                for san in certificate.subject_alternative_names:
+                    self.indicators["domain"].append(san)
         self.certificate = certificate
 
         self.uuid = uuid
+
+        # Remove '*.' from domain indicators and replace with empty
+        for domain in self.indicators["domain"]:
+            if domain.startswith("*."):
+                mlog = logging_helper.Log("lib.class_helper")
+                mlog.debug("Removing '*.' from domain indicator: %s", domain)
+                self.indicators["domain"].remove(domain)
+                self.indicators["domain"].append(domain[2:])
+
+        # Remove duplicates
+        remove_duplicates_from_dict(self.indicators)
 
     def __dict__(self):
         """Returns the dictionary representation of the object."""
@@ -2254,6 +2382,7 @@ class DetectionReport:
         context_dns_requests (List[DNS]): The context dns requests of the report
         context_certificates (List[Certificate]): The context certificates of the report
         uuid (str): The universal unique ID of the report (uuid4 - random if not set)
+        indicators (Dict[str, List[str]]): The indicators of the report (key: indicator type, value: list of indicators)
 
 
     Methods:
@@ -2283,6 +2412,7 @@ class DetectionReport:
         self.context_certificates: List[Certificate] = []
 
         self.uuid = uuid
+        self.indicators = {"ip": [], "domain": [], "url": [], "hash": [], "email": [], "countries": [], "other": []}
 
     def __dict__(self):
         """Returns the object as a dictionary."""
@@ -2304,6 +2434,8 @@ class DetectionReport:
             "context_http_requests": str(self.context_http_requests),
             "context_dns_requests": str(self.context_dns_requests),
             "context_certificates": str(self.context_certificates),
+            "uuid": self.uuid,
+            "indicators": self.indicators,
         }
         return dict_
 
@@ -2332,28 +2464,97 @@ class DetectionReport:
 
         if isinstance(context, LogMessage):
             add_to_timeline(self.context_logs, context, timestamp)
+            if context.log_flow:
+                self.indicators["ip"].append(context.log_flow.source_ip)
+                self.indicators["ip"].append(context.log_flow.destination_ip)
+
         elif isinstance(context, Process):
             add_to_timeline(self.context_processes, context, timestamp)
+            if context.process_flow:
+                self.indicators["ip"].append(context.process_flow.source_ip)
+                self.indicators["ip"].append(context.process_flow.destination_ip)
+            if context.process_md5:
+                self.indicators["hash"].append(context.process_md5)
+            if context.process_sha1:
+                self.indicators["hash"].append(context.process_sha1)
+            if context.process_sha256:
+                self.indicators["hash"].append(context.process_sha256)
+
         elif isinstance(context, NetworkFlow):
             add_to_timeline(self.context_flows, context, timestamp)
+            self.indicators["ip"].append(context.source_ip)
+            self.indicators["ip"].append(context.destination_ip)
+
         elif isinstance(context, ContextThreatIntel):
             add_to_timeline(self.context_threat_intel, context, timestamp)
+
         elif isinstance(context, Location):
             add_to_timeline(self.context_locations, context, timestamp)
+            if context.country:
+                self.indicators["countries"].append(context.country)
+
         elif isinstance(context, Device):
             add_to_timeline(self.context_devices, context, timestamp)
+
         elif isinstance(context, Person):
             add_to_timeline(self.context_persons, context, timestamp)
+
         elif isinstance(context, File):
             add_to_timeline(self.context_files, context, timestamp)
+            self.indicators["other"].append(context.file_name)
+            if context.file_md5:
+                self.indicators["hash"].append(context.file_md5)
+            if context.file_sha1:
+                self.indicators["hash"].append(context.file_sha1)
+            if context.file_sha256:
+                self.indicators["hash"].append(context.file_sha256)
+
         elif isinstance(context, HTTP):
             add_to_timeline(self.context_http_requests, context, timestamp)
+            self.indicators["domain"].append(context.host)
+            self.indicators["url"].append(context.full_url)
+            self.indicators["ip"].append(context.flow.source_ip)
+            self.indicators["ip"].append(context.flow.destination_ip)
+            if context.request_body:
+                self.indicators["other"].append(context.request_body)
+            if context.file:
+                self.indicators["other"].append(context.file.file_name)
+                if context.file.file_md5:
+                    self.indicators["hash"].append(context.file.file_md5)
+                if context.file.file_sha1:
+                    self.indicators["hash"].append(context.file.file_sha1)
+                if context.file.file_sha256:
+                    self.indicators["hash"].append(context.file.file_sha256)
+
         elif isinstance(context, DNSQuery):
             add_to_timeline(self.context_dns_requests, context, timestamp)
+            self.indicators["domain"].append(context.query)
+            self.indicators["ip"].append(context.flow.source_ip)
+            self.indicators["ip"].append(context.flow.destination_ip)
+            if context.query_response and cast_to_ipaddress(context.query_response):
+                self.indicators["ip"].append(context.query_response)
+
         elif isinstance(context, Certificate):
             add_to_timeline(self.context_certificates, context, timestamp)
+            self.indicators["domain"].append(context.subject)
+            if context.subject_alternative_names is not None and len(context.subject_alternative_names) > 0:
+                for san in context.subject_alternative_names:
+                    self.indicators["domain"].append(san)
         else:
             raise TypeError("Unknown context type.")
+
+        # Remove '*.' from domain indicators and replace with empty
+        for domain in self.indicators["domain"]:
+            if domain.startswith("*"):
+                mlog = logging_helper.Log("lib.class_helper")
+                mlog.debug("Removing '*.' from domain indicator: " + domain)
+                self.indicators["domain"].remove(domain)
+                self.indicators["domain"].append(domain[2:])
+
+        # Remove duplicates
+        remove_duplicates_from_dict(self.indicators)
+
+        return
 
     def get_title(self):
         """Returns the title of the report."""

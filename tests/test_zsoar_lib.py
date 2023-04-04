@@ -152,14 +152,12 @@ def test_class_helper():
     assert flow.flow_id > 0, "ContextFlow id is not set"
 
     # Test Certificate class
-    assert (
-        class_helper.Certificate(flow, "example.com", "Pytest Inc.", "Pytest CN", public_key_size=2048) != None
-    ), "Certificate class could not be initialized"
+    cert = class_helper.Certificate(flow, "example.com", "Pytest Inc.", "Pytest CN", public_key_size=2048)
+    assert cert != None, "Certificate class could not be initialized"
 
     # Test DNSQuery class
-    assert (
-        class_helper.DNSQuery(detection.uuid, flow, "A", "www2.example.com", has_response=True, query_response="10.10.10.10") != None
-    ), "DNSQuery class could not be initialized"
+    dns_query = class_helper.DNSQuery(detection.uuid, flow, "A", "www2.example.com", has_response=True, query_response="10.10.10.10")
+    assert dns_query != None, "DNSQuery class could not be initialized"
 
     # Test HTTP class
     http = class_helper.HTTP(detection.uuid, flow, "GET", "HTTPS", "www2.example.com", 200, path="index.html", user_agent="PyTest")
@@ -167,12 +165,13 @@ def test_class_helper():
     assert http.full_url == "https://www2.example.com/index.html", "HTTP class full_url not set correctly"
 
     # Test Process class
-    parent_process = class_helper.Process(detection.uuid, "word.exe", 242, "service.exe", 235, "C:\\Microsoft\word.exe")
+    parent_process = class_helper.Process(datetime.datetime.now(), detection.uuid, "word.exe", 242, "service.exe", 235, "C:\\Microsoft\word.exe")
     assert parent_process != None, "ContextProcess class (for test parent) could not be initialized"
 
     parents = []
     parents.append(parent_process)
     process = class_helper.Process(
+        datetime.datetime.now(),
         detection.uuid,
         "virus.exe",
         299,
@@ -189,22 +188,20 @@ def test_class_helper():
     assert process != None, "ContextProcessclass (for test child) could not be initialized"
 
     # Test File class
-    file = class_helper.File("image.png", "C:\\Tmp\image.png", 512456, is_directory=False, file_extension=".png")
+    file = class_helper.File(detection.uuid, "image.png", "C:\\Tmp\image.png", 512456, is_directory=False, file_extension=".png")
     assert file != None, "File class could not be initialized"
     assert file.file_extension == "png", "File class file_extension not set correctly"
 
     # Test LogMessage class
-    assert (
-        class_helper.LogMessage(
-            datetime.datetime.now(),
-            "Failed user logon user=root",
-            "Auth Logs @ Server",
-            flow,
-            log_custom_fields={"Username": "root", "Account Name": "Something"},
-            log_source_ip="10.12.0.1",
-        )
-        != None
-    ), "ContextLog class could not be initialized"
+    log_message = class_helper.LogMessage(
+        detection.uuid,
+        datetime.datetime.now(),
+        "Failed user logon user=root",
+        "Auth Logs @ Server",
+        log_custom_fields={"Username": "root", "Account Name": "Something"},
+        log_source_ip="10.12.0.1",
+    )
+    assert log_message != None, "ContextLog class could not be initialized"
 
     # Test ThreatIntel class
     ti_detections = []
@@ -306,11 +303,115 @@ def test_class_helper():
     assert len(device.services) == 1, "Device class services not set correctly"
     assert device.services[0].name == "Microsoft Exchange", "Device class services not set correctly"
 
-    # Test DetectionReport
+    # Test DetectionReport add_context
+    detection_report.add_context(log_message)
+    assert len(detection_report.context_logs) == 1, "Could not add context log_message to detection"
+    assert detection_report.context_logs[0].log_message == "Failed user logon user=root", "Could not add log_message context to detection"
+
+    detection_report.add_context(process)
+    assert len(detection_report.context_processes) == 1, "Could not add process context to detection"
+    assert detection_report.context_processes[0].process_name == "virus.exe", "Could not add process context to detection"
+
     detection_report.add_context(flow)
-    assert detection_report.context_flows != None, "Could not add context to detection"
-    assert len(detection_report.context_flows) == 1, "Could not add context to detection"
+    assert detection_report.context_flows != None, "Could not add context flow to detection"
+    assert len(detection_report.context_flows) == 1, "Could not add context flow to detection"
     assert str(detection_report.context_flows[0].source_ip) == "123.123.123.123", "Could not add context to detection"
+
+    detection_report.add_context(threat_intel)
+    assert len(detection_report.context_threat_intel) == 1, "Could not add threat_intel context to detection"
+    assert detection_report.context_threat_intel[0].source == "VirusTotal", "Could not add threat_intel context to detection"
+
+    detection_report.add_context(location)
+    assert len(detection_report.context_locations) == 1, "Could not add location context to detection"
+    assert detection_report.context_locations[0].country == "Germany", "Could not add location context to detection"
+
+    detection_report.add_context(device)
+    assert len(detection_report.context_devices) == 1, "Could not add device context to detection"
+    assert detection_report.context_devices[0].name == "MacBook Pro von John Doe", "Could not add device context to detection"
+
+    detection_report.add_context(person)
+    assert len(detection_report.context_persons) == 1, "Could not add person context to detection"
+    assert detection_report.context_persons[0].name == "John Doe", "Could not add person context to detection"
+
+    detection_report.add_context(file)
+    assert len(detection_report.context_files) == 1, "Could not add file context to detection"
+    assert detection_report.context_files[0].file_name == "image.png", "Could not add file context to detection"
+
+    detection_report.add_context(http)
+    assert len(detection_report.context_http_requests) == 1, "Could not add http context to detection"
+    assert detection_report.context_http_requests[0].method == "GET", "Could not add http context to detection"
+
+    detection_report.add_context(dns_query)
+    assert len(detection_report.context_dns_requests) == 1, "Could not add dns_query context to detection"
+    assert detection_report.context_dns_requests[0].query == "www2.example.com", "Could not add dns_query context to detection"
+
+    detection_report.add_context(cert)
+    assert len(detection_report.context_certificates) == 1, "Could not add cert context to detection"
+    assert detection_report.context_certificates[0].subject == "example.com", "Could not add cert context to detection"
+
+    assert detection_report.indicators is not None, "Could not add indicators to detection"
+    assert len(detection_report.indicators) != 0, "Could not add indicators to detection"
+    assert detection_report.indicators["ip"][0] == ipaddress.IPv4Address("123.123.123.123"), "Could not add indicators to detection"
+    assert detection_report.indicators["domain"][0] == "www2.example.com", "Could not add indicators to detection"
+    assert detection_report.indicators["url"][0] == "https://www2.example.com/index.html", "Could not add indicators to detection"
+    assert detection_report.indicators["hash"][0] == "1234567890abcdef1234567890abcdef", "Could not add indicators to detection"
+
+    detection_report.add_context(http)
+    detection_report.add_context(http)
+    detection_report.add_context(http)
+    assert len(detection_report.indicators["url"]) == 1, "De-doubling of context objects failed"
+
+    # Check DetectionReport add_context - timieline sorting and wildcard removal
+    t1 = datetime.datetime.now()
+    t2 = datetime.datetime.now() + datetime.timedelta(minutes=1)
+    t3 = datetime.datetime.now() + datetime.timedelta(minutes=2)
+    log_message1 = class_helper.LogMessage(
+        detection.uuid,
+        t3,
+        "First created Log message. Happened last.",
+        "Auth Logs @ Server",
+        log_source_ip="1.1.1.1",
+    )
+    log_message2 = class_helper.LogMessage(
+        detection.uuid, t1, "Second created Log message. Happened first.", "Auth Logs @ Server", log_source_ip="1.1.1.1"
+    )
+    log_message3 = class_helper.LogMessage(
+        detection.uuid, t2, "Third created Log message. Happened in the middle.", "Auth Logs @ Server", log_source_ip="10.12.0.1"
+    )
+    detection_report.add_context(log_message1)
+    detection_report.add_context(log_message2)
+    detection_report.add_context(log_message3)
+    assert len(detection_report.context_logs) == 1 + 3, "Could not add log messages to detection"
+    assert detection_report.context_logs[1 + 0].log_message == "Second created Log message. Happened first.", "Time sorting of log messages failed"
+    assert detection_report.context_logs[1 + 1].log_message == "Third created Log message. Happened in the middle.", "Time sorting of log msg failed"
+    assert detection_report.context_logs[1 + 2].log_message == "First created Log message. Happened last.", "Time sorting of log messages failed"
+
+    detection_report.add_context(class_helper.DNSQuery(detection.uuid, flow, "A", "*.example.com", True, "10.10.10.10"))
+    assert detection_report.indicators["domain"][1] == "example.com", "Could not add indicators to detection"
+
+    # Test detection class indicators
+    detection2 = class_helper.Detection(
+        "Some ID",
+        "Some Name",
+        ruleList,
+        datetime.datetime.now(),
+        log=log_message,
+        process=process,
+        file=file,
+        http_request=http,
+        dns_request=dns_query,
+        certificate=cert,
+        location=location,
+        device=device,
+        user=person,
+        threat_intel=threat_intel,
+    )
+    assert detection2.indicators is not None, "Could not add indicators to detection"
+    assert len(detection2.indicators) != 0, "Could not add indicators to detection"
+    assert detection2.indicators["ip"][0] == ipaddress.IPv4Address("123.123.123.123"), "Could not add indicators to detection"
+    assert detection2.indicators["domain"][0] == "www2.example.com", "Could not add indicators to detection"
+    assert detection2.indicators["url"][0] == "https://www2.example.com/index.html", "Could not add indicators to detection"
+    assert detection2.indicators["hash"][0] == "1234567890abcdef1234567890abcdef", "Could not add indicators to detection"
 
     # Test String printings
     mlog.info("Test for printing objects: ")
@@ -348,6 +449,14 @@ def test_class_helper():
     mlog.info(device)
     mlog.info("DETECTION REPORT: ")
     mlog.info(detection_report)
+    mlog.info("DNS QUERY: ")
+    mlog.info(dns_query)
+    mlog.info("CERT: ")
+    mlog.info(cert)
+    mlog.info("LOG MESSAGE: ")
+    mlog.info(log_message)
+    mlog.info("INDICATORS: ")
+    mlog.info(detection_report.indicators)
     mlog.info("Test for printing objects done.")
 
     # Test classes - Negative tests
