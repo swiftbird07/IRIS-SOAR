@@ -290,21 +290,21 @@ def zs_provide_new_detections(config, TEST="") -> List[Detection]:
 
         # Create a new detection object
         rule_list = []
-        document_source = doc["_source"]
+        doc_dict = doc["_source"]
         rule_list.append(
             Rule(
-                document_source["kibana.alert.rule.uuid"],
-                document_source["kibana.alert.rule.name"],
-                document_source["kibana.alert.rule.severity"],
-                description=document_source["kibana.alert.rule.description"],
-                tags=document_source["kibana.alert.rule.tags"],
+                doc_dict["kibana.alert.rule.uuid"],
+                doc_dict["kibana.alert.rule.name"],
+                doc_dict["kibana.alert.rule.severity"],
+                description=doc_dict["kibana.alert.rule.description"],
+                tags=doc_dict["kibana.alert.rule.tags"],
             )
         )
         mlog.debug("Created rules: " + str(rule_list))
 
         # Get the most relevant IP address of the host
         host_ip = None
-        for ip in document_source["host"]["ip"]:
+        for ip in doc_dict["host"]["ip"]:
             ip_casted = cast_to_ipaddress(ip)
             if ip_casted is not None and ip_casted.is_private:
                 if ip.startswith("10."):
@@ -314,14 +314,76 @@ def zs_provide_new_detections(config, TEST="") -> List[Detection]:
                     host_ip = ip_casted
         mlog.debug("Decided host IP: " + str(host_ip))
 
+        # Create flow object if applicable
+        if "source.ip" in doc_dict and "destination.ip" in doc_dict:
+            flow = NetworkFlow(
+                datetime.datetime.now(),
+                doc_dict["kibana.alert.uuid"],
+                cast_to_ipaddress(doc_dict["source.ip"]),
+                cast_to_ipaddress(doc_dict["destination.ip"]),
+                doc_dict["source.port"],
+                doc_dict["destination.port"],
+                doc_dict["network.transport"],
+                doc_dict["network.protocol"],
+                doc_dict["network.bytes"],
+                doc_dict["network.packets"],
+                doc_dict["network.community_id"],
+                doc_dict["network.direction"],
+                doc_dict["network.type"],
+                doc_dict["network.application"],
+                doc_dict["network.bytes_out"],
+                doc_dict["network.bytes_in"],
+                doc_dict["network.packets_out"],
+                doc_dict["network.packets_in"],
+                doc_dict["network.packets_total"],
+                doc_dict["network.bytes_total"],
+            )
+        else:
+            flow = None
+
+        # Most EDR detections are process related so check if a Process context can be created
+        process = None
+        if "process" in doc_dict:
+            process = Process(
+                timestamp=datetime.datetime.now(),
+                related_detection_uuid=deep_get(doc_dict, "kibana.alert.uuid"),
+                process_name=deep_get(doc_dict, "process.name"),
+                process_id=deep_get(doc_dict, "process.pid"),
+                parent_process_name=deep_get(doc_dict, "process.parent.name"),
+                parent_process_id=deep_get(doc_dict, "process.parent.pid"),
+                parent_process_arguments=deep_get(doc_dict, "process.parent.args"),
+                process_path=deep_get(doc_dict, "process.executable"),
+                process_md5=deep_get(doc_dict, "process.hash.md5"),
+                process_sha1=deep_get(doc_dict, "process.hash.sha1"),
+                process_sha256=deep_get(doc_dict, "process.hash.sha256"),
+                process_command_line=deep_get(doc_dict, "process.args"),
+                process_username=deep_get(doc_dict, "user.name"),
+                process_owner=deep_get(doc_dict, "user.name"),
+                process_start_time=deep_get(doc_dict, "process.start"),
+                process_parent_start_time=deep_get(doc_dict, "process.parent.start"),
+                process_current_directory=deep_get(doc_dict, "process.working_directory"),
+                process_dns=dns,
+                process_http=http,
+                process_flow=flow,
+                process_parents=parents,
+                process_children=children,
+                process_arguments=deep_get(doc_dict, "process.args"),
+                created_files=created_files,
+                deleted_files=deleted_files,
+                modified_files=modified_files,
+                uid=deep_get(doc_dict, "process.entity_id"),
+            )
+            mlog.debug("Created process: " + str(process))
+
         detection = Detection(
-            doc["_id"],
-            document_source["kibana.alert.rule.name"],
+            doc_dict["kibana.alert.uuid"],
+            doc_dict["kibana.alert.rule.name"],
             rule_list,
-            document_source["@timestamp"],
-            description=document_source["kibana.alert.rule.description"],
-            tags=document_source["kibana.alert.rule.tags"],
-            source=document_source["host"]["hostname"],
+            doc_dict["@timestamp"],
+            description=doc_dict["kibana.alert.rule.description"],
+            tags=doc_dict["kibana.alert.rule.tags"],
+            source=doc_dict["host"]["hostname"],
+            process=process,
         )
         mlog.info("Created detection: " + str(detection))
         detections.append(detection)
@@ -381,7 +443,7 @@ def zs_provide_context_for_detections(
                 detection_report.uuid, datetime.datetime.now(), "Elastic-SIEM", "10.0.0.1", 123, "123.123.123.123", 80, "TCP"
             )
         elif required_type == Process:
-            context_object = Process(detection_report.uuid, "test.exe", 123, process_start_time=datetime.datetime.now())
+            context_object = Process(datetime.datetime.now(), detection_report.uuid, "test.exe", 123, process_start_time=datetime.datetime.now())
         elif required_type == LogMessage:
             context_object = LogMessage(detection_report.uuid, datetime.datetime.now(), "Some log message", "Elastic-SIEM", log_source_ip="10.0.0.3")
         return_objects.append(context_object)

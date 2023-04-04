@@ -943,7 +943,7 @@ class Rule:
 
 class NetworkFlow:
     """This class provides a single context of type flow for a detection.
-       ! Use only if the context of type "DNSQuery" or "HTTP" is not applicable !
+       ! Use only if the context of type "DNSQuery", "HTTP" or "Process" is not applicable !
 
     Attributes:
         related_detection_uuid (str): The related detection unique ID of the context flow
@@ -1614,8 +1614,10 @@ class Process:
         process_children (List[ContextProcess]): The children processes of the process
         process_environment_variables (List[]): The environment variables of the process
         process_arguments (List[]): The arguments of the process
+        process_parent_arguments (List[]): The arguments of the parent process
         process_modules (List[]): The modules of the process
         process_thread (str): The threads of the process
+        uid (str): The UID / EntityID of the process
 
     Methods:
         __init__(self, process_name: str, process_id: int, parent_process_name: str = "N/A", parent_process_id: int = 0, process_path: str = "", process_md5: str = "", process_sha1: str = "", process_sha256: str = "", process_command_line: str = "", process_username: str = "", process_integrity_level: str = "", process_is_elevated_token: bool = False, process_token_elevation_type: str = "", process_token_elevation_type_full: str = "", process_token_integrity_level: str = "", process_token_integrity_level_full: str = "", process_privileges: str = "", process_owner: str = "", process_group_id: int = "", process_group_name: str = "", process_logon_guid: str = "", process_logon_id: str = "", process_logon_type: str = "", process_logon_type_full: str = "", process_logon_time: str = "", process_start_time: str = "", process_parent_start_time: str = "", process_current_directory: str = "", process_image_file_device: str = "", process_image_file_directory: str = "", process_image_file_name: str = "", process_image_file_path: str = "", process_dns: DNSQuery = None, process_certificate: Certificate = None, process_http: HTTP = None, process_flow: ContextFlow = None, process_parent: ContextProcess = None, process_children: List[ContextProcess] = None, process_environment_variables: List[] = None, process_arguments: List[] = None, process_modules: List[] = None, process_thread: str = "")
@@ -1630,6 +1632,7 @@ class Process:
         process_id: int,
         parent_process_name: str = "N/A",
         parent_process_id: int = 0,
+        parent_process_arguments: List[str] = [],
         process_path: str = "",
         process_md5: str = "",
         process_sha1: str = "",
@@ -1674,6 +1677,7 @@ class Process:
         created_registry_keys: List[str] = [],
         deleted_registry_keys: List[str] = [],
         modified_registry_keys: List[str] = [],
+        uid=uuid.uuid4(),
     ):
         self.timestamp = timestamp
         self.related_detection_uuid = related_detection_uuid
@@ -1751,6 +1755,7 @@ class Process:
 
         self.process_environment_variables = process_environment_variables
         self.process_arguments = process_arguments
+        self.parent_process_arguments = parent_process_arguments
         self.process_modules = process_modules
         self.process_thread = process_thread
 
@@ -1761,6 +1766,8 @@ class Process:
         self.created_registry_keys = created_registry_keys
         self.deleted_registry_keys = deleted_registry_keys
         self.modified_registry_keys = modified_registry_keys
+
+        self.uid = uid
 
     def __dict__(self):
         _dict = {
@@ -1806,6 +1813,7 @@ class Process:
             "process_children": str(self.process_children),
             "process_environment_variables": self.process_environment_variables,
             "process_arguments": self.process_arguments,
+            "parent_process_arguments": self.parent_process_arguments,
             "process_modules": self.process_modules,
             "process_thread": self.process_thread,
             "created_files": str(self.created_files),
