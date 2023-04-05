@@ -19,6 +19,7 @@ from ssl import create_default_context
 from functools import reduce
 import sys
 import uuid
+import json
 
 import lib.logging_helper as logging_helper
 
@@ -175,14 +176,14 @@ def create_flow_from_doc(mlog, doc_id, doc_dict):
     return flow
 
 
-def create_process_from_doc(mlog, doc_id, doc_dict):
+def create_process_from_doc(mlog, doc_id, doc_dict, detectionOnly=True):
     """Creates a Process object from a Elastic-SIEM document."""
     mlog.debug("Creating Process object from Elastic-SIEM document for detection: " + doc_dict["kibana.alert.uuid"] + " and document: " + doc_id)
 
-    dns = None  # TODO: Implement create_dns_from_doc
+    dns_requests = None  # TODO: Implement create_dns_from_doc
     files = None  # TODO: Implement create_file_from_doc
-    flow = None  # TODO: Implement create_flow_from_doc
-    http = None  # TODO: Implement create_http_from_doc
+    flows = None  # TODO: Implement create_flow_from_doc
+    http_requests = None  # TODO: Implement create_http_from_doc
 
     created_files = []
     deleted_files = []
@@ -215,9 +216,9 @@ def create_process_from_doc(mlog, doc_id, doc_dict):
         process_start_time=deep_get(doc_dict, "process.start"),
         process_parent_start_time=deep_get(doc_dict, "process.parent.start"),
         process_current_directory=deep_get(doc_dict, "process.working_directory"),
-        process_dns=dns,
-        process_http=http,
-        process_flow=flow,
+        process_dns=dns_requests,
+        process_http=http_requests,
+        process_flow=flows,
         process_parent=parent,
         process_children=children,
         process_arguments=deep_get(doc_dict, "process.args"),
@@ -230,6 +231,122 @@ def create_process_from_doc(mlog, doc_id, doc_dict):
 
     mlog.debug("Created process: " + str(process))
     return process
+
+
+def get_all_indices(mlog, config):
+    """Gets all indices from Elasticsearch.
+
+    Args:
+        mlog (logging_helper.Log): The logging object
+        config (dict): The configuration dictionary for this integration
+
+    Returns:
+        list: A list of all indices
+    """
+    mlog.info("get_all_indices() - called")
+
+    elastic_host = config["elastic_url"]
+    elastic_user = config["elastic_user"]
+    elastic_pw = config["elastic_password"]
+    should_verify = config["elastic_verify_certs"]
+
+    # Define headers and URL for Elasticsearch search
+    headers = {
+        "Content-Type": "application/json",
+    }
+    url = elastic_host + "/_cat/indices?format=json"
+
+    # Get all indices from Elasticsearch
+    mlog.debug("get_all_indices() - calling Elasticsearch at: " + url)
+    try:
+        response = requests.get(url, headers=headers, auth=(elastic_user, elastic_pw), verify=should_verify)
+    except Exception as e:
+        mlog.error("get_all_indices() - error while calling Elasticsearch: " + str(e))
+        return []
+
+    # Check if the response was successful
+    if response.status_code != 200:
+        mlog.error("get_all_indices() - Elasticsearch returned status code: " + str(response.status_code))
+        return []
+
+    # Parse the response
+    try:
+        response_json = response.json()
+    except Exception as e:
+        mlog.error("get_all_indices() - error while parsing Elasticsearch response: " + str(e))
+        return []
+
+    # Get all indices
+    indices = []
+
+    # TODO: Use caching from file to store recent successful indices at the top of the list
+
+    for index in response_json:
+        indices.append(index["index"])
+
+    mlog.debug("get_all_indices() - found " + str(len(indices)) + " indices")
+    return indices
+
+
+def search_entity_by_entity_id(mlog, config, entity_id, entity_type="process"):
+    """Searches for an entity by its entity ID.
+
+    Args:
+        mlog (logging_helper.Log): The logging object
+        config (dict): The configuration dictionary for this integration
+        entity_id (str): The entity ID to search for
+        entity_type (str): The type of entity to search for
+
+    Returns:
+        dict: The entity
+    """
+    mlog.info("search_entity_by_entity_id() - called with entity_id: " + entity_id + " and entity_type: " + entity_type)
+
+    elastic_host = config["elastic_url"]
+    elastic_user = config["elastic_user"]
+    elastic_pw = config["elastic_password"]
+    should_verify = config["elastic_verify_certs"]
+
+    # Define headers and URL for Elasticsearch search
+    headers = {
+        "Content-Type": "application/json",
+    }
+
+    indices = get_all_indices(mlog, config)
+    succsess = False
+
+    for index in indices:
+        url = f"{elastic_host}/{index}/_search"
+
+        # Define Elasticsearch search query
+        search_query = {"query": {"bool": {"must": [{"match": {"process.entity_id": entity_id}}, {"range": {"@timestamp": {"gte": "now-3d/d"}}}]}}}
+        mlog.debug(f"search_entity_by_entity_id() - Searching index {index} for entity with URL: " + url + " and data: " + json.dumps(search_query))
+
+        # Send Elasticsearch search request
+        response = requests.post(url, headers=headers, auth=(elastic_user, elastic_pw), json=search_query, verify=should_verify)
+
+        # Check if Elasticsearch search was successful
+        if response.status_code != 200:
+            mlog.error(f"search_entity_by_entity_id() - Elasticsearch search failed with status code {response.status_code}")
+            continue
+
+        mlog.debug(f"Response text: {response.text}")
+
+        # Extract the entity from the Elasticsearch search response
+        search_response = json.loads(response.text)
+        if search_response["hits"]["total"]["value"] == 0:
+            mlog.debug(f"search_entity_by_entity_id() - Index {index}: No entity found for entity_id {entity_id} and entity_type {entity_type}")
+            continue
+        else:
+            succsess = True
+            break
+
+    if not succsess:
+        mlog.warning(f"search_entity_by_entity_id() - No entity found for entity_id {entity_id} and entity_type {entity_type}")
+        return None
+    entity = search_response["hits"]["hits"][0]["_source"]
+    mlog.info(f"search_entity_by_entity_id() - Entity found for entity_id {entity_id} and entity_type {entity_type}: {json.dumps(entity)}")
+    return entity
 
 
 def acknowledge_alert(mlog, config, alert_id, index):
@@ -445,7 +562,7 @@ def zs_provide_new_detections(config, TEST="") -> List[Detection]:
 
 
 def zs_provide_context_for_detections(
-    config, detection_report: DetectionReport, required_type: type, TEST=False
+    config, detection_report: DetectionReport, required_type: type, TEST=False, UUID=None, maxContext=-1
 ) -> Union[NetworkFlow, LogMessage, Process]:
     """Returns a DetectionReport object with context for the detections from the XXX integration.
 
@@ -455,6 +572,8 @@ def zs_provide_context_for_detections(
         required_type (type): The type of context to return. Can be one of the following:
             [ContextFlow, ContextLog]
         test (bool, optional): If set to True, dummy context data will be returned. Defaults to False.
+        UUID (str, optional): Setting this will mean that a single object matching the Elastic-SIEM 'entity_id' will be returned. Defaults to None.
+        maxContext (int, optional): The maximum number of context objects to return. Defaults to -1 (no restriction).
 
     Returns:
         Union[ContextFlow, ContextLog]: The required context of type 'required_type'
@@ -463,10 +582,13 @@ def zs_provide_context_for_detections(
     detection_report_str = "'" + detection_report.get_title() + "' (" + str(detection_report.uuid) + ")"
     mlog.info(f"zs_provide_context_for_detections() called with detection report: {detection_report_str} and required_type: {required_type}")
 
+    return_objects = []
     provided_typed = []
     provided_typed.append(NetworkFlow)
     provided_typed.append(LogMessage)
     provided_typed.append(Process)
+
+    detection_name = detection_report.detections[0].name
 
     if required_type not in provided_typed:
         mlog.error("The required type is not provided by this integration. '" + str(required_type) + "' is not in " + str(provided_typed))
@@ -474,7 +596,6 @@ def zs_provide_context_for_detections(
 
     if TEST:  # When called from unit tests, return dummy data. Can be removed in production.
         mlog.info("Running in test mode. Returning dummy data.")
-        return_objects = []
         if required_type == NetworkFlow:
             context_object = NetworkFlow(
                 detection_report.uuid, datetime.datetime.now(), "Elastic-SIEM", "10.0.0.1", 123, "123.123.123.123", 80, "TCP"
@@ -487,14 +608,31 @@ def zs_provide_context_for_detections(
             context_object = LogMessage(detection_report.uuid, datetime.datetime.now(), "Some log message", "Elastic-SIEM", log_source_ip="10.0.0.3")
         return_objects.append(context_object)
         detection_example = detection_report.detections[0]
-        detection_name = detection_example.name
         detection_id = detection_example.vendor_id
 
     # ...
     # ...
-    # ... Add code to return the required type here
+    if not TEST:
+        if required_type == Process:
+            if UUID is None:
+                mlog.info(
+                    "No UUID provided. This implies that the detection is not from Elastic SIEM itself. Will return relevant processes if found."
+                )
+                # ... TODO: Get all processes related to the detection
+            else:
+                mlog.info("UUID provided. Will return the single process with UUID: " + UUID)
+                doc = search_entity_by_entity_id(mlog, config, UUID)
+                if doc is not None:
+                    process = create_process_from_doc(mlog, doc["_id"], doc["_source"])
+                    return_objects.append(process)
+
     # ...
     # ...
+    if len(return_objects) == 0:
+        mlog.info(
+            "zs_provide_context_for_detections() found no context for detection: " + detection_name + " and required_type: " + str(required_type)
+        )
+        return None
 
     for context_object in return_objects:
         if context_object != None:

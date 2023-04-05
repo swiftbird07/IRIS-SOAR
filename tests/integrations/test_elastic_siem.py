@@ -3,7 +3,7 @@
 import pytest
 
 from lib.class_helper import Detection, DetectionReport, Rule, Process, LogMessage, NetworkFlow
-from integrations.elastic_siem import zs_provide_new_detections, zs_provide_context_for_detections, acknowledge_alert
+from integrations.elastic_siem import zs_provide_new_detections, zs_provide_context_for_detections, acknowledge_alert, search_entity_by_entity_id
 import lib.logging_helper as logging_helper
 import lib.config_helper as config_helper
 import datetime
@@ -76,6 +76,20 @@ def test_acknowledge_alert():
         ".internal.alerts-security.alerts-default-000001",
     )
     assert result == True, "acknowledge_alert() did not return True"
+
+
+def test_search_entity_by_entity_id():
+    # Prepare the config and logger
+    mlog = logging_helper.Log("test_elastic_siem")
+    cfg = config_helper.Config().cfg
+    integration_config = cfg["integrations"]["elastic_siem"]
+
+    ENTITY_ID = "NDU2NTBlYzQtY2VkNy00NDMzLTk2MzItNTlhNzVmZDgzMzQzLTE1MDgtMTY3OTcwMjQ1Mw=="
+    ENTITY_TYPE = "process"
+
+    # Test the function
+    result = search_entity_by_entity_id(mlog, integration_config, ENTITY_ID, ENTITY_TYPE)
+    assert result != None, "search_enity_by_entity_id() did not return a result"
 
 
 # Omline tests

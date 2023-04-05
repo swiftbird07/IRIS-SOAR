@@ -1572,7 +1572,7 @@ class Process:
     """Process class.
 
     Attributes:
-        uid (str): The UID / EntityID of the process
+        process_uuid (str): The UID / EntityID of the process
         timestamp (datetime.datetime): The timestamp of the event
         related_detection_uuid (uuid.UUID): The UUID of the detection this process is related to
         process_name (str): The name of the process
@@ -1667,7 +1667,7 @@ class Process:
         process_signature: Certificate = None,
         process_http: HTTP = None,
         process_flow: NetworkFlow = None,
-        process_parent = None,
+        process_parent=None,
         process_children: list = [],
         process_environment_variables: List[str] = [],
         process_arguments: List[str] = [],
