@@ -10,16 +10,8 @@
 # Integration Version: 0.0.2
 # Currently limited to process related detections and contexts.
 
-from typing import Union, List
-import lib.logging_helper as logging_helper
 import logging
-
-# For new detections:
-from lib.class_helper import Rule, Detection
-
-# For context for detections (remove unused types):
-from lib.class_helper import DetectionReport, NetworkFlow, LogMessage, Process, cast_to_ipaddress
-
+from typing import Union, List
 import datetime
 import requests
 from elasticsearch import Elasticsearch, AuthenticationException
@@ -27,6 +19,14 @@ from ssl import create_default_context
 from functools import reduce
 import sys
 import uuid
+
+import lib.logging_helper as logging_helper
+
+# For new detections:
+from lib.class_helper import Rule, Detection, Process, NetworkFlow
+
+# For context for detections (remove unused types):
+from lib.class_helper import DetectionReport, NetworkFlow, LogMessage, Process, cast_to_ipaddress
 
 
 LOG_LEVEL = "DEBUG"  # Force log level. Recommended to set to DEBUG during development.
@@ -62,7 +62,7 @@ def zs_integration_setup():
         "elastic_user",
         "str",
         "Enter the Elastic-SIEM username",
-        additional_info="Be aware that this user needs at cluster roles: 'monitor', 'read_ccr' and all access to Kibana 'Security'",
+        additional_info="Be aware that this user needs at least the cluster roles: 'monitor', 'read_ccr' and all access to Kibana 'Security'",
     )
 
     set_int(intgr, "elastic_password", "secret", "Enter the Elastic-SIEM password for the user")
@@ -407,8 +407,8 @@ def zs_provide_new_detections(config, TEST="") -> List[Detection]:
 
         # Most EDR detections are process related so check if a Process context can be created
         process = None
-        if "process" in doc_dict:
-            create_process_from_doc(mlog, doc["_id"], doc_dict)
+        if deep_get(doc_dict, "process.entity_id") is not None:
+            process = create_process_from_doc(mlog, doc["_id"], doc_dict)
 
         # Create the detection object
         detection = Detection(
