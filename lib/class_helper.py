@@ -1625,6 +1625,14 @@ class Process:
         __str__(self)
     """
 
+    # TODO: 1) Change that DNSQuery, HTTP and Certificate are directly inside a NetworkFlow object, as they depend on each other
+    #        1b) Remove them as explicit contexts in Detection and DetectionReport
+    #       2) Make that contexts only refere each other by UUID
+    #       3) Create get_context_by_uuid() method in Detection and DetectionReport
+    #       4) Edit the elastic siem integration and building block according to the changes
+    #       5) Implement related_detection_uuid in all stand-alone contexts
+    #       6) Implement relevance scoring in all stand-alone contexts (relevance to the detection)
+
     def __init__(
         self,
         process_uuid: str,
