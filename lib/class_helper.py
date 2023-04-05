@@ -1572,6 +1572,7 @@ class Process:
     """Process class.
 
     Attributes:
+        uid (str): The UID / EntityID of the process
         timestamp (datetime.datetime): The timestamp of the event
         related_detection_uuid (uuid.UUID): The UUID of the detection this process is related to
         process_name (str): The name of the process
@@ -1610,14 +1611,14 @@ class Process:
         process_signature (Certificate): The signature's certificate object of the process
         process_http (HTTP): The HTTP object of the process
         process_flow (ContextFlow): The flow object of the process
-        process_parent (ContextProcess): The parent process object of the process
-        process_children (List[ContextProcess]): The children processes of the process
+        process_parent (Process): The parent process object of the process
+        process_children (List[Process]): The children processes of the process
         process_environment_variables (List[]): The environment variables of the process
         process_arguments (List[]): The arguments of the process
         process_parent_arguments (List[]): The arguments of the parent process
         process_modules (List[]): The modules of the process
         process_thread (str): The threads of the process
-        uid (str): The UID / EntityID of the process
+        is_complete (bool): Set to True if all available information has been collected, False (default) if not
 
     Methods:
         __init__(self, process_name: str, process_id: int, parent_process_name: str = "N/A", parent_process_id: int = 0, process_path: str = "", process_md5: str = "", process_sha1: str = "", process_sha256: str = "", process_command_line: str = "", process_username: str = "", process_integrity_level: str = "", process_is_elevated_token: bool = False, process_token_elevation_type: str = "", process_token_elevation_type_full: str = "", process_token_integrity_level: str = "", process_token_integrity_level_full: str = "", process_privileges: str = "", process_owner: str = "", process_group_id: int = "", process_group_name: str = "", process_logon_guid: str = "", process_logon_id: str = "", process_logon_type: str = "", process_logon_type_full: str = "", process_logon_time: str = "", process_start_time: str = "", process_parent_start_time: str = "", process_current_directory: str = "", process_image_file_device: str = "", process_image_file_directory: str = "", process_image_file_name: str = "", process_image_file_path: str = "", process_dns: DNSQuery = None, process_certificate: Certificate = None, process_http: HTTP = None, process_flow: ContextFlow = None, process_parent: ContextProcess = None, process_children: List[ContextProcess] = None, process_environment_variables: List[] = None, process_arguments: List[] = None, process_modules: List[] = None, process_thread: str = "")
@@ -1626,10 +1627,11 @@ class Process:
 
     def __init__(
         self,
+        process_uuid: str,
         timestamp: datetime.datetime,
         related_detection_uuid: uuid.UUID,
-        process_name: str,
-        process_id: int,
+        process_name: str = "",
+        process_id: int = -1,
         parent_process_name: str = "N/A",
         parent_process_id: int = 0,
         parent_process_arguments: List[str] = [],
@@ -1665,7 +1667,7 @@ class Process:
         process_signature: Certificate = None,
         process_http: HTTP = None,
         process_flow: NetworkFlow = None,
-        process_parents: list = [],
+        process_parent = None,
         process_children: list = [],
         process_environment_variables: List[str] = [],
         process_arguments: List[str] = [],
@@ -1677,17 +1679,22 @@ class Process:
         created_registry_keys: List[str] = [],
         deleted_registry_keys: List[str] = [],
         modified_registry_keys: List[str] = [],
-        uid=uuid.uuid4(),
+        is_complete: bool = False,
     ):
+        self.process_uuid = str(process_uuid)
+        if process_uuid == None or process_uuid == "":
+            raise ValueError("uuid cannot be empty")
+        if len(str(process_uuid)) < 36:
+            mlog = logging_helper.Log("lib.class_helper")
+            mlog.warning("Process Object __init__: given uuid seems too short")
+
         self.timestamp = timestamp
         self.related_detection_uuid = related_detection_uuid
 
-        if process_name == "":
-            raise ValueError("process_name cannot be empty")
         self.process_name = process_name
 
-        if process_id < 0:
-            raise ValueError("process_id cannot be negative")
+        if process_id < -1:
+            raise ValueError("process_id cannot be negative (except -1 for 'unknown')")
         self.process_id = process_id
 
         self.parent_process_name = parent_process_name
@@ -1743,10 +1750,9 @@ class Process:
         self.process_http = process_http
         self.process_flow = process_flow
 
-        for parent in process_parents:
-            if not isinstance(parent, Process):
-                raise TypeError("all process_parents must be of type Process. Got: " + str(type(parent)) + "for " + str(parent))
-        self.process_parents = process_parents
+        if process_parent is not None and not isinstance(process_parent, Process):
+            raise TypeError("all process_parents must be of type Process. Got: " + str(type(process_parent)) + "for " + str(process_parent))
+        self.process_parent = process_parent
 
         for child in process_children:
             if not isinstance(child, Process):
@@ -1767,7 +1773,17 @@ class Process:
         self.deleted_registry_keys = deleted_registry_keys
         self.modified_registry_keys = modified_registry_keys
 
-        self.uid = uid
+        if is_complete and process_name == None:
+            raise ValueError("process_name cannot be None if is_complete is True")
+        if is_complete and process_id == None:
+            raise ValueError("process_id cannot be None if is_complete is True")
+        if is_complete and process_path == None:
+            mlog.warning("Process Object __init__: process_path should not be None if is_complete is True")
+        if is_complete and process_md5 == None:
+            mlog.warning("Process Object __init__: process_md5 should not be None if is_complete is True")
+        if is_complete and process_command_line == None:
+            mlog.warning("Process Object __init__: process_command_line should not be None if is_complete is True")
+        self.is_complete = is_complete
 
     def __dict__(self):
         _dict = {
@@ -1809,7 +1825,7 @@ class Process:
             "process_signature": str(self.process_signature),
             "process_http": str(self.process_http),
             "process_flow": str(self.process_flow),
-            "process_parents": str(self.process_parents),
+            "process_parents": str(self.process_parent),
             "process_children": str(self.process_children),
             "process_environment_variables": self.process_environment_variables,
             "process_arguments": self.process_arguments,
@@ -1822,6 +1838,7 @@ class Process:
             "created_registry_keys": self.created_registry_keys,
             "deleted_registry_keys": self.deleted_registry_keys,
             "modified_registry_keys": self.modified_registry_keys,
+            "is_complete": self.is_complete,
         }
         return _dict
 

@@ -7,6 +7,7 @@ import pytest
 import zsoar
 import datetime
 import ipaddress
+import uuid
 
 
 def test_logger():
@@ -165,12 +166,13 @@ def test_class_helper():
     assert http.full_url == "https://www2.example.com/index.html", "HTTP class full_url not set correctly"
 
     # Test Process class
-    parent_process = class_helper.Process(datetime.datetime.now(), detection.uuid, "word.exe", 242, "service.exe", 235, "C:\\Microsoft\word.exe")
+    parent_process = class_helper.Process(
+        uuid.uuid4(), datetime.datetime.now(), detection.uuid, "word.exe", 242, "service.exe", 235, "C:\\Microsoft\word.exe"
+    )
     assert parent_process != None, "ContextProcess class (for test parent) could not be initialized"
 
-    parents = []
-    parents.append(parent_process)
     process = class_helper.Process(
+        uuid.uuid4(),
         datetime.datetime.now(),
         detection.uuid,
         "virus.exe",
@@ -183,7 +185,8 @@ def test_class_helper():
         process_sha1="1234567890abcdef1234567890abcdef12345678",
         process_sha256="1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
         process_command_line="C:\\Microsoft\word.exe",
-        process_parents=parents,
+        process_parent=parent_process,
+        is_complete=True,
     )
     assert process != None, "ContextProcessclass (for test child) could not be initialized"
 

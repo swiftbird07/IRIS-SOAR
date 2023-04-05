@@ -7,6 +7,7 @@ from integrations.elastic_siem import zs_provide_new_detections, zs_provide_cont
 import lib.logging_helper as logging_helper
 import lib.config_helper as config_helper
 import datetime
+import uuid
 
 
 def test_zs_provide_new_detections():
@@ -95,4 +96,4 @@ def test_online_context_for_detections():
     pass
 
 
-test_online_new_detections()
+# test_online_new_detections()
