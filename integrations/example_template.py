@@ -14,7 +14,7 @@
 # This module is capable of:
 # [ ] Providing new detections.
 # [ ] Providing context for detections of type [ContextFlow | ContextProcess | ContextLog | ContextThreatIntel | HTTP
-#     | DNSQuery | File | ThreatIntelDetection | Certificate] <- Remove unused types.
+#     | DNSQuery | ContextFile | ThreatIntelDetection | Certificate] <- Remove unused types.
 # ...from XXX API inteface.
 #
 # Integration Version: x.x.x
@@ -26,7 +26,7 @@ import lib.logging_helper as logging_helper
 from lib.class_helper import Rule, Detection
 
 # For context for detections (remove unused types):
-from lib.class_helper import DetectionReport, NetworkFlow, LogMessage
+from lib.class_helper import DetectionReport, ContextFlow, ContextLog
 
 LOG_LEVEL = "DEBUG"  # Force log level. Recommended to set to DEBUG during development.
 # from elasticsearch import Elasticsearch
@@ -117,8 +117,8 @@ def zs_provide_context_for_detections(config, detection_report: DetectionReport,
     mlog.info(f"zs_provide_context_for_detections() called with detection report: {detection_report_str} and required_type: {required_type}")
 
     provided_typed = []
-    provided_typed.append(NetworkFlow)
-    provided_typed.append(LogMessage)
+    provided_typed.append(ContextFlow)
+    provided_typed.append(ContextLog)
 
     if required_type not in provided_typed:
         mlog.error("The required type is not provided by this integration. '" + str(required_type) + "' is not in " + str(provided_typed))

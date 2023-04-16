@@ -10,7 +10,7 @@ import datetime
 import json
 
 import lib.logging_helper as logging_helper
-from lib.class_helper import DetectionReport, Detection, Rule, Process
+from lib.class_helper import DetectionReport, Detection, Rule, ContextProcess
 from lib.config_helper import Config
 from playbooks.bb_elastic_process_context import bb_get_complete_process_by_uuid
 
@@ -39,7 +39,7 @@ def test_bb_get_complete_process_by_uuid():
 
     # Test the function
     process = bb_get_complete_process_by_uuid(detection_report, "123")
-    assert type(process) == Process, "bb_get_complete_process_by_uuid() should return a Process object"
+    assert type(process) == ContextProcess, "bb_get_complete_process_by_uuid() should return a ContextProcess object"
 
     # Print the results
     mlog.info("Process context:")

@@ -2,13 +2,13 @@
 # Created by: Martin Offermann
 #
 # This is a building book used by Z-SOAR Playbooks
-# It is used to provide basic context to Process detection alerts of Elastic SIEM (formerly known as Elastic Endpoint Security).
+# It is used to provide basic context to ContextProcess detection alerts of Elastic SIEM (formerly known as Elastic Endpoint Security).
 #
 # Acceptable Detections:
 #  - All elastic detections related to process activity
 #
 # Gathered Context:
-# - Process tree
+# - ContextProcess tree
 #
 # Actions:
 # - None
@@ -28,7 +28,7 @@ import sys
 import uuid
 
 import lib.logging_helper as logging_helper
-from lib.class_helper import DetectionReport, Detection, Rule, Process
+from lib.class_helper import DetectionReport, Detection, Rule, ContextProcess
 from integrations.elastic_siem import zs_provide_context_for_detections
 from lib.config_helper import Config
 
@@ -43,13 +43,13 @@ mlog = logging_helper.Log("playbooks." + BB_NAME)
 process_cache = {}
 
 
-def bb_get_complete_process_by_uuid(detection_report: DetectionReport, uuid) -> Process:
+def bb_get_complete_process_by_uuid(detection_report: DetectionReport, uuid) -> ContextProcess:
     """
     Returns a complete process object from Elastic SIEM by UUID.
 
     :param detection_report: A DetectionReport object
     :param uuid: The UUID of the process to enrich
-    :return: A Process object
+    :return: A ContextProcess object
     """
 
     # Prepare the config
@@ -63,7 +63,7 @@ def bb_get_complete_process_by_uuid(detection_report: DetectionReport, uuid) -> 
         return process_cache[uuid]
 
     # Gather context
-    process = zs_provide_context_for_detections(integration_config, detection_report, Process, UUID=uuid, maxContext=1, TEST=False)
+    process = zs_provide_context_for_detections(integration_config, detection_report, ContextProcess, UUID=uuid, maxContext=1, TEST=False)
     if process == None:
         mlog.debug("complete_process_by_uuid - No process found for UUID: " + str(uuid))
         return None
@@ -76,7 +76,7 @@ def bb_get_complete_process_by_uuid(detection_report: DetectionReport, uuid) -> 
     return process
 
 
-def get_all_children_recursive(detection_report, children: List, process: Process):
+def get_all_children_recursive(detection_report, children: List, process: ContextProcess):
     for child in process.process_children:
         if len(child.process_children) == 0:
             child_full = bb_get_complete_process_by_uuid(detection_report, child.process_uuid)
@@ -86,13 +86,13 @@ def get_all_children_recursive(detection_report, children: List, process: Proces
     return children
 
 
-def bb_get_all_children(detection_report: DetectionReport, process: Process) -> List[Process]:
+def bb_get_all_children(detection_report: DetectionReport, process: ContextProcess) -> List[ContextProcess]:
     """Returns all children (meaning all leafs) of a process
 
     :param detection_report: A DetectionReport object
     :param process: The process to get the children for
 
-    :return: A list of Process objects
+    :return: A list of ContextProcess objects
     """
     children = []
     all_children = get_all_children_recursive(detection_report, children, process)
@@ -106,7 +106,7 @@ def bb_get_all_children(detection_report: DetectionReport, process: Process) -> 
     return all_children
 
 
-def get_all_parents_recursive(detection_report, parents: List, process: Process):
+def get_all_parents_recursive(detection_report, parents: List, process: ContextProcess):
     parent_uuid = process.process_parent.process_uuid
     if parent_uuid == "" or parent_uuid == None:
         parent = bb_get_complete_process_by_uuid(detection_report, process.process_uuid)
@@ -116,13 +116,13 @@ def get_all_parents_recursive(detection_report, parents: List, process: Process)
     return parents
 
 
-def bb_get_all_parents(detection_report: DetectionReport, process: Process) -> List[Process]:
+def bb_get_all_parents(detection_report: DetectionReport, process: ContextProcess) -> List[ContextProcess]:
     """Returns all parents (meaning all root nodes, without all their childs) of a process
 
     :param detection_report: A DetectionReport object
     :param process: The process to get the parents for
 
-    :return: A list of Process objects
+    :return: A list of ContextProcess objects
     """
     mlog.debug("get_all_parents - Getting all parents for process: " + str(process))
 

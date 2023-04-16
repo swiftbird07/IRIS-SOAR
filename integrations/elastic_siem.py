@@ -24,10 +24,10 @@ import json
 import lib.logging_helper as logging_helper
 
 # For new detections:
-from lib.class_helper import Rule, Detection, Process, NetworkFlow
+from lib.class_helper import Rule, Detection, ContextProcess, ContextFlow
 
 # For context for detections (remove unused types):
-from lib.class_helper import DetectionReport, NetworkFlow, LogMessage, Process, cast_to_ipaddress
+from lib.class_helper import DetectionReport, ContextFlow, ContextLog, ContextProcess, cast_to_ipaddress
 
 
 LOG_LEVEL = "DEBUG"  # Force log level. Recommended to set to DEBUG during development.
@@ -147,7 +147,7 @@ def deep_get(dictionary, keys, default=None):
 def create_flow_from_doc(mlog, doc_id, doc_dict):
     # Create flow object if applicable
     if "source.ip" in doc_dict and "destination.ip" in doc_dict:
-        flow = NetworkFlow(
+        flow = ContextFlow(
             datetime.datetime.now(),
             doc_dict["kibana.alert.uuid"],
             cast_to_ipaddress(doc_dict["source.ip"]),
@@ -177,8 +177,10 @@ def create_flow_from_doc(mlog, doc_id, doc_dict):
 
 
 def create_process_from_doc(mlog, doc_id, doc_dict, detectionOnly=True):
-    """Creates a Process object from a Elastic-SIEM document."""
-    mlog.debug("Creating Process object from Elastic-SIEM document for detection: " + doc_dict["kibana.alert.uuid"] + " and document: " + doc_id)
+    """Creates a ContextProcess object from a Elastic-SIEM document."""
+    mlog.debug(
+        "Creating ContextProcess object from Elastic-SIEM document for detection: " + doc_dict["kibana.alert.uuid"] + " and document: " + doc_id
+    )
 
     dns_requests = None  # TODO: Implement create_dns_from_doc
     files = None  # TODO: Implement create_file_from_doc
@@ -192,13 +194,13 @@ def create_process_from_doc(mlog, doc_id, doc_dict, detectionOnly=True):
     # Get parent process entity to create a minimal process to link the current process to it
     parent_uuid = deep_get(doc_dict, "process.parent.entity_id")
     if parent_uuid is not None:
-        parent = Process(parent_uuid, datetime.datetime.now(), doc_dict["kibana.alert.uuid"])
+        parent = ContextProcess(parent_uuid, datetime.datetime.now(), doc_dict["kibana.alert.uuid"])
     else:
         parent = None
 
     children = []
 
-    process = Process(
+    process = ContextProcess(
         timestamp=datetime.datetime.now(),
         related_detection_uuid=deep_get(doc_dict, "kibana.alert.uuid"),
         process_name=deep_get(doc_dict, "process.name"),
@@ -522,7 +524,7 @@ def zs_provide_new_detections(config, TEST="") -> List[Detection]:
                     host_ip = ip_casted
         mlog.debug("Decided host IP: " + str(host_ip))
 
-        # Most EDR detections are process related so check if a Process context can be created
+        # Most EDR detections are process related so check if a ContextProcess context can be created
         process = None
         if deep_get(doc_dict, "process.entity_id") is not None:
             process = create_process_from_doc(mlog, doc["_id"], doc_dict)
@@ -563,7 +565,7 @@ def zs_provide_new_detections(config, TEST="") -> List[Detection]:
 
 def zs_provide_context_for_detections(
     config, detection_report: DetectionReport, required_type: type, TEST=False, UUID=None, maxContext=-1
-) -> Union[NetworkFlow, LogMessage, Process]:
+) -> Union[ContextFlow, ContextLog, ContextProcess]:
     """Returns a DetectionReport object with context for the detections from the XXX integration.
 
     Args:
@@ -584,9 +586,9 @@ def zs_provide_context_for_detections(
 
     return_objects = []
     provided_typed = []
-    provided_typed.append(NetworkFlow)
-    provided_typed.append(LogMessage)
-    provided_typed.append(Process)
+    provided_typed.append(ContextFlow)
+    provided_typed.append(ContextLog)
+    provided_typed.append(ContextProcess)
 
     detection_name = detection_report.detections[0].name
 
@@ -596,16 +598,16 @@ def zs_provide_context_for_detections(
 
     if TEST:  # When called from unit tests, return dummy data. Can be removed in production.
         mlog.info("Running in test mode. Returning dummy data.")
-        if required_type == NetworkFlow:
-            context_object = NetworkFlow(
+        if required_type == ContextFlow:
+            context_object = ContextFlow(
                 detection_report.uuid, datetime.datetime.now(), "Elastic-SIEM", "10.0.0.1", 123, "123.123.123.123", 80, "TCP"
             )
-        elif required_type == Process:
-            context_object = Process(
+        elif required_type == ContextProcess:
+            context_object = ContextProcess(
                 uuid.uuid4(), datetime.datetime.now(), detection_report.uuid, "test.exe", 123, process_start_time=datetime.datetime.now()
             )
-        elif required_type == LogMessage:
-            context_object = LogMessage(detection_report.uuid, datetime.datetime.now(), "Some log message", "Elastic-SIEM", log_source_ip="10.0.0.3")
+        elif required_type == ContextLog:
+            context_object = ContextLog(detection_report.uuid, datetime.datetime.now(), "Some log message", "Elastic-SIEM", log_source_ip="10.0.0.3")
         return_objects.append(context_object)
         detection_example = detection_report.detections[0]
         detection_id = detection_example.vendor_id
@@ -613,7 +615,7 @@ def zs_provide_context_for_detections(
     # ...
     # ...
     if not TEST:
-        if required_type == Process:
+        if required_type == ContextProcess:
             if UUID is None:
                 mlog.info(
                     "No UUID provided. This implies that the detection is not from Elastic SIEM itself. Will return relevant processes if found."

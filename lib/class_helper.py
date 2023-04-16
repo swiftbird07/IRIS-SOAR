@@ -151,6 +151,7 @@ class Location:
         org (str): The organization of the location
         certainty (int): The certainty of the location. This has to be a percentage value between 0 and 100 (inclusive)
         last_updated (datetime): The date and time when the location was last updated
+        uuid (str): The UUID of the location
 
     Methods:
         __dict__(self): Returns the dictionary representation of the Location object.
@@ -169,6 +170,7 @@ class Location:
         org: str = None,
         certainty: int = None,
         last_updated: datetime = None,
+        uuid: str = str(uuid.uuid4()),
     ):
         # Check that at least one of the parameters is not None
         if (
@@ -199,6 +201,8 @@ class Location:
             self.timestamp = datetime.datetime.now()  # when the object was created (for cross-context compatibility)
         else:
             self.timestamp = last_updated
+
+        self.uuid = uuid
 
     def __dict__(self):
         """Returns the dictionary representation of the Location object."""
@@ -274,6 +278,7 @@ class Vulnerability:
         availability_impact (str): The availability impact of the vulnerability
         scope (str): The scope of the vulnerability
         version (str): The version of the scoring system used for the vulnerability
+        uuid (str): The UUID of the vulnerability
 
     Methods:
         __init__(self, name: str, description: str = None, tags: List[str] = None, created_at: datetime = None, updated_at: datetime = None, cve: str = None, cvss: float = None, cvss_vector: str = None, cvss3: float = None, cvss3_vector: str = None, cwe: str = None, references: List[str] = None, exploit_available: bool = None, exploit_frameworks: List[str] = None, exploit_mitigations: List[str] = None, exploitability_ease: str = None, published_at: datetime = None, last_modified_at: datetime = None, patched_at: datetime = None, solution: str = None, solution_date: datetime = None, solution_type: str = None, solution_link: str = None, solution_description: str = None, solution_tags: List[str] = None, services_affected: List[Service] = None, services_vulnerable: List[Service] = None, attack_vector: str = None, attack_complexity: str = None, privileges_required: str = None, user_interaction: str = None, confidentiality_impact: str = None, integrity_impact: str = None, availability_impact: str = None, scope: str = None)
@@ -318,6 +323,7 @@ class Vulnerability:
         availability_impact: str = None,
         scope: str = None,
         version: str = None,
+        uuid: str = str(uuid.uuid4()),
     ):
         self.description = description
         self.tags = tags
@@ -370,6 +376,7 @@ class Vulnerability:
         self.availability_impact = availability_impact
         self.scope = scope
         self.version = version
+        self.uuid = uuid
 
     def __dict__(self):
         dict_ = {
@@ -408,6 +415,7 @@ class Vulnerability:
             "availability_impact": self.availability_impact,
             "scope": self.scope,
             "version": self.version,
+            "uuid": self.uuid,
         }
 
         return dict_
@@ -445,6 +453,7 @@ class Service:
         risk_score_vector (str, optional): The risk score vector of the service. Defaults to None.
         child_services (List[Service], optional): A list of child services. Defaults to None.
         parent_services (List[Service], optional): A list of parent services. Defaults to None.
+        uuid (str, optional): The UUID of the service. Defaults to a random UUID.
 
         Be aware that every 'int' attribute has to be a percentage value between 0 and 100 (inclusive).
 
@@ -478,6 +487,7 @@ class Service:
         risk_score_vector: str = None,
         child_services: List = [],  # type is Service for each item
         parent_services: List = [],  # type is Service for each item
+        uuid: uuid = uuid.uuid4(),
     ):
         self.name = name
         self.vendor = vendor
@@ -516,6 +526,8 @@ class Service:
                     raise TypeError("Parent services must be of type Service")
             self.parent_services = parent_services
 
+        self.uuid = uuid
+
     def __dict__(self):
         """Converts the Service class to a dictionary."""
 
@@ -542,6 +554,7 @@ class Service:
             "risk_score_vector": self.risk_score_vector,
             "child_services": [str(service) for service in self.child_services],
             "parent_services": [str(service) for service in self.parent_services],
+            "uuid": str(self.uuid),
         }
 
         return dict_
@@ -565,6 +578,7 @@ class Person:
         locations (List[Location]): A list of locations of the person
         roles (List[str]): A list of roles assigned to the person
         access_to (List[Device]): A list of devices the person has access to
+        uuid (uuid): The UUID of the person
 
     Methods:
         __init__(): Initializes the Person class
@@ -584,6 +598,7 @@ class Person:
         locations: List[Location] = [],
         roles: List[str] = [],
         access_to: List = [],  # type is 'Device' for each entry
+        uuid: uuid.UUID = uuid.uuid4(),
     ):
         self.name = name
         self.email = email
@@ -600,6 +615,8 @@ class Person:
             self.timestamp = datetime.datetime.now()  # when the object was created (for cross-context compatibility)
         else:
             self.timestamp = updated_at
+
+        self.uuid = uuid
 
     def __dict__(self):
         """Converts the Person class to a dictionary.
@@ -941,178 +958,10 @@ class Rule:
     # ...
 
 
-class NetworkFlow:
-    """This class provides a single context of type flow for a detection.
-       ! Use only if the context of type "DNSQuery", "HTTP" or "Process" is not applicable !
-
-    Attributes:
-        related_detection_uuid (str): The related detection unique ID of the context flow
-        timestamp (datetime): The timestamp of the flow
-        integration (str): The integration of the flow
-        source_ip (socket.inet_aton): The source IP of the flow
-        source_port (int): The source port of the flow
-        destination_ip (socket.inet_aton): The destination IP of the flow
-        destination_port (int): The destination port of the flow
-        protocol (str): The protocol of the flow
-        data (str): The data of the flow
-        source_mac (socket.mac): The source MAC of the flow
-        destination_mac (str): The destination MAC of the flow
-        source_hostname (str): The source hostname of the flow
-        destination_hostname (str): The destination hostname of the flow
-        category (str): The category of the flow
-        sub_category (str): The sub-category of the flow
-        flow_direction (str): The flow direction of the flow
-        flow_id (int): The flow ID of the flow
-        interface (str): The interface of the flow
-        network (str): The network of the flow
-        network_type (str): The network type of the flow
-        flow_source (str): The flow source of the flow
-        source_location (Location): The source location of the flow
-        destination_location (Location): The destination location of the flow
-
-    Methods:
-        __init__(self, timestamp: datetime.datetime, integration: str, source_ip: socket.inet_aton, source_port: int, destination_ip: socket.inet_aton, destination_port: int, protocol: str, application: str, data: str = None, source_mac: socket.mac = None, destination_mac: str = None, source_hostname: str = None, destination_hostname: str = None, category: str = "Generic Flow", sub_category: str = "Generic HTTP(S) Traffic", flow_direction: str = "L2R", flow_id: int = random.randint(1, 1000000000), interface: str = None, network: str = None, network_type: str = None, flow_source: str = None)
-        __str__(self)
-    """
-
-    def __init__(
-        self,
-        related_detection_uuid: uuid.UUID,
-        timestamp: datetime.datetime,
-        integration: str,
-        source_ip: Union[ipaddress.IPv4Address, ipaddress.IPv6Address],
-        source_port: int,
-        destination_ip: Union[ipaddress.IPv4Address, ipaddress.IPv6Address],
-        destination_port: int,
-        protocol: str,
-        application: str = None,
-        data: str = None,
-        source_mac: str = None,
-        destination_mac: str = None,
-        source_hostname: str = None,
-        destination_hostname: str = None,
-        category: str = "Generic Flow",
-        sub_category: str = "Generic HTTP(S) Traffic",
-        flow_direction: str = None,
-        flow_id: int = random.randint(1, 1000000000),
-        interface: str = None,
-        network: str = None,
-        network_type: str = None,
-        flow_source: str = None,
-        source_location: Location = None,
-        destination_location: Location = None,
-    ):
-        source_ip = cast_to_ipaddress(source_ip)
-        destination_ip = cast_to_ipaddress(destination_ip)
-
-        if flow_id < 1 or flow_id > 1000000000:
-            raise ValueError("flow_id must be between 1 and 1000000000")
-
-        self.related_detection_uuid = related_detection_uuid
-
-        self.timestamp = timestamp
-        self.data = data
-        self.integration = integration
-
-        self.source_ip = source_ip
-        self.source_port = source_port
-
-        self.destination_ip = destination_ip
-        self.destination_port = destination_port
-
-        self.protocol = protocol
-        self.application = application
-
-        self.source_mac = source_mac
-        self.destination_mac = destination_mac
-
-        self.source_hostname = source_hostname
-        self.destination_hostname = destination_hostname
-
-        self.category = category
-        self.sub_category = sub_category
-
-        if flow_direction not in ["L2R", "R2L", "L2L", "R2R", None]:
-            raise ValueError("flow_direction must be either L2R, L2L, R2L, R2R or None")
-        if flow_direction == None:
-            if source_ip.is_private and destination_ip.is_private:
-                self.flow_direction = "L2L"
-            elif source_ip.is_private and not destination_ip.is_private:
-                self.flow_direction = "L2R"
-            elif not source_ip.is_private and destination_ip.is_private:
-                self.flow_direction = "R2L"
-            elif not source_ip.is_private and not destination_ip.is_private:
-                self.flow_direction = "R2R"
-        else:
-            self.flow_direction = flow_direction
-
-        self.flow_id = flow_id
-
-        self.interface = interface
-        self.network = network
-        self.network_type = network_type
-        self.flow_source = flow_source
-
-        # Check if location objects are valid if given
-        if source_location:
-            if not isinstance(source_location, Location):
-                raise TypeError("source_location must be of type Location")
-            if not source_location.is_valid():
-                raise ValueError("source_location is not valid")
-        self.source_location = source_location
-
-        if destination_location:
-            if not isinstance(destination_location, Location):
-                raise TypeError("destination_location must be of type Location")
-            if not destination_location.is_valid():
-                raise ValueError("destination_location is not valid")
-        self.destination_location = destination_location
-
-    def __dict__(self):
-        # Have to overwrite the __dict__ method because of the ipaddress objects
-
-        dict_ = {
-            "related_detection_uuid": self.related_detection_uuid,
-            "timestamp": str(self.timestamp),
-            "data": self.data,
-            "integration": self.integration,
-            "source_ip": str(self.source_ip),
-            "source_location": str(self.source_location),
-            "source_port": self.source_port,
-            "destination_ip": str(self.destination_ip),
-            "destination_location": str(self.destination_location),
-            "destination_port": self.destination_port,
-            "protocol": self.protocol,
-            "application": self.application,
-            "source_mac": self.source_mac,
-            "destination_mac": self.destination_mac,
-            "source_hostname": self.source_hostname,
-            "destination_hostname": self.destination_hostname,
-            "category": self.category,
-            "sub_category": self.sub_category,
-            "flow_direction": self.flow_direction,
-            "flow_id": self.flow_id,
-            "interface": self.interface,
-            "network": self.network,
-            "network_type": self.network_type,
-            "flow_source": self.flow_source,
-        }
-
-        return dict_
-
-    def __str__(self):
-        """Returns the string representation of the object."""
-        return json.dumps(del_none_from_dict(self.__dict__()), indent=4, sort_keys=False, default=str)
-
-    # Getter and setter;
-
-    # ...
-
-
 class Certificate:
     """Certificate class.
         ! This class is not a stand-alone context. !
-       Use it in Process/File context if th certificate is a signature of a process/file. Use it in HTTP context if the certificate is related to https traffic.
+       Use it in ContextProcess/File context if th certificate is a signature of a process/file. Use it in HTTP context if the certificate is related to https traffic.
 
     Attributes:
         related_detection_uuid (str): The UUID of the related detection
@@ -1215,74 +1064,10 @@ class Certificate:
         return json.dumps(del_none_from_dict(self.__dict__()), indent=4, sort_keys=False, default=str)
 
 
-class DNSQuery:
-    """DNSQuery class.
-
-    Attributes:
-        related_detection_uuid (str): The UUID of the related detection
-        flow (ContextFlow): The flow of the DNS query
-        type (str): The type of the DNS query
-        query (str): The query of the DNS query
-        query_response (str): The query response of the DNS query
-        rcode (str): The rcode of the DNS query
-
-    Methods:
-        __init__(self, flow: ContextFlow, type: str, query: str, query_response: str = None, rcode: str = "NOERROR")
-        __str__(self)
-    """
-
-    def __init__(
-        self,
-        related_detection_uuid: uuid.UUID,
-        flow: NetworkFlow,
-        type: str,
-        query: str,
-        has_response: bool = False,
-        query_response: Union[ipaddress.IPv4Address, ipaddress.IPv6Address, str] = DEFAULT_IP,
-        rcode: str = "NOERROR",
-    ):
-        self.related_detection_uuid = related_detection_uuid
-        self.flow = flow
-
-        if type not in ["A", "AAAA", "CNAME", "MX", "NS", "PTR", "SOA", "SRV", "TXT"]:
-            raise ValueError("type must be one of A, AAAA, CNAME, MX, NS, PTR, SOA, SRV, TXT")
-
-        self.type = type
-        self.query = query
-
-        self.has_response = has_response
-        if not has_response and query_response != DEFAULT_IP:
-            raise ValueError("query_response must be DEFAULT_IP if has_response is False")
-        if has_response and query_response == DEFAULT_IP:
-            mlog = logging_helper.Log("lib.class_helper")
-            mlog.warning("DNSQuery __init__: query_response is still DEFAULT_IP while has_response is True.", str(self))
-        self.query_response = query_response
-
-        self.rcode = rcode
-        self.timestamp = flow.timestamp
-
-    def __dict__(self):
-        dict_ = {
-            "timestamp": self.timestamp,
-            "related_detection_uuid": self.related_detection_uuid,
-            "flow": self.flow,
-            "type": self.type,
-            "query": self.query,
-            "has_response": self.has_response,
-            "query_response": str(self.query_response),
-            "rcode": self.rcode,
-        }
-        return dict_
-
-    def __str__(self):
-        """Returns the string representation of the object."""
-        return json.dumps(del_none_from_dict(self.__dict__()), indent=4, sort_keys=False, default=str)
-
-
-class File:
+class ContextFile:
     """File class. Represents a file.
        ! This class is not a stand-alone context. !
-       Use the Process context if th file is related to process activity. Use in NetworkFlow context if the file is related to network activity.
+       Use the ContextProcess context if th file is related to process activity. Use in ContextFlow context if the file is related to network activity.
 
     Attributes:
         related_detection_uuid (uuid.UUID): The UUID of the detection the file is related to
@@ -1310,13 +1095,14 @@ class File:
         is_symlink (bool): Whether the file is a symlink
         is_special (bool): Whether the file is a special file (socket, pipe, pid, etc.)
         is_unknown (bool): Whether the file has unknown type or content
+        uuid (uuid.UUID): The UUID of the file
 
     Methods:
         __init__(self, file_name: str, file_path: str, file_size: int, file_md5: str, file_sha1: str, file_sha256: str,
             file_type: str, file_extension: str, is_encrypted: bool, is_compressed: bool, is_archive: bool, is_executable: bool,
             is_readable: bool, is_writable: bool, is_hidden: bool, is_system: bool, is_temporary: bool, is_virtual: bool,
-            is_directory: bool, is_symlink: bool, is_special: bool, is_unknown: bool): The constructor of the File class
-        __str__(self): The string representation of the File class
+            is_directory: bool, is_symlink: bool, is_special: bool, is_unknown: bool): The constructor of the ContextFile class
+        __str__(self): The string representation of the ContextFile class
     """
 
     def __init__(
@@ -1346,6 +1132,7 @@ class File:
         is_symlink: bool = False,
         is_special: bool = False,
         is_unknown: bool = False,
+        uuid: uuid.UUID = uuid.uuid4(),
     ):
         self.related_detection_uuid = related_detection_uuid
         self.file_name = file_name
@@ -1361,7 +1148,7 @@ class File:
 
         self.file_type = file_type
 
-        if file_extension != "" and file_extension[0] == ".":  # File extension should not start with a dot in the variable
+        if file_extension != "" and file_extension[0] == ".":  # ContextFile extension should not start with a dot in the variable
             file_extension = file_extension[1:]
         self.file_extension = file_extension
 
@@ -1384,6 +1171,7 @@ class File:
 
         self.last_modified = last_modified
         self.timestamp = last_modified  # For cross-context compatibility
+        self.uuid = uuid
 
     def __dict__(self):
         dict_ = {
@@ -1411,6 +1199,68 @@ class File:
             "is_symlink": self.is_symlink,
             "is_special": self.is_special,
             "is_unknown": self.is_unknown,
+            "last_modified": self.last_modified,
+            "timestamp": self.timestamp,
+            "uuid": self.uuid,
+        }
+        return dict_
+
+    def __str__(self):
+        """Returns the string representation of the object."""
+        return json.dumps(del_none_from_dict(self.__dict__()), indent=4, sort_keys=False, default=str)
+
+
+class DNSQuery:
+    """DNSQuery class.
+
+    Attributes:
+        related_detection_uuid (str): The UUID of the related detection
+        type (str): The type of the DNS query
+        query (str): The query of the DNS query
+        query_response (str): The query response of the DNS query
+        rcode (str): The rcode of the DNS query
+
+    Methods:
+        __init__(self, flow: ContextFlow, type: str, query: str, query_response: str = None, rcode: str = "NOERROR")
+        __str__(self)
+    """
+
+    def __init__(
+        self,
+        related_detection_uuid: uuid.UUID,
+        type: str,
+        query: str,
+        has_response: bool = False,
+        query_response: Union[ipaddress.IPv4Address, ipaddress.IPv6Address, str] = DEFAULT_IP,
+        rcode: str = "NOERROR",
+    ):
+        self.related_detection_uuid = related_detection_uuid
+
+        if type not in ["A", "AAAA", "CNAME", "MX", "NS", "PTR", "SOA", "SRV", "TXT"]:
+            raise ValueError("type must be one of A, AAAA, CNAME, MX, NS, PTR, SOA, SRV, TXT")
+
+        self.type = type
+        self.query = query
+
+        self.has_response = has_response
+        if not has_response and query_response != DEFAULT_IP:
+            raise ValueError("query_response must be DEFAULT_IP if has_response is False")
+        if has_response and query_response == DEFAULT_IP:
+            mlog = logging_helper.Log("lib.class_helper")
+            mlog.warning("DNSQuery __init__: query_response is still DEFAULT_IP while has_response is True.", str(self))
+        self.query_response = query_response
+
+        self.rcode = rcode
+
+    def __dict__(self):
+        dict_ = {
+            "timestamp": self.timestamp,
+            "related_detection_uuid": self.related_detection_uuid,
+            "type": self.type,
+            "query": self.query,
+            "has_response": self.has_response,
+            "query_response": str(self.query_response),
+            "rcode": self.rcode,
         }
         return dict_
 
@@ -1424,7 +1274,6 @@ class HTTP:
 
     Attributes:
         related_detection_uuid (str): The UUID of the related detection
-        flow (ContextFlow): The flow of the HTTP request
         method (str): The method of the HTTP request
         type (str): The type of the HTTP request
         host (str): The host of the HTTP request
@@ -1440,6 +1289,7 @@ class HTTP:
         response_headers (str): The response headers of the HTTP request
         http_version (str): The HTTP version of the HTTP request
         file (File): The file transported by the HTTP request
+        certificate (Certificate): The certificate used by the HTTP request
 
     Methods:
 
@@ -1449,7 +1299,6 @@ class HTTP:
     def __init__(
         self,
         related_detection_uuid: uuid.UUID,
-        flow: NetworkFlow,
         method: str,
         type: str,
         host: str,
@@ -1465,11 +1314,10 @@ class HTTP:
         response_headers: List[str] = None,
         http_version: str = None,
         certificate: Certificate = None,
-        file: File = None,
+        file: ContextFile = None,
     ):
         self.related_detection_uuid = related_detection_uuid
         mlog = logging_helper.Log("lib.class_helper")
-        self.flow = flow
 
         if method not in ["GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS", "PATCH"]:
             raise ValueError("method must be one of GET, POST, PUT, DELETE, HEAD, OPTIONS, PATCH")
@@ -1534,7 +1382,6 @@ class HTTP:
             dict_ = {
                 "timestamp": self.timestamp,
                 "related_detection_uuid": self.related_detection_uuid,
-                "flow": self.flow,
                 "method": self.method,
                 "type": self.type,
                 "host": self.host,
@@ -1554,7 +1401,6 @@ class HTTP:
             }
         except AttributeError:
             dict_ = {
-                "flow": self.flow,
                 "method": self.method,
                 "type": self.type,
                 "host": self.host,
@@ -1568,7 +1414,202 @@ class HTTP:
         return json.dumps(del_none_from_dict(self.__dict__()), indent=4, sort_keys=False, default=str)
 
 
-class Process:
+class ContextFlow:
+    """This class provides a single context of type flow for a detection.
+       ! Use only if the context of type "DNSQuery", "HTTP" or "Process" is not applicable !
+
+    Attributes:
+        related_detection_uuid (str): The related detection unique ID of the context flow
+        timestamp (datetime): The timestamp of the flow
+        integration (str): The integration of the flow
+        source_ip (socket.inet_aton): The source IP of the flow
+        source_port (int): The source port of the flow
+        destination_ip (socket.inet_aton): The destination IP of the flow
+        destination_port (int): The destination port of the flow
+        protocol (str): The protocol of the flow
+        data (str): The data of the flow
+        source_mac (socket.mac): The source MAC of the flow
+        destination_mac (str): The destination MAC of the flow
+        source_hostname (str): The source hostname of the flow
+        destination_hostname (str): The destination hostname of the flow
+        category (str): The category of the flow
+        sub_category (str): The sub-category of the flow
+        flow_direction (str): The flow direction of the flow
+        flow_id (int): The flow ID of the flow
+        interface (str): The interface of the flow
+        network (str): The network of the flow
+        network_type (str): The network type of the flow
+        flow_source (str): The flow source of the flow
+        source_location (Location): The source location of the flow
+        destination_location (Location): The destination location of the flow
+        http (HTTP): The HTTP context of the flow
+        dns_query (DNSQuery): The DNS query context of the flow
+        uuid (uuid.UUID): The UUID of the flow
+        detection_relevance (int): The relevance of the flow to the detection (0-100)
+
+    Methods:
+        __init__(self, timestamp: datetime.datetime, integration: str, source_ip: socket.inet_aton, source_port: int, destination_ip: socket.inet_aton, destination_port: int, protocol: str, application: str, data: str = None, source_mac: socket.mac = None, destination_mac: str = None, source_hostname: str = None, destination_hostname: str = None, category: str = "Generic Flow", sub_category: str = "Generic HTTP(S) Traffic", flow_direction: str = "L2R", flow_id: int = random.randint(1, 1000000000), interface: str = None, network: str = None, network_type: str = None, flow_source: str = None)
+        __str__(self)
+    """
+
+    def __init__(
+        self,
+        related_detection_uuid: uuid.UUID,
+        timestamp: datetime.datetime,
+        integration: str,
+        source_ip: Union[ipaddress.IPv4Address, ipaddress.IPv6Address],
+        source_port: int,
+        destination_ip: Union[ipaddress.IPv4Address, ipaddress.IPv6Address],
+        destination_port: int,
+        protocol: str,
+        application: str = None,
+        data: str = None,
+        source_mac: str = None,
+        destination_mac: str = None,
+        source_hostname: str = None,
+        destination_hostname: str = None,
+        category: str = "Generic Flow",
+        sub_category: str = "Generic HTTP(S) Traffic",
+        flow_direction: str = None,
+        flow_id: int = random.randint(1, 1000000000),
+        interface: str = None,
+        network: str = None,
+        network_type: str = None,
+        flow_source: str = None,
+        source_location: Location = None,
+        destination_location: Location = None,
+        http: HTTP = None,
+        dns_query: DNSQuery = None,
+        uuid: uuid.UUID = uuid.uuid4(),
+        detection_relevance: int = 50,
+    ):
+        source_ip = cast_to_ipaddress(source_ip)
+        destination_ip = cast_to_ipaddress(destination_ip)
+
+        if flow_id < 1 or flow_id > 1000000000:
+            raise ValueError("flow_id must be between 1 and 1000000000")
+
+        self.related_detection_uuid = related_detection_uuid
+
+        self.timestamp = timestamp
+        self.data = data
+        self.integration = integration
+
+        self.source_ip = source_ip
+        self.source_port = source_port
+
+        self.destination_ip = destination_ip
+        self.destination_port = destination_port
+
+        self.protocol = protocol
+        self.application = application
+
+        self.source_mac = source_mac
+        self.destination_mac = destination_mac
+
+        self.source_hostname = source_hostname
+        self.destination_hostname = destination_hostname
+
+        self.category = category
+        self.sub_category = sub_category
+
+        if flow_direction not in ["L2R", "R2L", "L2L", "R2R", None]:
+            raise ValueError("flow_direction must be either L2R, L2L, R2L, R2R or None")
+        if flow_direction == None:
+            if source_ip.is_private and destination_ip.is_private:
+                self.flow_direction = "L2L"
+            elif source_ip.is_private and not destination_ip.is_private:
+                self.flow_direction = "L2R"
+            elif not source_ip.is_private and destination_ip.is_private:
+                self.flow_direction = "R2L"
+            elif not source_ip.is_private and not destination_ip.is_private:
+                self.flow_direction = "R2R"
+        else:
+            self.flow_direction = flow_direction
+
+        self.flow_id = flow_id
+
+        self.interface = interface
+        self.network = network
+        self.network_type = network_type
+        self.flow_source = flow_source
+
+        # Check if location objects are valid if given
+        if source_location:
+            if not isinstance(source_location, Location):
+                raise TypeError("source_location must be of type Location")
+            if not source_location.is_valid():
+                raise ValueError("source_location is not valid")
+        self.source_location = source_location
+
+        if destination_location:
+            if not isinstance(destination_location, Location):
+                raise TypeError("destination_location must be of type Location")
+            if not destination_location.is_valid():
+                raise ValueError("destination_location is not valid")
+        self.destination_location = destination_location
+
+        # Check if HTTP object is valid if given
+        if http:
+            if not isinstance(http, HTTP):
+                raise TypeError("http must be of type HTTP")
+        self.http = http
+
+        # Check if DNSQuery object is valid if given
+        if dns_query:
+            if not isinstance(dns_query, DNSQuery):
+                raise TypeError("dns_query must be of type DNSQuery")
+        self.dns_query = dns_query
+
+        self.uuid = uuid
+        self.detection_relevance = handle_percentage(detection_relevance)
+
+    def __dict__(self):
+        # Have to overwrite the __dict__ method because of the ipaddress objects
+
+        dict_ = {
+            "related_detection_uuid": self.related_detection_uuid,
+            "detection relevance": self.detection_relevance,
+            "timestamp": str(self.timestamp),
+            "data": self.data,
+            "integration": self.integration,
+            "source_ip": str(self.source_ip),
+            "source_location": str(self.source_location),
+            "source_port": self.source_port,
+            "destination_ip": str(self.destination_ip),
+            "destination_location": str(self.destination_location),
+            "destination_port": self.destination_port,
+            "protocol": self.protocol,
+            "application": self.application,
+            "source_mac": self.source_mac,
+            "destination_mac": self.destination_mac,
+            "source_hostname": self.source_hostname,
+            "destination_hostname": self.destination_hostname,
+            "category": self.category,
+            "sub_category": self.sub_category,
+            "flow_direction": self.flow_direction,
+            "flow_id": self.flow_id,
+            "interface": self.interface,
+            "network": self.network,
+            "network_type": self.network_type,
+            "flow_source": self.flow_source,
+            "http": str(self.http),
+            "dns_query": str(self.dns_query),
+            "uuid": str(self.uuid),
+        }
+
+        return dict_
+
+    def __str__(self):
+        """Returns the string representation of the object."""
+        return json.dumps(del_none_from_dict(self.__dict__()), indent=4, sort_keys=False, default=str)
+
+    # Getter and setter;
+
+    # ...
+
+
+class ContextProcess:
     """Process class.
 
     Attributes:
@@ -1619,19 +1660,20 @@ class Process:
         process_modules (List[]): The modules of the process
         process_thread (str): The threads of the process
         is_complete (bool): Set to True if all available information has been collected, False (default) if not
+        detection_relevance (int): The relevance of the process in the detection (0-100)
 
     Methods:
         __init__(self, process_name: str, process_id: int, parent_process_name: str = "N/A", parent_process_id: int = 0, process_path: str = "", process_md5: str = "", process_sha1: str = "", process_sha256: str = "", process_command_line: str = "", process_username: str = "", process_integrity_level: str = "", process_is_elevated_token: bool = False, process_token_elevation_type: str = "", process_token_elevation_type_full: str = "", process_token_integrity_level: str = "", process_token_integrity_level_full: str = "", process_privileges: str = "", process_owner: str = "", process_group_id: int = "", process_group_name: str = "", process_logon_guid: str = "", process_logon_id: str = "", process_logon_type: str = "", process_logon_type_full: str = "", process_logon_time: str = "", process_start_time: str = "", process_parent_start_time: str = "", process_current_directory: str = "", process_image_file_device: str = "", process_image_file_directory: str = "", process_image_file_name: str = "", process_image_file_path: str = "", process_dns: DNSQuery = None, process_certificate: Certificate = None, process_http: HTTP = None, process_flow: ContextFlow = None, process_parent: ContextProcess = None, process_children: List[ContextProcess] = None, process_environment_variables: List[] = None, process_arguments: List[] = None, process_modules: List[] = None, process_thread: str = "")
         __str__(self)
     """
 
-    # TODO: 1) Change that DNSQuery, HTTP and Certificate are directly inside a NetworkFlow object, as they depend on each other
-    #        1b) Remove them as explicit contexts in Detection and DetectionReport
-    #       2) Make that contexts only refere each other by UUID
-    #       3) Create get_context_by_uuid() method in Detection and DetectionReport
+    # TODO: 1) Change that DNSQuery, HTTP and Certificate are directly inside a ContextFlow object, as they depend on each other [DONE]
+    #        1b) Remove them as explicit contexts in Detection and DetectionReport [DONE]
+    #       2) Make that contexts only refere to itself by UUID [DONE]
+    #       3) Create get_context_by_uuid() method in Detection and DetectionReport [DONE]
     #       4) Edit the elastic siem integration and building block according to the changes
-    #       5) Implement related_detection_uuid in all stand-alone contexts
-    #       6) Implement relevance scoring in all stand-alone contexts (relevance to the detection)
+    #       5) Implement related_detection_uuid in all stand-alone contexts [DONE]
+    #       6) Implement relevance scoring in all stand-alone contexts (relevance to the detection) [DONE]
 
     def __init__(
         self,
@@ -1674,20 +1716,21 @@ class Process:
         process_dns: DNSQuery = None,
         process_signature: Certificate = None,
         process_http: HTTP = None,
-        process_flow: NetworkFlow = None,
-        process_parent=None,
-        process_children: list = [],
+        process_flow: ContextFlow = None,
+        process_parent: str = None,  # str UUID
+        process_children: list = [],  # list of str UUIDs
         process_environment_variables: List[str] = [],
         process_arguments: List[str] = [],
         process_modules: List[str] = [],
         process_thread: str = None,
-        created_files: List[File] = [],
-        deleted_files: List[File] = [],
-        modified_files: List[File] = [],
+        created_files: List[ContextFile] = [],
+        deleted_files: List[ContextFile] = [],
+        modified_files: List[ContextFile] = [],
         created_registry_keys: List[str] = [],
         deleted_registry_keys: List[str] = [],
         modified_registry_keys: List[str] = [],
         is_complete: bool = False,
+        detection_relevance: int = 50,
     ):
         self.process_uuid = str(process_uuid)
         if process_uuid == None or process_uuid == "":
@@ -1758,13 +1801,21 @@ class Process:
         self.process_http = process_http
         self.process_flow = process_flow
 
-        if process_parent is not None and not isinstance(process_parent, Process):
-            raise TypeError("all process_parents must be of type Process. Got: " + str(type(process_parent)) + "for " + str(process_parent))
+        if process_parent is not None and not isinstance(process_parent, str):
+            raise TypeError(
+                "Process Object __init__: process parent must be of type string to hold the UUID of the process. Got parent process: "
+                + str(process_parent)
+            )
         self.process_parent = process_parent
 
         for child in process_children:
-            if not isinstance(child, Process):
-                raise TypeError("all process_children must be of type Process. Got: " + str(type(child)) + "for " + str(child))
+            if not isinstance(child, str):
+                raise TypeError(
+                    "Process Object __init__: all process_children must be of type str to hold the UUID of that child process. Got: "
+                    + str(type(child))
+                    + "for "
+                    + str(child)
+                )
         self.process_children = process_children
 
         self.process_environment_variables = process_environment_variables
@@ -1793,10 +1844,13 @@ class Process:
             mlog.warning("Process Object __init__: process_command_line should not be None if is_complete is True")
         self.is_complete = is_complete
 
+        self.detection_relevance = handle_percentage(detection_relevance)
+
     def __dict__(self):
         _dict = {
             "timestamp": self.timestamp,
             "related_detection_uuid": self.related_detection_uuid,
+            "detection_relevance": self.detection_relevance,
             "process_name": self.process_name,
             "process_id": self.process_id,
             "parent_process_name": self.parent_process_name,
@@ -1855,8 +1909,8 @@ class Process:
         return json.dumps(del_none_from_dict(del_none_from_dict(self.__dict__())), indent=4, sort_keys=False, default=str)
 
 
-class LogMessage:
-    """The LogMessage class. The most basic context class. Used for storing genric log data like syslog from a SIEM.
+class ContextLog:
+    """The ContextLog class. The most basic context class. Used for storing genric log data like syslog from a SIEM.
        ! Only use this context if no other context is applicable. !
        Be aware that either log_source_ip or log_source_device must be set.
 
@@ -1874,6 +1928,7 @@ class LogMessage:
         log_facility (str): The facility of the log
         log_tags (List[str]): The tags of the log
         log_custom_fields (dict): The custom fields of the log
+        detection_relevance (int): The relevance of the log to the detection (0-100)
 
     Methods:
         __init__(log_message, log_source, log_flow, log_protocol, log_timestamp, log_type, log_severity, log_facility, log_tags, log_custom_fields): Initializes the ContextLog object
@@ -1889,13 +1944,15 @@ class LogMessage:
         log_source_name: str,
         log_source_ip: Union[ipaddress.IPv4Address, ipaddress.IPv6Address] = DEFAULT_IP,
         log_source_device: Device = None,
-        log_flow: NetworkFlow = None,
+        log_flow: ContextFlow = None,
         log_protocol: str = "",
         log_type: str = "",
         log_severity: str = "",
         log_facility: str = "",
         log_tags: List[str] = None,
         log_custom_fields: dict = None,
+        uuid: uuid.UUID = uuid.uuid4(),
+        detection_relevance: int = 50,
     ):
         self.related_detection_uuid = related_detection_uuid
         self.timestamp = timestamp
@@ -1923,10 +1980,13 @@ class LogMessage:
         self.log_facility = log_facility
         self.log_tags = log_tags
         self.log_custom_fields = log_custom_fields
+        self.uuid = uuid
+        self.detection_relevance = handle_percentage(detection_relevance)
 
     def __dict__(self):
         dict_ = {
             "related_detection_uuid": str(self.related_detection_uuid),
+            "detection_relevance": self.detection_relevance,
             "timestamp": str(self.timestamp),
             "log_message": self.log_message,
             "log_source_name": self.log_source_name,
@@ -1939,6 +1999,7 @@ class LogMessage:
             "log_facility": self.log_facility,
             "log_tags": self.log_tags,
             "log_custom_fields": self.log_custom_fields,
+            "uuid": str(self.uuid),
         }
         return dict_
 
@@ -2041,6 +2102,7 @@ class ContextThreatIntel:
         score_known (int): The number of engines that know the indicator
         score_unknown (int): The number of engines that don't know the indicator
         related_detection_uuid (uuid.UUID): The UUID of the related detection
+        detection_relevance (int): The relevance of the threat intel to the detection (0-100)
 
     Methods:
         __init__(type, indicator, source, timestamp, threat_intel_detections, score_hit, score_total): Initializes the ContextThreatIntel object
@@ -2050,7 +2112,7 @@ class ContextThreatIntel:
     def __init__(
         self,
         type: type,
-        indicator: Union[ipaddress.IPv4Address, ipaddress.IPv6Address, HTTP, DNSQuery, File, Process],
+        indicator: Union[ipaddress.IPv4Address, ipaddress.IPv6Address, HTTP, DNSQuery, ContextFile, ContextProcess],
         source: str,
         timestamp: datetime.datetime,
         threat_intel_detections: List[ThreatIntel],
@@ -2061,9 +2123,11 @@ class ContextThreatIntel:
         score_known: int = None,
         score_unknown: int = None,
         related_detection_uuid: uuid.UUID = None,
+        uuid: uuid.UUID = uuid.uuid4(),
+        detection_relevance: int = 50,
     ):
-        if type not in [ipaddress.IPv4Address, ipaddress.IPv6Address, HTTP, DNSQuery, File, Process]:
-            raise ValueError("type must be one of IPv4Address, IPv6Address, HTTP, DNSQuery, File or ContextProcess")
+        if type not in [ipaddress.IPv4Address, ipaddress.IPv6Address, HTTP, DNSQuery, ContextFile, ContextProcess]:
+            raise ValueError("type must be one of IPv4Address, IPv6Address, HTTP, DNSQuery, ContextFile or ContextProcess")
         self.type = type
 
         if not isinstance(indicator, type):
@@ -2150,8 +2214,8 @@ class ContextThreatIntel:
                 self.score_unknown = self.score_total - self.score_known
 
         self.related_detection_uuid = related_detection_uuid
-
-        print(score_hit_sus, score_hit_mal, score_known, score_unknown)
+        self.uuid = uuid
+        self.detection_relevance = handle_percentage(detection_relevance)
 
     def __dict__(self):
         """Returns the object as a dictionary."""
@@ -2168,6 +2232,8 @@ class ContextThreatIntel:
             "score_known": self.score_known,
             "score_unknown": self.score_unknown,
             "related_detection_uuid": self.related_detection_uuid,
+            "detection_relevance": self.detection_relevance,
+            "uuid": self.uuid,
         }
         return dict_
 
@@ -2190,9 +2256,9 @@ class Detection:
         raw (str): The raw detection
         source (str): The source of the detection
         severity (int): The severity of the detection
-        log (LogMessage): The log object of the detection if applicable
+        log (ContextLog): The log object of the detection if applicable
         process (Process): The process related to the detection
-        flow (NetworkFlow): The flow related to the detection (source and destination IP and port etc.)
+        flow (ContextFlow): The flow related to the detection (source and destination IP and port etc.)
         threat_intel (ContextThreatIntel): The threat intel directly related to the detection
         location (Location): The location of the detection (e.g. country)
         device (Device): The device that triggered the detection
@@ -2206,6 +2272,7 @@ class Detection:
     Methods:
         __init__(self, id: str, name: str, rules: List[Rule], description: str = None, tags: List[str] = None, raw: str = None, timestamp: datetime = None, source: str = None, source_ip: socket.inet_aton = None, source_port: int = None, destination: str = None, destination_ip: datetime = None, destination_port: int = None, protocol: str = None, severity: int = None, process: ContextProcess = None)
         __str__(self)
+        get_context_by_uuid(self, uuid: str) -> Context or None: Returns the context object with the given UUID
     """
 
     def __init__(
@@ -2220,17 +2287,14 @@ class Detection:
         source: str = None,
         severity: int = None,
         # Context for every type of context
-        log: LogMessage = None,
-        process: Process = None,
-        flow: NetworkFlow = None,
+        log: ContextLog = None,
+        process: ContextProcess = None,
+        flow: ContextFlow = None,
         threat_intel: ContextThreatIntel = None,
         location: Location = None,
         device: Device = None,
         user: Person = None,
-        file: File = None,
-        http_request: HTTP = None,
-        dns_request: DNSQuery = None,
-        certificate: Certificate = None,
+        file: ContextFile = None,
         uuid: uuid.UUID = uuid.uuid4(),
     ):
         self.vendor_id = vendor_id
@@ -2246,16 +2310,16 @@ class Detection:
 
         # Context for every type of context with checks
         if log != None:
-            if not isinstance(log, LogMessage):
-                raise TypeError("log must be of type LogMessage")
+            if not isinstance(log, ContextLog):
+                raise TypeError("log must be of type ContextLog")
             if log.log_flow:
                 self.indicators["ip"].append(log.log_flow.source_ip)
                 self.indicators["ip"].append(log.log_flow.destination_ip)
         self.log = log
 
         if process != None:
-            if not isinstance(process, Process):
-                raise TypeError("process must be of type Process")
+            if not isinstance(process, ContextProcess):
+                raise TypeError("process must be of type ContextProcess")
             if process.process_flow:
                 self.indicators["ip"].append(process.process_flow.source_ip)
                 self.indicators["ip"].append(process.process_flow.destination_ip)
@@ -2268,8 +2332,8 @@ class Detection:
         self.process = process
 
         if flow != None:
-            if not isinstance(flow, NetworkFlow):
-                raise TypeError("flow must be of type NetworkFlow")
+            if not isinstance(flow, ContextFlow):
+                raise TypeError("flow must be of type ContextFlow")
             self.indicators["ip"].append(flow.source_ip)
             self.indicators["ip"].append(flow.destination_ip)
         self.flow = flow
@@ -2296,9 +2360,12 @@ class Detection:
                 raise TypeError("user must be of type Person")
         self.user = user
 
+        if file == None and flow != None and flow.http.file:
+            file = flow.http.file
+
         if file != None:
-            if not isinstance(file, File):
-                raise TypeError("file must be of type File")
+            if not isinstance(file, ContextFile):
+                raise TypeError("file must be of type ContextFile")
             self.indicators["other"].append(file.file_name)
             if file.file_md5:
                 self.indicators["hash"].append(file.file_md5)
@@ -2307,6 +2374,18 @@ class Detection:
             if file.file_sha256:
                 self.indicators["hash"].append(file.file_sha256)
         self.file = file
+
+        http_request = None
+        if flow != None and flow.http:
+            http_request = flow.http
+
+        dns_request = None
+        if flow != None and flow.dns_query:
+            dns_request = flow.dns_query
+
+        certificate = None
+        if flow != None and flow.http.certificate:
+            certificate = flow.http.certificate
 
         if http_request != None:
             if not isinstance(http_request, HTTP):
@@ -2325,7 +2404,6 @@ class Detection:
                     self.indicators["hash"].append(http_request.file.file_sha1)
                 if http_request.file.file_sha256:
                     self.indicators["hash"].append(http_request.file.file_sha256)
-        self.http_request = http_request
 
         if dns_request != None:
             if not isinstance(dns_request, DNSQuery):
@@ -2335,7 +2413,6 @@ class Detection:
             self.indicators["ip"].append(dns_request.flow.destination_ip)
             if dns_request.query_response and cast_to_ipaddress(dns_request.query_response):
                 self.indicators["ip"].append(dns_request.query_response)
-        self.dns_request = dns_request
 
         if certificate != None:
             if not isinstance(certificate, Certificate):
@@ -2344,7 +2421,6 @@ class Detection:
             if certificate.subject_alternative_names is not None and len(certificate.subject_alternative_names) > 0:
                 for san in certificate.subject_alternative_names:
                     self.indicators["domain"].append(san)
-        self.certificate = certificate
 
         self.uuid = uuid
 
@@ -2379,9 +2455,6 @@ class Detection:
             "device": str(self.device),
             "user": str(self.user),
             "file": str(self.file),
-            "http_request": str(self.http_request),
-            "dns_request": str(self.dns_request),
-            "certificate": str(self.certificate),
             "uuid": self.uuid,
         }
 
@@ -2391,9 +2464,40 @@ class Detection:
         """Returns the string representation of the object."""
         return json.dumps(del_none_from_dict(self.__dict__()), indent=4, sort_keys=False, default=str)
 
-    # Getter and setter;
+    def get_context_by_uuid(self, uuid):
+        """Returns the context object by uuid.
 
-    # ...
+        Args:
+            uuid (str): The uuid of the context object
+
+        Returns:
+            Any: The context object
+        """
+        if self.log.uuid == uuid:
+            return self.log
+
+        if self.process.uuid == uuid:
+            return self.process
+
+        if self.flow.uuid == uuid:
+            return self.flow
+
+        if self.threat_intel.uuid == uuid:
+            return self.threat_intel
+
+        if self.location.uuid == uuid:
+            return self.location
+
+        if self.device.uuid == uuid:
+            return self.device
+
+        if self.user.uuid == uuid:
+            return self.user
+
+        if self.file.uuid == uuid:
+            return self.file
+
+        return None
 
 
 class DetectionReport:
@@ -2406,9 +2510,9 @@ class DetectionReport:
         action_result (bool): The action result of the report
         action_result_message (str): The action result message of the report
         action_result_data (str): The action result data of the report
-        context_logs (List[LogMessage]): The context logs of the report
+        context_logs (List[ContextLog]): The context logs of the report
         context_processes (List[Process]): The context processes of the report
-        context_flows (List[NetworkFlow]): The context flows of the report
+        context_flows (List[ContextFlow]): The context flows of the report
         context_threat_intel (List[ContextThreatIntel]): The context threat intel of the report
         context_files (List[File]): The context files of the report
         context_http_requests (List[HTTP]): The context http requests of the report
@@ -2421,6 +2525,8 @@ class DetectionReport:
     Methods:
         __init__(self, detections: List[Detection], uuid: uuid.UUID = uuid.uuid4()): Initializes the DetectionReport object.
         __str__(self): Returns the string representation of the object.
+        add_context_log(self, context: Union[ContextLog, ContextProcess, ContextFlow, ContextThreatIntel, Location, Device, Person, ContextFile]): Adds a context to the report.
+        get_context_by_uuid(self, uuid: str, filterType: type (optional)): Returns the context by the given uuid.
     """
 
     def __init__(self, detections: list, uuid: uuid.UUID = uuid.uuid4()):
@@ -2432,17 +2538,14 @@ class DetectionReport:
         self.action_result_data = None
 
         # Context for every type of context
-        self.context_logs: List[LogMessage] = []
-        self.context_processes: List[Process] = []
-        self.context_flows: List[NetworkFlow] = []
+        self.context_logs: List[ContextLog] = []
+        self.context_processes: List[ContextProcess] = []
+        self.context_flows: List[ContextFlow] = []
         self.context_threat_intel: List[ContextThreatIntel] = []
         self.context_locations: List[Location] = []
         self.context_devices: List[Device] = []
         self.context_persons: List[Person] = []
-        self.context_files: List[File] = []
-        self.context_http_requests: List[HTTP] = []
-        self.context_dns_requests: List[DNSQuery] = []
-        self.context_certificates: List[Certificate] = []
+        self.context_files: List[ContextFile] = []
 
         self.uuid = uuid
         self.indicators = {"ip": [], "domain": [], "url": [], "hash": [], "email": [], "countries": [], "other": []}
@@ -2464,9 +2567,6 @@ class DetectionReport:
             "context_devices": str(self.context_devices),
             "context_persons": str(self.context_persons),
             "context_files": str(self.context_files),
-            "context_http_requests": str(self.context_http_requests),
-            "context_dns_requests": str(self.context_dns_requests),
-            "context_certificates": str(self.context_certificates),
             "uuid": self.uuid,
             "indicators": self.indicators,
         }
@@ -2478,13 +2578,11 @@ class DetectionReport:
 
     # Getter and setter;
 
-    def add_context(
-        self, context: Union[LogMessage, Process, NetworkFlow, ContextThreatIntel, Location, Device, Person, File, HTTP, DNSQuery, Certificate]
-    ):
+    def add_context(self, context: Union[ContextLog, ContextProcess, ContextFlow, ContextThreatIntel, Location, Device, Person, ContextFile]):
         """Adds a context to the detection report, respecting the timeline
 
         Args:
-            context (Union[LogMessage, Process, NetworkFlow, ContextThreatIntel, Location, Device, Person, File, HTTP, DNSQuery, Certificate]): The context to add
+            context (Union[ContextLog, ContextProcess, ContextFlow, ContextThreatIntel, Location, Device, Person, ContextFile, HTTP, DNSQuery, Certificate]): The context to add
 
         Raises:
             ValueError: If the context object has no timestamp
@@ -2495,13 +2593,13 @@ class DetectionReport:
         except:
             raise ValueError("Context object has no timestamp.")
 
-        if isinstance(context, LogMessage):
+        if isinstance(context, ContextLog):
             add_to_timeline(self.context_logs, context, timestamp)
             if context.log_flow:
                 self.indicators["ip"].append(context.log_flow.source_ip)
                 self.indicators["ip"].append(context.log_flow.destination_ip)
 
-        elif isinstance(context, Process):
+        elif isinstance(context, ContextProcess):
             add_to_timeline(self.context_processes, context, timestamp)
             if context.process_flow:
                 self.indicators["ip"].append(context.process_flow.source_ip)
@@ -2513,10 +2611,35 @@ class DetectionReport:
             if context.process_sha256:
                 self.indicators["hash"].append(context.process_sha256)
 
-        elif isinstance(context, NetworkFlow):
+        elif isinstance(context, ContextFlow):
             add_to_timeline(self.context_flows, context, timestamp)
             self.indicators["ip"].append(context.source_ip)
             self.indicators["ip"].append(context.destination_ip)
+
+            if context.http:
+                self.indicators["domain"].append(context.http.host)
+                self.indicators["url"].append(context.http.full_url)
+                if context.http.request_body:
+                    self.indicators["other"].append(context.http.request_body)
+                if context.file:
+                    self.indicators["other"].append(context.http.file.file_name)
+                    if context.http.file.file_md5:
+                        self.indicators["hash"].append(context.http.file.file_md5)
+                    if context.http.file.file_sha1:
+                        self.indicators["hash"].append(context.http.file.file_sha1)
+                    if context.http.file.file_sha256:
+                        self.indicators["hash"].append(context.http.file.file_sha256)
+
+            if context.dns_query:
+                self.indicators["domain"].append(context.dns_query.query)
+                if context.query_response and cast_to_ipaddress(context.dns_query.query_response):
+                    self.indicators["ip"].append(context.dns_query.query_response)
+
+            if context.http.certificate:
+                self.indicators["domain"].append(context.http.certificate.subject)
+                if context.http.certificate.subject_alternative_names is not None and len(context.http.certificate.subject_alternative_names) > 0:
+                    for san in context.http.certificate.subject_alternative_names:
+                        self.indicators["domain"].append(san)
 
         elif isinstance(context, ContextThreatIntel):
             add_to_timeline(self.context_threat_intel, context, timestamp)
@@ -2532,7 +2655,7 @@ class DetectionReport:
         elif isinstance(context, Person):
             add_to_timeline(self.context_persons, context, timestamp)
 
-        elif isinstance(context, File):
+        elif isinstance(context, ContextFile):
             add_to_timeline(self.context_files, context, timestamp)
             self.indicators["other"].append(context.file_name)
             if context.file_md5:
@@ -2542,37 +2665,6 @@ class DetectionReport:
             if context.file_sha256:
                 self.indicators["hash"].append(context.file_sha256)
 
-        elif isinstance(context, HTTP):
-            add_to_timeline(self.context_http_requests, context, timestamp)
-            self.indicators["domain"].append(context.host)
-            self.indicators["url"].append(context.full_url)
-            self.indicators["ip"].append(context.flow.source_ip)
-            self.indicators["ip"].append(context.flow.destination_ip)
-            if context.request_body:
-                self.indicators["other"].append(context.request_body)
-            if context.file:
-                self.indicators["other"].append(context.file.file_name)
-                if context.file.file_md5:
-                    self.indicators["hash"].append(context.file.file_md5)
-                if context.file.file_sha1:
-                    self.indicators["hash"].append(context.file.file_sha1)
-                if context.file.file_sha256:
-                    self.indicators["hash"].append(context.file.file_sha256)
-
-        elif isinstance(context, DNSQuery):
-            add_to_timeline(self.context_dns_requests, context, timestamp)
-            self.indicators["domain"].append(context.query)
-            self.indicators["ip"].append(context.flow.source_ip)
-            self.indicators["ip"].append(context.flow.destination_ip)
-            if context.query_response and cast_to_ipaddress(context.query_response):
-                self.indicators["ip"].append(context.query_response)
-
-        elif isinstance(context, Certificate):
-            add_to_timeline(self.context_certificates, context, timestamp)
-            self.indicators["domain"].append(context.subject)
-            if context.subject_alternative_names is not None and len(context.subject_alternative_names) > 0:
-                for san in context.subject_alternative_names:
-                    self.indicators["domain"].append(san)
         else:
             raise TypeError("Unknown context type.")
 
@@ -2586,8 +2678,56 @@ class DetectionReport:
 
         # Remove duplicates
         remove_duplicates_from_dict(self.indicators)
-
         return
+
+    def get_context_by_uuid(
+        self, uuid: str, filterType: type = None
+    ) -> Union[ContextLog, ContextProcess, ContextFlow, ContextThreatIntel, Location, Device, Person, ContextFile]:
+        """Returns the context with the given UUID
+
+        Args:
+            uuid (str): The UUID of the context
+            filterType (type, optional): The type of the context. Defaults to None.
+
+        Returns:
+            Union[ContextLog, ContextProcess, ContextFlow, ContextThreatIntel, Location, Device, Person, ContextFile]: The context
+        """
+        if filterType == ContextLog or filterType is None:
+            for context in self.context_logs:
+                if context.uuid == uuid:
+                    return context
+
+        if filterType == ContextProcess or filterType is None:
+            for context in self.context_processes:
+                if context.uuid == uuid:
+                    return context
+
+        if filterType == ContextFlow or filterType is None:
+            for context in self.context_flows:
+                if context.uuid == uuid:
+                    return context
+
+        if filterType == ContextThreatIntel or filterType is None:
+            for context in self.context_threat_intel:
+                if context.uuid == uuid:
+                    return context
+
+        if filterType == Location or filterType is None:
+            for context in self.context_locations:
+                if context.uuid == uuid:
+                    return context
+
+        if filterType == Device or filterType is None:
+            for context in self.context_devices:
+                if context.uuid == uuid:
+                    return context
+
+        if filterType == Person or filterType is None:
+            for context in self.context_persons:
+                if context.uuid == uuid:
+                    return context
+
+        return None
 
     def get_title(self):
         """Returns the title of the report."""

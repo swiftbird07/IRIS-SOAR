@@ -123,8 +123,8 @@ def test_class_helper():
     detection_report = class_helper.DetectionReport(detectionList)
     assert detection_report != None, "DetectionReport class could not be initialized"
 
-    # Test NetworkFlow class
-    flow = class_helper.NetworkFlow(
+    # Test ContextFlow class
+    flow = class_helper.ContextFlow(
         detection.uuid,
         datetime.datetime.now(),
         "PyTest",
@@ -165,13 +165,13 @@ def test_class_helper():
     assert http != None, "HTTP class could not be initialized"
     assert http.full_url == "https://www2.example.com/index.html", "HTTP class full_url not set correctly"
 
-    # Test Process class
-    parent_process = class_helper.Process(
+    # Test ContextProcess class
+    parent_process = class_helper.ContextProcess(
         uuid.uuid4(), datetime.datetime.now(), detection.uuid, "word.exe", 242, "service.exe", 235, "C:\\Microsoft\word.exe"
     )
     assert parent_process != None, "ContextProcess class (for test parent) could not be initialized"
 
-    process = class_helper.Process(
+    process = class_helper.ContextProcess(
         uuid.uuid4(),
         datetime.datetime.now(),
         detection.uuid,
@@ -190,13 +190,13 @@ def test_class_helper():
     )
     assert process != None, "ContextProcessclass (for test child) could not be initialized"
 
-    # Test File class
-    file = class_helper.File(detection.uuid, "image.png", "C:\\Tmp\image.png", 512456, is_directory=False, file_extension=".png")
+    # Test ContextFile class
+    file = class_helper.ContextFile(detection.uuid, "image.png", "C:\\Tmp\image.png", 512456, is_directory=False, file_extension=".png")
     assert file != None, "File class could not be initialized"
     assert file.file_extension == "png", "File class file_extension not set correctly"
 
-    # Test LogMessage class
-    log_message = class_helper.LogMessage(
+    # Test ContextLog class
+    log_message = class_helper.ContextLog(
         detection.uuid,
         datetime.datetime.now(),
         "Failed user logon user=root",
@@ -223,13 +223,13 @@ def test_class_helper():
 
     # Test ContextThreatIntel class
     threat_intel = class_helper.ContextThreatIntel(
-        class_helper.Process, process, "VirusTotal", datetime.datetime.now(), ti_detections, score_hit=1, score_total=3
+        class_helper.ContextProcess, process, "VirusTotal", datetime.datetime.now(), ti_detections, score_hit=1, score_total=3
     )
     assert threat_intel != None, "ContextThreatIntel class could not be initialized (explicit score)"
 
     # Check if score is calculated correctly when not given explicitly
     threat_intel_impl_score = class_helper.ContextThreatIntel(
-        class_helper.Process, process, "VirusTotal", datetime.datetime.now(), ti_detections, related_detection_uuid=detection.uuid
+        class_helper.ContextProcess, process, "VirusTotal", datetime.datetime.now(), ti_detections, related_detection_uuid=detection.uuid
     )
     assert threat_intel_impl_score != None, "ContextThreatIntel class could not be initialized (implicit score)"
     assert threat_intel_impl_score.score_hit == 1, "ContextThreatIntel class score_hit not calculated correctly"
@@ -368,17 +368,17 @@ def test_class_helper():
     t1 = datetime.datetime.now()
     t2 = datetime.datetime.now() + datetime.timedelta(minutes=1)
     t3 = datetime.datetime.now() + datetime.timedelta(minutes=2)
-    log_message1 = class_helper.LogMessage(
+    log_message1 = class_helper.ContextLog(
         detection.uuid,
         t3,
         "First created Log message. Happened last.",
         "Auth Logs @ Server",
         log_source_ip="1.1.1.1",
     )
-    log_message2 = class_helper.LogMessage(
+    log_message2 = class_helper.ContextLog(
         detection.uuid, t1, "Second created Log message. Happened first.", "Auth Logs @ Server", log_source_ip="1.1.1.1"
     )
-    log_message3 = class_helper.LogMessage(
+    log_message3 = class_helper.ContextLog(
         detection.uuid, t2, "Third created Log message. Happened in the middle.", "Auth Logs @ Server", log_source_ip="10.12.0.1"
     )
     detection_report.add_context(log_message1)
