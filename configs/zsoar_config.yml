@@ -1,3 +1,9 @@
+cache:
+  file:
+    enabled: true
+    max_age_hours: 24
+    max_size_mb: 10
+    path: lib/cache.json
 daemon:
   enabled: false
   interval: 2

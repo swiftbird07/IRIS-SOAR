@@ -22,6 +22,7 @@ import uuid
 import json
 
 import lib.logging_helper as logging_helper
+import lib.config_helper as config_helper
 
 # For new detections:
 from lib.class_helper import Rule, Detection, ContextProcess, ContextFlow
@@ -300,6 +301,24 @@ def search_entity_by_entity_id(mlog, config, entity_id, entity_type="process"):
     """
     mlog.info("search_entity_by_entity_id() - called with entity_id: " + entity_id + " and entity_type: " + entity_type)
 
+    # Look in Cache first
+    config_all = config_helper.Config().cfg
+    if config_all["cache"]["file"]["enabled"]:
+        mlog.debug("search_entity_by_entity_id() - Cache is enabled, checking cache for entity_id: " + entity_id)
+        
+        # Load cahceh file to variable
+        cache_file = config_all["cache"]["file"]["path"]
+        mlog.debug("search_entity_by_entity_id() - Loading cache file: " + cache_file)
+        with open(cache_file, "r") as f:
+            cache = json.load(f)
+        
+        # Check if entity is in cache
+        entity = deep_get(cache["elastic_siem"]["entities"], entity_id)
+        if entity:
+            mlog.debug("search_entity_by_entity_id() - Found entity in cache")
+            return entity
+
+
     elastic_host = config["elastic_url"]
     elastic_user = config["elastic_user"]
     elastic_pw = config["elastic_password"]
@@ -344,6 +363,13 @@ def search_entity_by_entity_id(mlog, config, entity_id, entity_type="process"):
         return None
     entity = search_response["hits"]["hits"][0]["_source"]
     mlog.info(f"search_entity_by_entity_id() - Entity found for entity_id {entity_id} and entity_type {entity_type}: {json.dumps(entity)}")
+
+    # Save entity to cache
+    if config_all["cache"]["file"]["enabled"]:
+        mlog.debug("search_entity_by_entity_id() - Cache is enabled, saving entity to cache")
+        cache["elastic_siem"]["entities"][entity_id] = entity
+        with open(cache_file, "w") as f:
+            json.dump(cache, f)
     return entity
 
 

@@ -237,6 +237,24 @@ def check_config(cfg, mlog, onload=True):
                 return False
             mlog.debug(f"Loaded integration: {integration}")
 
+        # cache        
+        if not check_config_bool(cfg["cache"]["file"]["enabled"], mlog):
+            return False
+        if not check_config_int(cfg["cache"]["file"]["max_age_hours"], mlog):
+            return False
+        if not check_config_int(cfg["cache"]["file"]["max_size_mb"], mlog):
+            return False
+        # Try open the given file
+        try:
+            open(cfg["cache"]["file"]["path"], "a").close()
+        except Exception as e:
+            mlog.critical(f"Could not open cache file: {e}")
+            return False
+    
+       # TODO Add Elasticsearch cache
+    
+            
+
     except KeyError as e:
         mlog.critical("Could not load config file: Setting not found: {}. Please check the config file and try again.".format(e))
         return False
