@@ -192,11 +192,7 @@ def create_process_from_doc(mlog, doc_id, doc_dict, detectionOnly=True):
     modified_files = []
 
     # Get parent process entity to create a minimal process to link the current process to it
-    parent_uuid = deep_get(doc_dict, "process.parent.entity_id")
-    if parent_uuid is not None:
-        parent = ContextProcess(parent_uuid, datetime.datetime.now(), doc_dict["kibana.alert.uuid"])
-    else:
-        parent = None
+    parent = deep_get(doc_dict, "process.parent.entity_id")
 
     children = []
 
