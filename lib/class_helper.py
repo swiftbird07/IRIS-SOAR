@@ -1254,7 +1254,6 @@ class DNSQuery:
 
     def __dict__(self):
         dict_ = {
-            "timestamp": self.timestamp,
             "related_detection_uuid": self.related_detection_uuid,
             "type": self.type,
             "query": self.query,
@@ -1290,6 +1289,7 @@ class HTTP:
         http_version (str): The HTTP version of the HTTP request
         file (File): The file transported by the HTTP request
         certificate (Certificate): The certificate used by the HTTP request
+        timestamp (datetime): The timestamp of the HTTP request
 
     Methods:
 
@@ -1315,6 +1315,7 @@ class HTTP:
         http_version: str = None,
         certificate: Certificate = None,
         file: ContextFile = None,
+        timestamp: datetime.datetime = datetime.datetime.now(),
     ):
         self.related_detection_uuid = related_detection_uuid
         mlog = logging_helper.Log("lib.class_helper")
@@ -1375,7 +1376,7 @@ class HTTP:
         self.certificate = certificate
 
         self.file = file
-        self.timestamp = self.flow.timestamp  # for cross-context compatibility
+        self.timestamp = timestamp
 
     def __dict__(self):
         try:
@@ -2384,7 +2385,7 @@ class Detection:
             dns_request = flow.dns_query
 
         certificate = None
-        if flow != None and flow.http.certificate:
+        if flow != None and flow.http != None and flow.http.certificate:
             certificate = flow.http.certificate
 
         if http_request != None:
@@ -2621,7 +2622,7 @@ class DetectionReport:
                 self.indicators["url"].append(context.http.full_url)
                 if context.http.request_body:
                     self.indicators["other"].append(context.http.request_body)
-                if context.file:
+                if context.http.file:
                     self.indicators["other"].append(context.http.file.file_name)
                     if context.http.file.file_md5:
                         self.indicators["hash"].append(context.http.file.file_md5)
@@ -2632,10 +2633,10 @@ class DetectionReport:
 
             if context.dns_query:
                 self.indicators["domain"].append(context.dns_query.query)
-                if context.query_response and cast_to_ipaddress(context.dns_query.query_response):
+                if context.dns_query.query_response and cast_to_ipaddress(context.dns_query.query_response):
                     self.indicators["ip"].append(context.dns_query.query_response)
 
-            if context.http.certificate:
+            if context.http and context.http.certificate:
                 self.indicators["domain"].append(context.http.certificate.subject)
                 if context.http.certificate.subject_alternative_names is not None and len(context.http.certificate.subject_alternative_names) > 0:
                     for san in context.http.certificate.subject_alternative_names:

@@ -153,15 +153,15 @@ def test_class_helper():
     assert flow.flow_id > 0, "ContextFlow id is not set"
 
     # Test Certificate class
-    cert = class_helper.Certificate(flow, "example.com", "Pytest Inc.", "Pytest CN", public_key_size=2048)
+    cert = class_helper.Certificate(detection.uuid, "example.com", "Pytest Inc.", "Pytest CN", public_key_size=2048)
     assert cert != None, "Certificate class could not be initialized"
 
     # Test DNSQuery class
-    dns_query = class_helper.DNSQuery(detection.uuid, flow, "A", "www2.example.com", has_response=True, query_response="10.10.10.10")
+    dns_query = class_helper.DNSQuery(detection.uuid, "A", "www2.example.com", has_response=True, query_response="10.10.10.10")
     assert dns_query != None, "DNSQuery class could not be initialized"
 
     # Test HTTP class
-    http = class_helper.HTTP(detection.uuid, flow, "GET", "HTTPS", "www2.example.com", 200, path="index.html", user_agent="PyTest")
+    http = class_helper.HTTP(detection.uuid, "GET", "HTTPS", "www2.example.com", 200, path="index.html", user_agent="PyTest")
     assert http != None, "HTTP class could not be initialized"
     assert http.full_url == "https://www2.example.com/index.html", "HTTP class full_url not set correctly"
 
@@ -185,7 +185,7 @@ def test_class_helper():
         process_sha1="1234567890abcdef1234567890abcdef12345678",
         process_sha256="1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
         process_command_line="C:\\Microsoft\word.exe",
-        process_parent=parent_process,
+        process_parent=parent_process.process_uuid,
         is_complete=True,
     )
     assert process != None, "ContextProcessclass (for test child) could not be initialized"
@@ -340,17 +340,20 @@ def test_class_helper():
     assert len(detection_report.context_files) == 1, "Could not add file context to detection"
     assert detection_report.context_files[0].file_name == "image.png", "Could not add file context to detection"
 
-    detection_report.add_context(http)
-    assert len(detection_report.context_http_requests) == 1, "Could not add http context to detection"
-    assert detection_report.context_http_requests[0].method == "GET", "Could not add http context to detection"
+    flow.http = http
+    detection_report.add_context(flow)
+    assert type(detection_report.context_flows[0].http) == class_helper.HTTP, "Could not add http context to detection"
+    assert detection_report.context_flows[0].http.method == "GET", "Could not add http context to detection"
 
-    detection_report.add_context(dns_query)
-    assert len(detection_report.context_dns_requests) == 1, "Could not add dns_query context to detection"
-    assert detection_report.context_dns_requests[0].query == "www2.example.com", "Could not add dns_query context to detection"
+    flow.dns_query = dns_query
+    detection_report.add_context(flow)
+    assert type(detection_report.context_flows[0].dns_query) == class_helper.DNSQuery, "Could not add dns_query context to detection"
+    assert detection_report.context_flows[0].dns_query.query == "www2.example.com", "Could not add dns_query context to detection"
 
-    detection_report.add_context(cert)
-    assert len(detection_report.context_certificates) == 1, "Could not add cert context to detection"
-    assert detection_report.context_certificates[0].subject == "example.com", "Could not add cert context to detection"
+    flow.http.certificate = cert
+    detection_report.add_context(flow)
+    assert type(detection_report.context_flows[0].http.certificate) == class_helper.Certificate, "Could not add cert context to detection"
+    assert detection_report.context_flows[0].http.certificate.subject == "example.com", "Could not add cert context to detection"
 
     assert detection_report.indicators is not None, "Could not add indicators to detection"
     assert len(detection_report.indicators) != 0, "Could not add indicators to detection"
@@ -359,9 +362,9 @@ def test_class_helper():
     assert detection_report.indicators["url"][0] == "https://www2.example.com/index.html", "Could not add indicators to detection"
     assert detection_report.indicators["hash"][0] == "1234567890abcdef1234567890abcdef", "Could not add indicators to detection"
 
-    detection_report.add_context(http)
-    detection_report.add_context(http)
-    detection_report.add_context(http)
+    detection_report.add_context(flow)
+    detection_report.add_context(flow)
+    detection_report.add_context(flow)
     assert len(detection_report.indicators["url"]) == 1, "De-doubling of context objects failed"
 
     # Check DetectionReport add_context - timieline sorting and wildcard removal
@@ -389,26 +392,15 @@ def test_class_helper():
     assert detection_report.context_logs[1 + 1].log_message == "Third created Log message. Happened in the middle.", "Time sorting of log msg failed"
     assert detection_report.context_logs[1 + 2].log_message == "First created Log message. Happened last.", "Time sorting of log messages failed"
 
-    detection_report.add_context(class_helper.DNSQuery(detection.uuid, flow, "A", "*.example.com", True, "10.10.10.10"))
+    flow.dns_query = class_helper.DNSQuery(detection.uuid, "A", "*.example.com", True, "10.10.10.10")
+    detection_report.add_context(flow)
     assert detection_report.indicators["domain"][1] == "example.com", "Could not add indicators to detection"
 
-    # Test detection class indicators
-    detection2 = class_helper.Detection(
-        "Some ID",
-        "Some Name",
-        ruleList,
-        datetime.datetime.now(),
-        log=log_message,
-        process=process,
-        file=file,
-        http_request=http,
-        dns_request=dns_query,
-        certificate=cert,
-        location=location,
-        device=device,
-        user=person,
-        threat_intel=threat_intel,
-    )
+    # Test DetectionReport class indicators
+    detection2 = class_helper.DetectionReport(detection.uuid)
+    detection2.add_context(flow)
+    detection2.add_context(process)
+
     assert detection2.indicators is not None, "Could not add indicators to detection"
     assert len(detection2.indicators) != 0, "Could not add indicators to detection"
     assert detection2.indicators["ip"][0] == ipaddress.IPv4Address("123.123.123.123"), "Could not add indicators to detection"
@@ -421,7 +413,7 @@ def test_class_helper():
     mlog.info("Rule: ")
     mlog.info(rule)
     mlog.info("Flow: ")
-    mlog.info(flow)
+    mlog.info(str(flow))
     mlog.info("HTTP: ")
     mlog.info(http)
     mlog.info("PROCESS 1: ")
@@ -465,3 +457,5 @@ def test_class_helper():
     # Test classes - Negative tests
 
     # TODO: Add negative tests
+
+#test_class_helper()
