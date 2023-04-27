@@ -5,7 +5,7 @@ cache:
     max_size_mb: 10
     path: lib/cache.json
 daemon:
-  enabled: false
+  enabled: true
   interval: 2
   interval_min: 1
 integrations:

@@ -340,6 +340,8 @@ def search_entity_by_entity_id(mlog, config, entity_id, entity_type="process"):
 
     # Save entity to cache
     add_to_cache("elastic_siem", "entities", entity_id, entity)
+    
+    return entity
 
 
 def acknowledge_alert(mlog, config, alert_id, index):

@@ -3,8 +3,8 @@
 # This module is a helper module that provides multiple generic funtions that can be used all over Z-SOAR. 
 # These functions are not integration specific. For integration specific functions, please use the playbook building blocks (BB) in the playbooks folder.
 
-import logging_helper
-import config_helper
+import lib.logging_helper as logging_helper
+import lib.config_helper as config_helper
 import json
 from functools import reduce
 
@@ -41,15 +41,23 @@ def add_to_cache(integration, category, key, value):
     try:
         config_all = config_helper.Config().cfg
         if config_all["cache"]["file"]["enabled"]:
-            mlog.debug("add_to_cache() - Cache is enabled, saving value '" + value + "' to cache. Category: '" + category + "' with key: '"+key+"' in integration: " + integration)
+            mlog.debug("add_to_cache() - Cache is enabled, saving value '" + str(value) + "' to cache. Category: '" + category + "' with key: '"+key+"' in integration: " + integration)
             cache_file = config_all["cache"]["file"]["path"]
             with open(cache_file, "r") as f:
                 cache = json.load(f)
 
-            cache[integration][category][key] = value
+            try:
+                cache[integration][category][key] = value
+            except KeyError:
+                if integration not in cache:
+                    cache[integration] = {}
+                if category not in cache[integration]:
+                    cache[integration][category] = {}
+
+                cache[integration][category][key] = value
             with open(cache_file, "w") as f:
                 json.dump(cache, f)
-            mlog.info("add_to_cache() - Value '" + value + "' saved to cache. Category: '" + category + "' with key: '"+key+"' in integration: " + integration)
+            mlog.info("add_to_cache() - Value '" + str(value) + "' saved to cache. Category: '" + category + "' with key: '"+key+"' in integration: " + integration)
     except Exception as e:
         mlog.warning("add_to_cache() - Error adding value to cache: " + str(e))
 
@@ -86,4 +94,3 @@ def get_from_cache(integration, category, key):
     except Exception as e:
         mlog.warning("get_from_cache() - Error getting value from cache: " + str(e))
         return None
-

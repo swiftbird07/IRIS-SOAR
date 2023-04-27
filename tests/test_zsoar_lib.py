@@ -458,4 +458,10 @@ def test_class_helper():
 
     # TODO: Add negative tests
 
-#test_class_helper()
+def test_generic_helper():
+    import lib.generic_helper as generic_helper
+    
+    generic_helper.add_to_cache("test", "entities", "123", "4566")
+    generic_helper.get_from_cache("test", "entities", "123") == "4566", "Could not get from cache"
+
+test_generic_helper()
