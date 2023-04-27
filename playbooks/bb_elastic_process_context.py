@@ -80,8 +80,8 @@ def bb_get_complete_process_by_uuid(detection_report: DetectionReport, uuid) -> 
 
 def get_all_children_recursive(detection_report, children: List, process: ContextProcess):
     for child in process.process_children:
-        if len(child.process_children) == 0:
-            child_full = bb_get_complete_process_by_uuid(detection_report, child.process_uuid)
+        if len(child) == 0:
+            child_full = bb_get_complete_process_by_uuid(detection_report, process.process_uuid)
             children.append(child_full)
         else:
             children.extend(bb_get_all_children(children, child))
@@ -109,7 +109,7 @@ def bb_get_all_children(detection_report: DetectionReport, process: ContextProce
 
 
 def get_all_parents_recursive(detection_report, parents: List, process: ContextProcess):
-    parent_uuid = process.process_parent.process_uuid
+    parent_uuid = process.process_parent
     if parent_uuid == "" or parent_uuid == None:
         parent = bb_get_complete_process_by_uuid(detection_report, process.process_uuid)
         parents.append(parent)
@@ -138,3 +138,5 @@ def bb_get_all_parents(detection_report: DetectionReport, process: ContextProces
     parents.sort(key=lambda x: x.process_start_time, reverse=True)
 
     return parents
+
+# TODO: Test Parent and Child functions
