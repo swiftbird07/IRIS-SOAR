@@ -29,6 +29,7 @@ from lib.class_helper import Rule, Detection, ContextProcess, ContextFlow
 
 # For context for detections (remove unused types):
 from lib.class_helper import DetectionReport, ContextFlow, ContextLog, ContextProcess, cast_to_ipaddress
+from lib.generic_helper import deep_get, get_from_cache, add_to_cache
 
 
 LOG_LEVEL = "DEBUG"  # Force log level. Recommended to set to DEBUG during development.
@@ -125,24 +126,6 @@ def init_logging(config):
     es_log = logging.getLogger("elasticsearch")
     es_log.setLevel(logging.ERROR)
     return mlog
-
-
-def deep_get(dictionary, keys, default=None):
-    """Gets a value from a nested dictionary.
-
-    Args:
-        dictionary (dict): The dictionary to get the value from
-        keys (str): The keys to get the value from
-        default (any): The default value to return if the key does not exist
-
-    Returns:
-        any: The value of the key or the default value
-    """
-    return reduce(
-        lambda d, key: d.get(key, default) if isinstance(d, dict) else default,
-        keys.split("."),
-        dictionary,
-    )
 
 
 def create_flow_from_doc(mlog, doc_id, doc_dict):
@@ -302,21 +285,12 @@ def search_entity_by_entity_id(mlog, config, entity_id, entity_type="process"):
     mlog.info("search_entity_by_entity_id() - called with entity_id: " + entity_id + " and entity_type: " + entity_type)
 
     # Look in Cache first
-    config_all = config_helper.Config().cfg
-    if config_all["cache"]["file"]["enabled"]:
-        mlog.debug("search_entity_by_entity_id() - Cache is enabled, checking cache for entity_id: " + entity_id)
-        
-        # Load cahceh file to variable
-        cache_file = config_all["cache"]["file"]["path"]
-        mlog.debug("search_entity_by_entity_id() - Loading cache file: " + cache_file)
-        with open(cache_file, "r") as f:
-            cache = json.load(f)
-        
-        # Check if entity is in cache
-        entity = deep_get(cache["elastic_siem"]["entities"], entity_id)
-        if entity:
-            mlog.debug("search_entity_by_entity_id() - Found entity in cache")
-            return entity
+    cache_result = get_from_cache("elastic_siem", "entities", entity_id)
+    if cache_result is not None:
+        mlog.debug("search_entity_by_entity_id() - found entity in cache")
+        return cache_result
+    else:
+        mlog.debug("search_entity_by_entity_id() - entity not found in cache")
 
 
     elastic_host = config["elastic_url"]
@@ -365,12 +339,7 @@ def search_entity_by_entity_id(mlog, config, entity_id, entity_type="process"):
     mlog.info(f"search_entity_by_entity_id() - Entity found for entity_id {entity_id} and entity_type {entity_type}: {json.dumps(entity)}")
 
     # Save entity to cache
-    if config_all["cache"]["file"]["enabled"]:
-        mlog.debug("search_entity_by_entity_id() - Cache is enabled, saving entity to cache")
-        cache["elastic_siem"]["entities"][entity_id] = entity
-        with open(cache_file, "w") as f:
-            json.dump(cache, f)
-    return entity
+    add_to_cache("elastic_siem", "entities", entity_id, entity)
 
 
 def acknowledge_alert(mlog, config, alert_id, index):
