@@ -38,9 +38,11 @@ def test_bb_get_complete_process_by_uuid():
     ), "DetectionReport class could not be initialized"  # Sanity check - should be already tested by test_zsoar_lib.py -> test_class_helper()
 
     # Test the function
-    process = bb_get_complete_process_by_uuid(detection_report, "123")
+    process = bb_get_complete_process_by_uuid(detection_report, "N2E5MmQ4NDctM2QxMS00ZDE3LThkZDAtNDRlMTJkYzA3ZmQ4LTE1NzM1NjMtMTY4MjUyNzI2MQ==")
     assert type(process) == ContextProcess, "bb_get_complete_process_by_uuid() should return a ContextProcess object"
 
     # Print the results
     mlog.info("Process context:")
     mlog.info(process)
+
+#test_bb_get_complete_process_by_uuid()

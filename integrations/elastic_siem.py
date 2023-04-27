@@ -160,10 +160,10 @@ def create_flow_from_doc(mlog, doc_id, doc_dict):
     return flow
 
 
-def create_process_from_doc(mlog, doc_id, doc_dict, detectionOnly=True):
+def create_process_from_doc(mlog, doc_dict, detectionOnly=True):
     """Creates a ContextProcess object from a Elastic-SIEM document."""
     mlog.debug(
-        "Creating ContextProcess object from Elastic-SIEM document for detection: " + doc_dict["kibana.alert.uuid"] + " and document: " + doc_id
+        "Creating ContextProcess object from Elastic-SIEM document."
     )
 
     dns_requests = None  # TODO: Implement create_dns_from_doc
@@ -520,7 +520,7 @@ def zs_provide_new_detections(config, TEST="") -> List[Detection]:
         # Most EDR detections are process related so check if a ContextProcess context can be created
         process = None
         if deep_get(doc_dict, "process.entity_id") is not None:
-            process = create_process_from_doc(mlog, doc["_id"], doc_dict)
+            process = create_process_from_doc(mlog, doc_dict)
 
         # Create the detection object
         detection = Detection(
@@ -584,6 +584,7 @@ def zs_provide_context_for_detections(
     provided_typed.append(ContextProcess)
 
     detection_name = detection_report.detections[0].name
+    detection_id = detection_report.detections[0].uuid
 
     if required_type not in provided_typed:
         mlog.error("The required type is not provided by this integration. '" + str(required_type) + "' is not in " + str(provided_typed))
@@ -618,7 +619,7 @@ def zs_provide_context_for_detections(
                 mlog.info("UUID provided. Will return the single process with UUID: " + UUID)
                 doc = search_entity_by_entity_id(mlog, config, UUID)
                 if doc is not None:
-                    process = create_process_from_doc(mlog, doc["_id"], doc["_source"])
+                    process = create_process_from_doc(mlog, doc)
                     return_objects.append(process)
 
     # ...

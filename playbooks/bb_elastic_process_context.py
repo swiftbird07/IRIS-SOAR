@@ -31,6 +31,7 @@ import lib.logging_helper as logging_helper
 from lib.class_helper import DetectionReport, Detection, Rule, ContextProcess
 from integrations.elastic_siem import zs_provide_context_for_detections
 from lib.config_helper import Config
+from lib.generic_helper import add_to_cache, get_from_cache
 
 BB_NAME = "BB_Elastic_Process_Context"
 BB_VERSION = "1.0.0"
@@ -58,18 +59,19 @@ def bb_get_complete_process_by_uuid(detection_report: DetectionReport, uuid) -> 
     mlog.debug("complete_process_by_uuid - Fetching complete process for UUID: " + str(uuid))
 
     # Check cache first
-    if uuid in process_cache:
+    get_from_cache("playbooks.bb_elastic_process_context", "processes", uuid)
+    if process_cache:
         mlog.debug("complete_process_by_uuid - Returning cached process: " + str(process_cache[uuid]))
-        return process_cache[uuid]
+        return process_cache
 
     # Gather context
-    process = zs_provide_context_for_detections(integration_config, detection_report, ContextProcess, UUID=uuid, maxContext=1, TEST=False)
+    process = zs_provide_context_for_detections(integration_config, detection_report, ContextProcess, UUID=uuid, maxContext=1, TEST=False)[0]
     if process == None:
         mlog.debug("complete_process_by_uuid - No process found for UUID: " + str(uuid))
         return None
 
     # Add to cache
-    process_cache[uuid] = process
+    add_to_cache("playbooks.bb_elastic_process_context", "processes", uuid, process)
     mlog.debug("complete_process_by_uuid - Added process to cache: " + str(process))
 
     mlog.debug("complete_process_by_uuid - Returning process: " + str(process))
