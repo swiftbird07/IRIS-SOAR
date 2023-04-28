@@ -177,8 +177,18 @@ def create_process_from_doc(mlog, doc_dict, detectionOnly=True):
 
     # Get parent process entity to create a minimal process to link the current process to it
     parent = deep_get(doc_dict, "process.parent.entity_id")
+    if not parent:
+        parent = deep_get(doc_dict, "process.Ext.ancestry")
+        if parent:
+            parent = parent[0]
+        else:
+            parent = None
 
     children = []
+    start_time = deep_get(doc_dict, "process.start"),
+    if not start_time:
+        mlog.warning("No start explicit time found for process. Using @timestamp of event.")
+        start_time = deep_get(doc_dict, "@timestamp")
 
     process = ContextProcess(
         timestamp=datetime.datetime.now(),
@@ -195,7 +205,7 @@ def create_process_from_doc(mlog, doc_dict, detectionOnly=True):
         process_command_line=deep_get(doc_dict, "process.args"),
         process_username=deep_get(doc_dict, "user.name"),
         process_owner=deep_get(doc_dict, "user.name"),
-        process_start_time=deep_get(doc_dict, "process.start"),
+        process_start_time=start_time,
         process_parent_start_time=deep_get(doc_dict, "process.parent.start"),
         process_current_directory=deep_get(doc_dict, "process.working_directory"),
         process_dns=dns_requests,
@@ -225,7 +235,7 @@ def get_all_indices(mlog, config):
     Returns:
         list: A list of all indices
     """
-    mlog.info("get_all_indices() - called")
+    mlog.debug("get_all_indices() - called")
 
     elastic_host = config["elastic_url"]
     elastic_user = config["elastic_user"]
@@ -261,8 +271,6 @@ def get_all_indices(mlog, config):
     # Get all indices
     indices = []
 
-    # TODO: Use caching from file to store recent successful indices at the top of the list
-
     for index in response_json:
         indices.append(index["index"])
 
@@ -282,7 +290,7 @@ def search_entity_by_entity_id(mlog, config, entity_id, entity_type="process"):
     Returns:
         dict: The entity
     """
-    mlog.info("search_entity_by_entity_id() - called with entity_id: " + entity_id + " and entity_type: " + entity_type)
+    mlog.debug("search_entity_by_entity_id() - called with entity_id '" + entity_id + "' and entity_type: " + entity_type)
 
     # Look in Cache first
     cache_result = get_from_cache("elastic_siem", "entities", entity_id)
@@ -303,15 +311,29 @@ def search_entity_by_entity_id(mlog, config, entity_id, entity_type="process"):
         "Content-Type": "application/json",
     }
 
-    indices = get_all_indices(mlog, config)
-    succsess = False
+    # Chech index cache first for last successful indeces
+    mlog.debug("search_entity_by_entity_id() - Checking index cache for last successful indices to search first...")
+    indices = get_from_cache("elastic_siem", "successful_indices", "LIST")
+    if indices is not None:
+        mlog.debug("search_entity_by_entity_id() - found successful indices in cache. Checking them first.")
+    else:
+        mlog.debug("search_entity_by_entity_id() - no successful indices found in cache to search first.")
+
+    indices_all = get_all_indices(mlog, config)
+    if indices is not None:
+        indices = indices + indices_all
+    else:
+        indices = indices_all
+
+    success = False
+    mlog.debug(f"search_entity_by_entity_id() - Searching for entity with ID {entity_id} in indices: " + str(indices)+ ". This may take a while...")
 
     for index in indices:
         url = f"{elastic_host}/{index}/_search"
 
         # Define Elasticsearch search query
         search_query = {"query": {"bool": {"must": [{"match": {"process.entity_id": entity_id}}, {"range": {"@timestamp": {"gte": "now-3d/d"}}}]}}}
-        mlog.debug(f"search_entity_by_entity_id() - Searching index {index} for entity with URL: " + url + " and data: " + json.dumps(search_query))
+        #mlog.debug(f"search_entity_by_entity_id() - Searching index {index} for entity with URL: " + url + " and data: " + json.dumps(search_query)) | L2 DEBUG
 
         # Send Elasticsearch search request
         response = requests.post(url, headers=headers, auth=(elastic_user, elastic_pw), json=search_query, verify=should_verify)
@@ -321,25 +343,27 @@ def search_entity_by_entity_id(mlog, config, entity_id, entity_type="process"):
             mlog.error(f"search_entity_by_entity_id() - Elasticsearch search failed with status code {response.status_code}")
             continue
 
-        mlog.debug(f"Response text: {response.text}")
+        #mlog.debug(f"search_entity_by_entity_id() - Response text: {response.text}")
 
         # Extract the entity from the Elasticsearch search response
         search_response = json.loads(response.text)
         if search_response["hits"]["total"]["value"] == 0:
-            mlog.debug(f"search_entity_by_entity_id() - Index {index}: No entity found for entity_id {entity_id} and entity_type {entity_type}")
+            #mlog.debug(f"search_entity_by_entity_id() - Index {index}: No entity found for entity_id {entity_id} and entity_type {entity_type}") | L2 DEBUG
             continue
         else:
-            succsess = True
+            success = True
             break
 
-    if not succsess:
-        mlog.warning(f"search_entity_by_entity_id() - No entity found for entity_id {entity_id} and entity_type {entity_type}")
+    if not success:
+        mlog.warning(f"search_entity_by_entity_id() - No entity found for entity_id '{entity_id}' and entity_type '{entity_type}'")
         return None
     entity = search_response["hits"]["hits"][0]["_source"]
-    mlog.info(f"search_entity_by_entity_id() - Entity found for entity_id {entity_id} and entity_type {entity_type}: {json.dumps(entity)}")
+    mlog.debug(f"search_entity_by_entity_id() - Entity found for entity_id '{entity_id}' and entity_type '{entity_type}': {json.dumps(entity)}")
 
     # Save entity to cache
     add_to_cache("elastic_siem", "entities", entity_id, entity)
+    # Save index name to cache
+    add_to_cache("elastic_siem", "successful_indices", "LIST", index)
     
     return entity
 
@@ -626,7 +650,7 @@ def zs_provide_context_for_detections(
     # ...
     if len(return_objects) == 0:
         mlog.info(
-            "zs_provide_context_for_detections() found no context for detection: " + detection_name + " and required_type: " + str(required_type)
+            "zs_provide_context_for_detections() found no context for detection '" + detection_name + "' and required_type: " + str(required_type)
         )
         return None
 
@@ -646,7 +670,7 @@ def zs_provide_context_for_detections(
             )
         else:
             mlog.info(
-                "zs_provide_context_for_detections() found no context for detection: " + detection_name + " and required_type: " + str(required_type)
+                "zs_provide_context_for_detections() found no context for detection: '" + detection_name + "' and required_type: " + str(required_type)
             )
     return return_objects
 
