@@ -134,3 +134,7 @@ dmypy.json
 
 # Swap files
 .swp
+
+# Cache
+lib/cache.json
+logs/

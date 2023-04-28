@@ -1733,6 +1733,9 @@ class ContextProcess:
         is_complete: bool = False,
         detection_relevance: int = 50,
     ):
+        
+        mlog = logging_helper.Log("lib.class_helper")
+        
         self.process_uuid = str(process_uuid)
         if process_uuid == None or process_uuid == "":
             raise ValueError("uuid cannot be empty")
@@ -1839,8 +1842,8 @@ class ContextProcess:
             raise ValueError("process_id cannot be None if is_complete is True")
         if is_complete and process_path == None:
             mlog.warning("Process Object __init__: process_path should not be None if is_complete is True")
-        if is_complete and process_md5 == None:
-            mlog.warning("Process Object __init__: process_md5 should not be None if is_complete is True")
+        if is_complete and process_md5 == None and process_sha256 == None:
+            mlog.warning("Process Object __init__: process_md5 or process_sha256 should not be None if is_complete is True")
         if is_complete and process_command_line == None:
             mlog.warning("Process Object __init__: process_command_line should not be None if is_complete is True")
         self.is_complete = is_complete

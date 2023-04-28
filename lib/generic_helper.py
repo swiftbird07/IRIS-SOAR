@@ -34,6 +34,8 @@ def add_to_cache(integration, category, key, value):
     Adds a value to the cache of a specific integration
     
     :param integration: The integration to add the value to
+    :param category: The category to add the value to
+    :param key: The key to add the value for. If key is "LIST", the value will be treated as a list item and appended to the list.
     :param value: The value to add to the cache
     
     :return: None
@@ -46,15 +48,31 @@ def add_to_cache(integration, category, key, value):
             with open(cache_file, "r") as f:
                 cache = json.load(f)
 
-            try:
-                cache[integration][category][key] = value
-            except KeyError:
-                if integration not in cache:
-                    cache[integration] = {}
-                if category not in cache[integration]:
-                    cache[integration][category] = {}
+            if key == "LIST":
+                mlog.debug("add_to_cache() - Key is 'LIST' literal, appending value to list")
+                try:
+                    if  value in cache[integration][category]:
+                        mlog.debug("add_to_cache() - Value '" + str(value) + "' already exists in cache, skipping")
+                        return
+                    cache[integration][category].append(value)
+                except KeyError:
+                    if integration not in cache:
+                        cache[integration] = {}
+                    if category not in cache[integration]:
+                        cache[integration][category] = []
 
-                cache[integration][category][key] = value
+                    cache[integration][category].append(value)
+            else:
+                try:
+                    cache[integration][category][key] = value
+                except KeyError:
+                    if integration not in cache:
+                        cache[integration] = {}
+                    if category not in cache[integration]:
+                        cache[integration][category] = {}
+
+                    cache[integration][category][key] = value
+
             with open(cache_file, "w") as f:
                 json.dump(cache, f)
             mlog.info("add_to_cache() - Value '" + str(value) + "' saved to cache. Category: '" + category + "' with key: '"+key+"' in integration: " + integration)
@@ -82,6 +100,11 @@ def get_from_cache(integration, category, key):
             mlog.debug("get_from_cache() - Loading cache file: " + cache_file)
             with open(cache_file, "r") as f:
                 cache = json.load(f)
+            
+            # Check if category just stores a list
+            if key == "LIST":
+                mlog.debug("get_from_cache() - Category stores a list, returning list")
+                return cache[integration][category]
             
             # Check if entity is in cache
             entity = deep_get(cache[integration][category], key)

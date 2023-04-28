@@ -58,11 +58,16 @@ def bb_get_complete_process_by_uuid(detection_report: DetectionReport, uuid) -> 
     mlog.debug("complete_process_by_uuid - Fetching complete process for UUID: " + str(uuid))
 
     # Gather context
-    process = zs_provide_context_for_detections(integration_config, detection_report, ContextProcess, UUID=uuid, maxContext=1, TEST=False)[0]
-    if process == None:
+    processes = zs_provide_context_for_detections(integration_config, detection_report, ContextProcess, UUID=uuid, maxContext=1, TEST=False)
+    if processes == None:
         mlog.debug("complete_process_by_uuid - No process found for UUID: " + str(uuid))
         return None
-
+    
+    # Sanity check
+    if len(processes) > 1:
+        mlog.warning("complete_process_by_uuid - More than one process found for UUID: " + str(uuid))
+    
+    process = processes[0]
     mlog.debug("complete_process_by_uuid - Returning process: " + str(process))
     return process
 
@@ -98,12 +103,23 @@ def bb_get_all_children(detection_report: DetectionReport, process: ContextProce
 
 
 def get_all_parents_recursive(detection_report, parents: List, process: ContextProcess):
+    mlog.debug("get_all_parents_recursive - Getting all parents for process UUID: " + str(process.process_uuid) + " and name: " + str(process.process_name))
+    mlog.debug(" Current parents: " + str(parents))
+
     parent_uuid = process.process_parent
     if parent_uuid == "" or parent_uuid == None:
-        parent = bb_get_complete_process_by_uuid(detection_report, process.process_uuid)
-        parents.append(parent)
+        mlog.debug("get_all_parents_recursive - No parent found process name " + str(process.process_name) + " with UUID: " + str(process.process_uuid))
+        #process = bb_get_complete_process_by_uuid(detection_report, process.process_uuid)
+        #parents.append(process)
     else:
-        parents.extend(bb_get_all_parents(detection_report, parent))
+        mlog.debug("get_all_parents_recursive - Parent found for process name " + str(process.process_name) + " with UUID: " + str(process.process_uuid) + ". Parent UUID: " + str(parent_uuid))
+        parent = bb_get_complete_process_by_uuid(detection_report, parent_uuid)
+        if parent == None:
+            mlog.warning("get_all_parents_recursive - Parent not found for UUID: " + str(parent_uuid))
+            return parents
+        mlog.debug("get_all_parents_recursive - ...Parent name: " + str(parent.process_name))
+        parents.append(parent)
+        get_all_parents_recursive(detection_report, parents, parent)
     return parents
 
 
