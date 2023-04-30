@@ -12,7 +12,7 @@ import json
 import lib.logging_helper as logging_helper
 from lib.class_helper import DetectionReport, Detection, Rule, ContextProcess
 from lib.config_helper import Config
-from playbooks.bb_elastic_process_context import bb_get_complete_process_by_uuid, bb_get_all_children, bb_get_all_parents
+from playbooks.bb_elastic_process_context import bb_get_all_processes_by_uuid, bb_get_all_children, bb_get_all_parents
 
 # Prepare the config
 cfg = Config().cfg
@@ -39,7 +39,7 @@ assert (
 
 def test_bb_get_complete_process_by_uuid():
     # Test the function
-    process = bb_get_complete_process_by_uuid(detection_report, "ZTM0MWJhZTMtMmI0YS00ODY2LTk3MjItYjE0ZmNkY2RiNWYzLTE3MzUyLTEzMzI3MTExMjgwLjMwNjUwNTQwMA==")
+    process = bb_get_all_processes_by_uuid(detection_report, "ZTM0MWJhZTMtMmI0YS00ODY2LTk3MjItYjE0ZmNkY2RiNWYzLTE3MzUyLTEzMzI3MTExMjgwLjMwNjUwNTQwMA==")
     assert type(process) == ContextProcess, "bb_get_complete_process_by_uuid() should return a ContextProcess object"
 
     # Print the results
@@ -47,7 +47,7 @@ def test_bb_get_complete_process_by_uuid():
     mlog.info(process)
 
 def test_bb_get_all_parents():
-    parents = bb_get_all_parents(detection_report, process=bb_get_complete_process_by_uuid(detection_report, "ZTM0MWJhZTMtMmI0YS00ODY2LTk3MjItYjE0ZmNkY2RiNWYzLTE3MzUyLTEzMzI3MTExMjgwLjMwNjUwNTQwMA=="))
+    parents = bb_get_all_parents(detection_report, process=bb_get_all_processes_by_uuid(detection_report, "ZTM0MWJhZTMtMmI0YS00ODY2LTk3MjItYjE0ZmNkY2RiNWYzLTE3MzUyLTEzMzI3MTExMjgwLjMwNjUwNTQwMA=="))
     assert type(parents) == list, "get_all_parents() should return a list of ContextProcess objects"
     assert len(parents) > 0, "get_all_parents() should return at least one parent"
 
@@ -65,6 +65,26 @@ def test_bb_get_all_parents():
         uuids.append(parent.process_uuid)
         mlog.info(str(parent))
 
+def test_bb_get_all_children():
+    children = bb_get_all_children(detection_report, process=bb_get_all_processes_by_uuid(detection_report, "ZTM0MWJhZTMtMmI0YS00ODY2LTk3MjItYjE0ZmNkY2RiNWYzLTE3MzUyLTEzMzI3MTExMjgwLjMwNjUwNTQwMA=="))
+    assert type(children) == list, "get_all_children() should return a list of ContextProcess objects"
+    assert len(children) > 0, "get_all_children() should return at least one child"
+
+    uuids = []
+    mlog.info("Listing children:")
+    for child in children:
+        assert type(child) == ContextProcess, "get_all_children() should return a list of ContextProcess objects"
+        # Ensure no duplicates
+        if child.process_uuid in uuids:
+            #assert False, "get_all_children() should not return duplicate entries"
+            pass
+        # Ensure child is really a child
+        if uuids != [] and child.process_children != []:
+            #assert child.process_children in uuids, "get_all_children() one of the children of a child should be in the list of past children"
+            pass
+        uuids.append(child.process_uuid)
+        mlog.info(str(child))
+    
 # 
 # o
 # ZTM0MWJhZTMtMmI0YS00ODY2LTk3MjItYjE0ZmNkY2RiNWYzLTEwOTMyLTEzMzI3MTExMjQ2LjE5NDk4MTMwMA==
@@ -72,4 +92,4 @@ def test_bb_get_all_parents():
 # ZTM0MWJhZTMtMmI0YS00ODY2LTk3MjItYjE0ZmNkY2RiNWYzLTEwNjgtMTMzMjcxMTExODkuMjQxNTQ1OTAw
 
 #test_bb_get_complete_process_by_uuid()
-test_bb_get_all_parents()
+#test_bb_get_all_children()

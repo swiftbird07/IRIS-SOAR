@@ -34,7 +34,8 @@ from lib.generic_helper import deep_get, get_from_cache, add_to_cache
 
 LOG_LEVEL = "DEBUG"  # Force log level. Recommended to set to DEBUG during development.
 ELASTIC_MAX_RESULTS = 50  # Maximum number of results to return from Elastic-SIEM in one query
-
+VERBOSE_DEBUG = False  # If set to True, the script will print additional debug information to stdout, including the full Elastic-SIEM response
+MAX_SIZE_ELASTICSEARCH_SEARCH = 10000  # Maximum number of results to return from Elastic-SIEM in one query
 
 def main():
     # Check if argumemnt 'setup' was passed to the script
@@ -187,7 +188,7 @@ def create_process_from_doc(mlog, doc_dict, detectionOnly=True):
     children = []
     start_time = deep_get(doc_dict, "process.start"),
     if not start_time:
-        mlog.warning("No start explicit time found for process. Using @timestamp of event.")
+        mlog.warning("No explicit start time found for process. Using @timestamp of event.")
         start_time = deep_get(doc_dict, "@timestamp")
 
     process = ContextProcess(
@@ -221,11 +222,11 @@ def create_process_from_doc(mlog, doc_dict, detectionOnly=True):
         is_complete=True,
     )
 
-    mlog.debug("Created process: " + str(process))
+    mlog.debug("Created process: " + str(process.process_name) + " with UUID: " + str(process.process_uuid))
     return process
 
 
-def get_all_indices(mlog, config):
+def get_all_indices(mlog, config, security_only=False):
     """Gets all indices from Elasticsearch.
 
     Args:
@@ -236,6 +237,10 @@ def get_all_indices(mlog, config):
         list: A list of all indices
     """
     mlog.debug("get_all_indices() - called")
+
+    if security_only:
+        mlog.debug("get_all_indices() - only getting security indices")
+        return [".alerts-security.alerts-default", "logs-*"]
 
     elastic_host = config["elastic_url"]
     elastic_user = config["elastic_user"]
@@ -292,13 +297,18 @@ def search_entity_by_entity_id(mlog, config, entity_id, entity_type="process"):
     """
     mlog.debug("search_entity_by_entity_id() - called with entity_id '" + entity_id + "' and entity_type: " + entity_type)
 
-    # Look in Cache first
-    cache_result = get_from_cache("elastic_siem", "entities", entity_id)
-    if cache_result is not None:
-        mlog.debug("search_entity_by_entity_id() - found entity in cache")
-        return cache_result
+    # Look in Cache first if applicable. Also check if entity_type is valid.
+    if not entity_type == "parent_process":
+        cache_result = get_from_cache("elastic_siem", "entities", entity_id)
+        if cache_result is not None:
+            mlog.debug("search_entity_by_entity_id() - found entity in cache")
+            return cache_result
+        else:
+            mlog.debug("search_entity_by_entity_id() - entity not found in cache")
+    elif entity_type == "parent_process":
+        mlog.debug("search_entity_by_entity_id() - entity type is parent_process. Not checking cache.")
     else:
-        mlog.debug("search_entity_by_entity_id() - entity not found in cache")
+        raise NotImplementedError("search_entity_by_entity_id() - entity type '" + entity_type + "' not implemented")
 
 
     elastic_host = config["elastic_url"]
@@ -319,7 +329,7 @@ def search_entity_by_entity_id(mlog, config, entity_id, entity_type="process"):
     else:
         mlog.debug("search_entity_by_entity_id() - no successful indices found in cache to search first.")
 
-    indices_all = get_all_indices(mlog, config)
+    indices_all = get_all_indices(mlog, config, security_only=False)
     if indices is not None:
         indices = indices + indices_all
     else:
@@ -329,11 +339,18 @@ def search_entity_by_entity_id(mlog, config, entity_id, entity_type="process"):
     mlog.debug(f"search_entity_by_entity_id() - Searching for entity with ID {entity_id} in indices: " + str(indices)+ ". This may take a while...")
 
     for index in indices:
-        url = f"{elastic_host}/{index}/_search"
+        url = f"{elastic_host}/{index}/_search?size=" + str(MAX_SIZE_ELASTICSEARCH_SEARCH)
 
         # Define Elasticsearch search query
-        search_query = {"query": {"bool": {"must": [{"match": {"process.entity_id": entity_id}}, {"range": {"@timestamp": {"gte": "now-3d/d"}}}]}}}
+        if entity_type == "process":
+            search_query = {"query": {"bool": {"must": [{"match": {"process.entity_id": entity_id}}, {"range": {"@timestamp": {"gte": "now-3d/d"}}}]}}}
+        elif entity_type == "parent_process":
+            search_query = {"query": {"bool": {"must": [{"match": {"process.parent.entity_id": entity_id}}, {"range": {"@timestamp": {"gte": "now-3d/d"}}}]}}}
+        elif entity_type == "file":
+            raise NotImplementedError # TODO: Implement file search     
+
         #mlog.debug(f"search_entity_by_entity_id() - Searching index {index} for entity with URL: " + url + " and data: " + json.dumps(search_query)) | L2 DEBUG
+
 
         # Send Elasticsearch search request
         response = requests.post(url, headers=headers, auth=(elastic_user, elastic_pw), json=search_query, verify=should_verify)
@@ -357,8 +374,17 @@ def search_entity_by_entity_id(mlog, config, entity_id, entity_type="process"):
     if not success:
         mlog.warning(f"search_entity_by_entity_id() - No entity found for entity_id '{entity_id}' and entity_type '{entity_type}'")
         return None
-    entity = search_response["hits"]["hits"][0]["_source"]
-    mlog.debug(f"search_entity_by_entity_id() - Entity found for entity_id '{entity_id}' and entity_type '{entity_type}': {json.dumps(entity)}")
+    if search_response["hits"]["total"]["value"] > 1 and entity_type == "process":
+        mlog.warning(f"search_entity_by_entity_id() - Found more than one entity for entity_id '{entity_id}' and entity_type '{entity_type}'")
+
+    if entity_type == "process":
+        entity = search_response["hits"]["hits"][0]["_source"]
+        mlog.debug(f"search_entity_by_entity_id() - Entity found for entity_id '{entity_id}' and entity_type '{entity_type}': {json.dumps(entity)}")
+    elif entity_type == "parent_process":
+        mlog.debug(f"search_entity_by_entity_id() - Found {search_response['hits']['total']['value']} entities for entity_id '{entity_id}' and entity_type '{entity_type}'")
+        entities = search_response["hits"]["hits"]
+        return entities
+
 
     # Save entity to cache
     add_to_cache("elastic_siem", "entities", entity_id, entity)
@@ -581,7 +607,7 @@ def zs_provide_new_detections(config, TEST="") -> List[Detection]:
 
 
 def zs_provide_context_for_detections(
-    config, detection_report: DetectionReport, required_type: type, TEST=False, UUID=None, maxContext=-1
+    config, detection_report: DetectionReport, required_type: type, TEST=False, UUID=None, UUID_is_parent=False,  maxContext=50
 ) -> Union[ContextFlow, ContextLog, ContextProcess]:
     """Returns a DetectionReport object with context for the detections from the XXX integration.
 
@@ -591,7 +617,8 @@ def zs_provide_context_for_detections(
         required_type (type): The type of context to return. Can be one of the following:
             [ContextFlow, ContextLog]
         test (bool, optional): If set to True, dummy context data will be returned. Defaults to False.
-        UUID (str, optional): Setting this will mean that a single object matching the Elastic-SIEM 'entity_id' will be returned. Defaults to None.
+        UUID (str, optional): Setting this will mean that a single object matching the Elastic-SIEM 'entity_id' will be returned. (Except when 'UUID_is_parent' is set). Defaults to None.
+        UUID_is_parent (bool, optional):  Setting this will mean that all processes matching the Elastic-SIEM 'process.parent.entity_id' will be returned. Defaults to False.
         maxContext (int, optional): The maximum number of context objects to return. Defaults to -1 (no restriction).
 
     Returns:
@@ -640,11 +667,32 @@ def zs_provide_context_for_detections(
                 )
                 # ... TODO: Get all processes related to the detection
             else:
-                mlog.info("UUID provided. Will return the single process with UUID: " + UUID)
-                doc = search_entity_by_entity_id(mlog, config, UUID)
-                if doc is not None:
-                    process = create_process_from_doc(mlog, doc)
-                    return_objects.append(process)
+                if UUID_is_parent:
+                    mlog.info("Process Parent UUID provided. Will return all processes with parent UUID: " + UUID + " (meaning all children processes)")
+                    docs = search_entity_by_entity_id(mlog, config, UUID, entity_type="parent_process")
+
+                    if docs == None or len(docs) == 0:
+                        mlog.info("No processes found which have a parent with UUID: " + UUID + " (meaning no child processes found)")
+                        return None
+                    else:
+                        counter = 0
+                        for doc in docs:
+                            event_category = doc["_source"]["event"]["category"][0]
+                            if event_category != "process":
+                                mlog.info("Skipping adding event with category: " + event_category)
+                                continue
+                            if maxContext != -1 and counter >= maxContext:
+                                mlog.info("Reached given maxContext limit (" + str(maxContext) + "). Will not return more context.")
+                                break
+                            process = create_process_from_doc(mlog, doc["_source"])
+                            return_objects.append(process)
+                            counter += 1
+                else:
+                    mlog.info("UUID provided. Will return the single process with UUID: " + UUID)
+                    doc = search_entity_by_entity_id(mlog, config, UUID, entity_type="process")
+                    if doc is not None:
+                        process = create_process_from_doc(mlog, doc)
+                        return_objects.append(process)
 
     # ...
     # ...
@@ -662,12 +710,13 @@ def zs_provide_context_for_detections(
             mlog.info(
                 f"zs_provide_context_for_detections() found context for detection '{detection_name}' ({detection_id}) and required_type: {required_type}"
             )
-            mlog.debug(
-                "zs_provide_context_for_detections() returned the following context: "
-                + str(context_object)
-                + " for detection: "
-                + str(detection_report)
-            )
+            if VERBOSE_DEBUG:
+                mlog.debug(
+                    "zs_provide_context_for_detections() returned the following context: "
+                    + str(context_object)
+                    + " for detection: "
+                    + str(detection_report)
+                )
         else:
             mlog.info(
                 "zs_provide_context_for_detections() found no context for detection: '" + detection_name + "' and required_type: " + str(required_type)
