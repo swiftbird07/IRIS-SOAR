@@ -7,7 +7,7 @@
 # [X] Providing context for detections of type [ContextFlow | ContextProcess | ContextLog]
 # ...from Elastic REST API inteface.
 #
-# Integration Version: 0.0.2
+# Integration Version: 0.0.5
 # Currently limited to process related detections and contexts.
 
 import logging
@@ -329,7 +329,7 @@ def search_entity_by_entity_id(mlog, config, entity_id, entity_type="process"):
     else:
         mlog.debug("search_entity_by_entity_id() - no successful indices found in cache to search first.")
 
-    indices_all = get_all_indices(mlog, config, security_only=False)
+    indices_all = get_all_indices(mlog, config, security_only=True)
     if indices is not None:
         indices = indices + indices_all
     else:

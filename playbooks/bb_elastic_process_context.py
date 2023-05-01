@@ -100,7 +100,7 @@ def get_all_children_recursive(detection_report, children: List, process: Contex
 
     if new_children == [] or new_children == None:
         mlog.debug("get_all_children_recursive - No children found for process name " + str(process.process_name) + " with UUID: " + str(process.process_uuid))
-        return children
+        return children, done_hashes
     if type(new_children) != list and type(new_children) == ContextProcess:
         mlog.debug("get_all_children_recursive - Only one child found for process name " + str(process.process_name) + " with UUID: " + str(process.process_uuid))
         new_children = [new_children]
@@ -112,16 +112,16 @@ def get_all_children_recursive(detection_report, children: List, process: Contex
             continue
 
         if child == "" or child == None or type(child) != ContextProcess:
-            mlog.debug("get_all_children_recursive - skipping found 'child' because it is empty or not a ContextProcess object: " + str(child))
+            mlog.debug("get_all_children_recursive - Skipping a found 'child' because it is empty or not a ContextProcess object.")
             continue
         else:
-            mlog.debug("get_all_children_recursive - child found for process name " + str(process.process_name) + " with UUID: " + str(process.process_uuid) + ". child UUID: " + str(child) + ". Adding it to current process as child and DetectionReport context...")
+            mlog.debug("get_all_children_recursive - Child found for process name " + str(process.process_name) + " with child name: " + str(child.process_name) + ". child UUID: " + str(child.process_uuid) + ". Adding it to current process as child and DetectionReport context...")
             process.process_children.append(child)
             detection_report.add_context(child)
             if  not all_process_events and (child.process_sha256 in done_hashes):
-                mlog.error("get_all_children_recursive - Skipping adding child to return list because a process with the same hash is already in it. Child SHA256: " + str(child.process_sha256))
+                mlog.debug("get_all_children_recursive - Skipping adding child to return list because a process with the same hash is already in it. Child SHA256: " + str(child.process_sha256))
                 continue
-            mlog.debug("get_all_children_recursive - will append " + str(child.process_name) +" to return list and fetch children for this child now...")
+            mlog.debug("get_all_children_recursive - Will append " + str(child.process_name) +" to return list and fetch children for this child now...")
             children.append(child)
             done_hashes.append(child.process_sha256)
             get_all_children_recursive(detection_report, children, child)
@@ -137,7 +137,7 @@ def bb_get_all_children(detection_report: DetectionReport, process: ContextProce
     :return: A list of ContextProcess objects
     """
     children = []
-    all_children, _ = get_all_children_recursive(detection_report, children, process)
+    all_children, _ = get_all_children_recursive(detection_report, children, process, done_hashes=[], all_process_events=False)
         
 
     # Sort the list by start time
