@@ -66,7 +66,7 @@ def test_bb_get_all_parents():
         mlog.info(str(parent))
 
 def test_bb_get_all_children():
-    children = bb_get_all_children(detection_report, process=bb_get_all_processes_by_uuid(detection_report, "MmExOGIwZTQtZjNlYS00YmVmLWI2OTItYTk4NzUzNTY3ZjkxLTQ4MTcyLTE2ODI4ODE1MjE="))
+    children = bb_get_all_children(detection_report, process=bb_get_all_processes_by_uuid(detection_report, "ZTM0MWJhZTMtMmI0YS00ODY2LTk3MjItYjE0ZmNkY2RiNWYzLTE2NDE2LTEzMzI3MjY5NzYxLjEzNDkzNjcwMA=="))
     assert type(children) == list, "get_all_children() should return a list of ContextProcess objects"
     assert len(children) > 0, "get_all_children() should return at least one child"
 

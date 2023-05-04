@@ -6,6 +6,7 @@
 # [X] Providing new detections.
 # [X] Providing context for detections of type [ContextFlow | ContextProcess | ContextLog]
 # ...from Elastic REST API inteface.
+# [X] User interactive setup.
 #
 # Integration Version: 0.0.5
 # Currently limited to process related detections and contexts.
@@ -36,6 +37,7 @@ LOG_LEVEL = "DEBUG"  # Force log level. Recommended to set to DEBUG during devel
 ELASTIC_MAX_RESULTS = 50  # Maximum number of results to return from Elastic-SIEM in one query
 VERBOSE_DEBUG = False  # If set to True, the script will print additional debug information to stdout, including the full Elastic-SIEM response
 MAX_SIZE_ELASTICSEARCH_SEARCH = 10000  # Maximum number of results to return from Elastic-SIEM in one query
+LOOKBACK_DAYS = 7  # Number of days to look back for search results
 
 def main():
     # Check if argumemnt 'setup' was passed to the script
@@ -315,6 +317,7 @@ def search_entity_by_entity_id(mlog, config, entity_id, entity_type="process"):
     elastic_user = config["elastic_user"]
     elastic_pw = config["elastic_password"]
     should_verify = config["elastic_verify_certs"]
+    lookback_time = f"now-{LOOKBACK_DAYS}d/d"
 
     # Define headers and URL for Elasticsearch search
     headers = {
@@ -343,9 +346,9 @@ def search_entity_by_entity_id(mlog, config, entity_id, entity_type="process"):
 
         # Define Elasticsearch search query
         if entity_type == "process":
-            search_query = {"query": {"bool": {"must": [{"match": {"process.entity_id": entity_id}}, {"range": {"@timestamp": {"gte": "now-3d/d"}}}]}}}
+            search_query = {"query": {"bool": {"must": [{"match": {"process.entity_id": entity_id}}, {"range": {"@timestamp": {"gte": lookback_time}}}]}}}
         elif entity_type == "parent_process":
-            search_query = {"query": {"bool": {"must": [{"match": {"process.parent.entity_id": entity_id}}, {"range": {"@timestamp": {"gte": "now-3d/d"}}}]}}}
+            search_query = {"query": {"bool": {"must": [{"match": {"process.parent.entity_id": entity_id}}, {"range": {"@timestamp": {"gte": lookback_time}}}]}}}
         elif entity_type == "file":
             raise NotImplementedError # TODO: Implement file search     
 

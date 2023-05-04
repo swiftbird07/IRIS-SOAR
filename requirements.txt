@@ -8,3 +8,5 @@ elasticsearch
 # For dev:
 mock
 pytest
+# For Znuny/OTRS integration
+pyotrs

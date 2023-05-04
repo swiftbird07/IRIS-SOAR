@@ -642,8 +642,8 @@ class Person:
         return json.dumps(del_none_from_dict(self.__dict__()), indent=4, sort_keys=False, default=str)
 
 
-class Device:
-    """Device class. This class is used for storing device information.
+class ContextDevice:
+    """ContextDevice class. This class is used for storing contextual device information.
 
     Attributes:
         name (str): The name of the device
@@ -733,7 +733,7 @@ class Device:
         should_state: str = None,
         is_state: str = None,
         is_state_reason: str = None,
-        hypervisor=None,  # can't state that here, but type has to be 'Device'
+        hypervisor=None,  # can't state that here, but type has to be 'Device' as well
         virtualization_type: str = None,
         virtual_locations: List[str] = [],
         services: List[Service] = [],
@@ -795,7 +795,7 @@ class Device:
         self.is_state_reason = is_state_reason
 
         if hypervisor is not None:
-            if type(hypervisor) == Device:
+            if type(hypervisor) == ContextDevice:
                 self.hypervisor = hypervisor
             else:
                 mlog.error("hypervisor has to be of type 'Device'")
@@ -1947,7 +1947,7 @@ class ContextLog:
         log_message: str,
         log_source_name: str,
         log_source_ip: Union[ipaddress.IPv4Address, ipaddress.IPv6Address] = DEFAULT_IP,
-        log_source_device: Device = None,
+        log_source_device: ContextDevice = None,
         log_flow: ContextFlow = None,
         log_protocol: str = "",
         log_type: str = "",
@@ -1969,7 +1969,7 @@ class ContextLog:
 
         # Check log source device if set
         if log_source_device is not None:
-            if not isinstance(log_source_device, Device):
+            if not isinstance(log_source_device, ContextDevice):
                 raise TypeError(f"Expected type Device for log_source_device, got {type(log_source_device)}")
         self.log_source_device = log_source_device
 
@@ -2296,7 +2296,7 @@ class Detection:
         flow: ContextFlow = None,
         threat_intel: ContextThreatIntel = None,
         location: Location = None,
-        device: Device = None,
+        device: ContextDevice = None,
         user: Person = None,
         file: ContextFile = None,
         uuid: uuid.UUID = uuid.uuid4(),
@@ -2355,7 +2355,7 @@ class Detection:
         self.location = location
 
         if device != None:
-            if not isinstance(device, Device):
+            if not isinstance(device, ContextDevice):
                 raise TypeError("device must be of type Device")
         self.device = device
 
@@ -2547,7 +2547,7 @@ class DetectionReport:
         self.context_flows: List[ContextFlow] = []
         self.context_threat_intel: List[ContextThreatIntel] = []
         self.context_locations: List[Location] = []
-        self.context_devices: List[Device] = []
+        self.context_devices: List[ContextDevice] = []
         self.context_persons: List[Person] = []
         self.context_files: List[ContextFile] = []
 
@@ -2582,7 +2582,7 @@ class DetectionReport:
 
     # Getter and setter;
 
-    def add_context(self, context: Union[ContextLog, ContextProcess, ContextFlow, ContextThreatIntel, Location, Device, Person, ContextFile]):
+    def add_context(self, context: Union[ContextLog, ContextProcess, ContextFlow, ContextThreatIntel, Location, ContextDevice, Person, ContextFile]):
         """Adds a context to the detection report, respecting the timeline
 
         Args:
@@ -2653,8 +2653,13 @@ class DetectionReport:
             if context.country:
                 self.indicators["countries"].append(context.country)
 
-        elif isinstance(context, Device):
+        elif isinstance(context, ContextDevice):
             add_to_timeline(self.context_devices, context, timestamp)
+            if context.local_ip:
+                self.indicators["ip"].append(context.local_ip)
+            if context.global_ip:
+                self.indicators["ip"].append(context.global_ip)
+            
 
         elif isinstance(context, Person):
             add_to_timeline(self.context_persons, context, timestamp)
@@ -2686,7 +2691,7 @@ class DetectionReport:
 
     def get_context_by_uuid(
         self, uuid: str, filterType: type = None
-    ) -> Union[ContextLog, ContextProcess, ContextFlow, ContextThreatIntel, Location, Device, Person, ContextFile]:
+    ) -> Union[ContextLog, ContextProcess, ContextFlow, ContextThreatIntel, Location, ContextDevice, Person, ContextFile]:
         """Returns the context with the given UUID
 
         Args:
@@ -2721,7 +2726,7 @@ class DetectionReport:
                 if context.uuid == uuid:
                     return context
 
-        if filterType == Device or filterType is None:
+        if filterType == ContextDevice or filterType is None:
             for context in self.context_devices:
                 if context.uuid == uuid:
                     return context

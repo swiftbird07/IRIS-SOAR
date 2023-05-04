@@ -292,7 +292,7 @@ def test_class_helper():
     assert len(person.roles) == 1, "Person class roles not set correctly"
 
     # Test Device class
-    device = class_helper.Device(
+    device = class_helper.ContextDevice(
         "MacBook Pro von John Doe",
         "10.12.2.4",
         mac="00:00:00:00:00:00",

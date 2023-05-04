@@ -6,7 +6,7 @@ cache:
     path: lib/cache.json
 daemon:
   enabled: true
-  interval: 2
+  interval: 1
   interval_min: 1
 integrations:
   elastic_siem:
@@ -23,6 +23,24 @@ integrations:
     enabled: false
   vt_threat_intel:
     enabled: false
+  znuny_otrs:
+    context_provider:
+      enabled: false
+      itsm_customer: zsoar
+    detection_provider:
+      enabled: false
+      source_queue: T1
+    enabled: true
+    logging:
+      log_level_file: debug
+      log_level_stdout: debug
+      log_level_syslog: error
+    password: $ZS_INT_ZNUNY_PW
+    ticketing:
+      enabled: true
+      target_queue: T1
+    url: https://localhost:9200
+    verify_certs: false
 logging:
   language: en
   log_file_rotate_size: 1
@@ -37,5 +55,4 @@ logging:
   split_files_by_module: false
 setup:
   load_enviroment_variables: true
-  setup_step: 0
-znuny_otrs: null
+  setup_step: 2

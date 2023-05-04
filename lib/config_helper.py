@@ -147,7 +147,7 @@ def check_config_bool(bool_var, mlog):
         True,
         False,
     ]:
-        mlog.critical("daemon_enabled not one of [True, False]. Please check the config file.")
+        mlog.critical("A boolean setting is not one of [True, False]. Please check the config file.")
         return False
     return True
 
@@ -227,6 +227,21 @@ def check_config(cfg, mlog, onload=True):
             return False
 
         # znuny_otrs
+        if not check_config_bool(cfg["integrations"]["znuny_otrs"]["ticketing"]["enabled"], mlog):
+            return False
+        if not check_config_bool(cfg["integrations"]["znuny_otrs"]["detection_provider"]["enabled"], mlog):
+            return False
+        if not check_config_bool(cfg["integrations"]["znuny_otrs"]["context_provider"]["enabled"], mlog):
+            return False
+        if not check_config_bool(cfg["integrations"]["znuny_otrs"]["verify_certs"], mlog):
+            return False
+        if not check_config_log_level(cfg["integrations"]["znuny_otrs"]["logging"]["log_level_file"], mlog):
+            return False
+        if not check_config_log_level(cfg["integrations"]["znuny_otrs"]["logging"]["log_level_stdout"], mlog):
+            return False
+        if not check_config_log_level(cfg["integrations"]["znuny_otrs"]["logging"]["log_level_syslog"], mlog):
+            return False
+        
 
         # TODO: OTRS settings
 
@@ -420,7 +435,7 @@ def setup_integration(integration_name, cfg_integration, type, message, sub_conf
         success (bool): If the setup was successful (explicitly False if the user skipped the question)
     """
     if type not in ["str", "url", "y/n", "number_pos", "log_level", "secret"]:
-        raise Exception("Invalid type provided for setup_response()")
+        raise ValueError("Invalid type provided for setup_response()")
 
     # Load current config
     settings = Config().cfg
@@ -454,7 +469,7 @@ def setup_integration(integration_name, cfg_integration, type, message, sub_conf
         response = setup_ask("info", available_responses_list=["info", "debug", "warning", "error", "critical"])
 
     elif type == "secret":
-        print("Do you want to save the secret as an environment variable instead of in the config file?")
+        print("Do you want to save the secret as an environment variable instead of directly in the config file?")
         save_env = setup_ask("y", available_responses_list=["y", "n"])
         if save_env == "y":
             print("Please enter the name of the environment variable (without $ symbol):")
