@@ -41,6 +41,7 @@ integrations:
       target_queue: T1
     url: https://localhost:9200
     verify_certs: false
+    version: 7.0.1
 logging:
   language: en
   log_file_rotate_size: 1
