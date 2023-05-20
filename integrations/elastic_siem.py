@@ -34,7 +34,7 @@ from lib.generic_helper import deep_get, get_from_cache, add_to_cache
 
 
 LOG_LEVEL = "DEBUG"  # Force log level. Recommended to set to DEBUG during development.
-ELASTIC_MAX_RESULTS = 50  # Maximum number of results to return from Elastic-SIEM in one query
+ELASTIC_MAX_RESULTS = 50  # Maximum number of results to return from Elastic-SIEM for a Context in one query
 VERBOSE_DEBUG = False  # If set to True, the script will print additional debug information to stdout, including the full Elastic-SIEM response
 MAX_SIZE_ELASTICSEARCH_SEARCH = 10000  # Maximum number of results to return from Elastic-SIEM in one query
 LOOKBACK_DAYS = 7  # Number of days to look back for search results
