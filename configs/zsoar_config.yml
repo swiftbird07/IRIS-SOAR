@@ -37,11 +37,15 @@ integrations:
       log_level_syslog: error
     password: $ZS_INT_ZNUNY_PW
     ticketing:
+      default_priority: 3 normal
+      default_type: Security Alert
       enabled: true
-      target_queue: T1
-    url: https://localhost:9200
+      target_queue: ZSOAR Detections::Tests
+    url: http://znuny.pve.lan
+    username: zsoar
     verify_certs: false
     version: 7.0.1
+    webservice_name: ALERTELAST_API
 logging:
   language: en
   log_file_rotate_size: 1
