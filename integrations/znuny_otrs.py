@@ -13,7 +13,7 @@
 #
 # This module is (currently) capable of:
 # [X] Ticketing: Ticket creation
-# [ ] Ticketing: Adding notes to tickets
+# [X] Ticketing: Adding notes to tickets
 # [ ] Providing new detections.
 # [ ] Providing context for detections of type [ContextDevice]
 # [X] User interactive setup
@@ -68,9 +68,9 @@ TICKET_CONNECTOR_CONFIG_DEFAULT = {
     }
 }
 
-cfg = Config().cfg
-log_level_file = cfg["integrations"]["znuny_otrs"]["logging"]["log_level_file"]
-log_level_stdout = cfg["integrations"]["znuny_otrs"]["logging"]["log_level_stdout"]
+config = Config().cfg
+log_level_file = config["integrations"]["znuny_otrs"]["logging"]["log_level_file"]
+log_level_stdout = config["integrations"]["znuny_otrs"]["logging"]["log_level_stdout"]
 mlog = Log("integrations.znuny_otrs", log_level_file, log_level_stdout)
 
 def main():
@@ -186,7 +186,78 @@ def zs_provide_context_for_detections(
 ) -> Union[ContextFlow, ContextLog, ContextProcess]:
     return NotImplementedError # TODO: Implement
 
-def zs_create_ticket(config, detectionReport: DetectionReport, TEST=False, detection_title=None, priority=None, state="new", type_=None, queue_tier="T0", include_context=False, init_note_title=None, init_note_body=None) -> str:
+def ticket_check_merge(mlog, config, client: pyotrs.Client, ticket: pyotrs.Ticket):
+    """!FUTURE! Checks if a ticket can be merged and merges it if possible. (Currently merging or linking tickets is not supported using the API.)
+    
+    Arguments:
+        config {dict} -- The configuration dictionary.
+        ticketNumber {str} -- The ticket number to check.
+    
+    Returns:
+        bool -- True if the ticket has been merged, False otherwise.
+    """
+    ticketNumber = ticket["TicketNumber"]
+    ticketState = ticket["State"]
+    ticketTitle = ticket["Title"]
+    ticketQueue = ticket["Queue"]
+
+    mlog.info("Checking if ticket " + ticketNumber + " can be merged...")
+    if ticket["State"] == "merged":
+        mlog.warning("Ticket " + ticketNumber + " is already merged.")
+        return True
+
+    # Searcch for other tickets with the exact same title:
+    mlog.debug("Searching for other tickets with the same title...")
+    results = client.ticket_search(state=ticketState, queue=ticketQueue, title=ticketTitle)
+    foundOwnTicket = False
+    for found_ticket in results:
+        if found_ticket["TicketNumber"] == ticketNumber:
+            mlog.debug("Found own ticket " + ticketNumber + ". Skipping...")
+            foundOwnTicket = True
+            continue
+        mlog.debug("Found ticket " + found_ticket["TicketNumber"] + " with the same title.")
+        # Check if it is already merged itself:
+        if found_ticket["State"] == "merged":
+            mlog.debug("Ticket " + found_ticket["TicketNumber"] + " is already merged itslef. Skipping...")
+            continue
+        return False # Currently merging or linking tickets is not supported using the API.
+    
+        mlog.info("Merging ticket " + ticketNumber + " into ticket " + found_ticket["TicketNumber"] + "...")
+        # Merge the ticket:
+        client.ticket_merge(ticketNumber, found_ticket["TicketNumber"])
+
+    if not foundOwnTicket:
+        mlog.warning("Could not find own ticket " + ticketNumber + " with the same title.")
+
+def create_client_session() -> pyotrs.Client:
+    """Creates a new Znuny OTRS client session.
+
+    Returns:
+        pyotrs.Client -- The new client session.
+    """
+    # Creating Znuny Client
+    znuny_url = config["integrations"]["znuny_otrs"]["url"]
+    znuny_webservice_name = config["integrations"]["znuny_otrs"]["webservice_name"]
+    znuny_username = config["integrations"]["znuny_otrs"]["username"]
+    znuny_password = config["integrations"]["znuny_otrs"]["password"]
+    znuny_version = config["integrations"]["znuny_otrs"]["version"]
+    znuny_verify_certs = config["integrations"]["znuny_otrs"]["verify_certs"]
+
+    TICKET_CONNECTOR_CONFIG_DEFAULT["Name"] = znuny_webservice_name
+
+    # Starting with Znuny 7, the webservice URL changed
+    mlog.debug("Creating Znuny client...")
+    if znuny_version.startswith("7."):
+        client = pyotrs.Client(znuny_url, znuny_username, znuny_password, webservice_config_ticket=TICKET_CONNECTOR_CONFIG_DEFAULT, webservice_path="/znuny/nph-genericinterface.pl/Webservice/", https_verify=znuny_verify_certs)
+    else:
+        client = pyotrs.Client(znuny_url, znuny_username, znuny_password, webservice_config_ticket=TICKET_CONNECTOR_CONFIG_DEFAULT, webservice_path="/otrs/nph-genericinterface.pl/Webservice/", https_verify=znuny_verify_certs)
+
+    mlog.debug("Znuny client created. Starting session...")
+    client.session_create()
+    return client
+
+
+def zs_create_ticket(detectionReport: DetectionReport, DRY_RUN=False, detection_title=None, priority=None, state="new", type_=None, queue_tier="T0", include_context=False, init_note_title=None, init_note_body=None) -> str:
     """Creates a ticket in Znuny.
     
     Arguments:
@@ -214,10 +285,6 @@ def zs_create_ticket(config, detectionReport: DetectionReport, TEST=False, detec
         mlog.info("Ticketing is disabled. Not creating ticket.")
         return True
 
-    if TEST:
-        mlog.info("TEST: Creating ticket in Znuny...")
-        # TODO: Implement Tests
-    
     mlog.info("Creating ticket in Znuny...")
 
     # Fetching detection report for required information. 
@@ -252,28 +319,10 @@ def zs_create_ticket(config, detectionReport: DetectionReport, TEST=False, detec
         mlog.warning("No offender found. Using 'Unknown' as offender.")
         offender = "Unknown"
 
-    # Creating Znuny Client
-    znuny_url = config["integrations"]["znuny_otrs"]["url"]
-    znuny_webservice_name = config["integrations"]["znuny_otrs"]["webservice_name"]
-    znuny_username = config["integrations"]["znuny_otrs"]["username"]
-    znuny_password = config["integrations"]["znuny_otrs"]["password"]
-    znuny_version = config["integrations"]["znuny_otrs"]["version"]
-    znuny_verify_certs = config["integrations"]["znuny_otrs"]["verify_certs"]
-
-    TICKET_CONNECTOR_CONFIG_DEFAULT["Name"] = znuny_webservice_name
-
-    # Starting with Znuny 7, the webservice URL changed
-    mlog.debug("Creating Znuny client...")
-    if znuny_version.startswith("7."):
-        client = pyotrs.Client(znuny_url, znuny_username, znuny_password, webservice_config_ticket=TICKET_CONNECTOR_CONFIG_DEFAULT, webservice_path="/znuny/nph-genericinterface.pl/Webservice/", https_verify=znuny_verify_certs)
-    else:
-        client = pyotrs.Client(znuny_url, znuny_username, znuny_password, webservice_config_ticket=TICKET_CONNECTOR_CONFIG_DEFAULT, webservice_path="/otrs/nph-genericinterface.pl/Webservice/", https_verify=znuny_verify_certs)
-
-    mlog.debug("Znuny client created. Starting session...")
-    client.session_create()
+    # Create client and session
+    client = create_client_session()
 
     mlog.debug("Session started. Creating ticket object...")
-
     # Creating ticket object
     queue_name = config["integrations"]["znuny_otrs"]["ticketing"]["target_queue"]
     if type_ is None:
@@ -281,7 +330,9 @@ def zs_create_ticket(config, detectionReport: DetectionReport, TEST=False, detec
     if priority is None:
         priority = config["integrations"]["znuny_otrs"]["ticketing"]["default_priority"]
     
-    ticket_title = PRE_TAG + " " + detection_title + " | Offender: " + offender 
+    ticket_title = PRE_TAG + " " + detection_title + " | Offender: " + offender
+    znuny_username = config["integrations"]["znuny_otrs"]["username"] 
+
     ticket_obj = pyotrs.Ticket.create_basic(ticket_title, Queue=queue_name, Type=type_, State="new", Priority=priority, CustomerUser=znuny_username)
 
     mlog.debug("Ticket object created. Adding initial Note to ticket...")
@@ -307,29 +358,104 @@ def zs_create_ticket(config, detectionReport: DetectionReport, TEST=False, detec
 
 
     mlog.debug("Initial note added. Sending ticket to Znuny...")
-    # Sending ticket to Znuny
-    ticket = client.ticket_create(ticket_obj, article)
+    if DRY_RUN:
+        mlog.warning("Dry run mode is enabled. Not sending actual ticket to Znuny.")
+        mlog.debug("Ticket: " + str(ticket_obj))
+        return -1
+    else:
+        # Sending ticket to Znuny
+        ticket = client.ticket_create(ticket_obj, article)
 
-    # Check if ticket creation was successful and return ticket number
+        # Check if ticket creation was successful and return ticket number
+        if type(ticket) is bool and not ticket:
+                mlog.critical("Ticket creation failed. Znuny did not return a ticket number ('False'). Aborting ticket creation.")
+                return SystemError
+        try:
+            return ticket["TicketNumber"]
+        except KeyError:
+            mlog.critical("Ticket creation failed. Znuny did not return a ticket number (Invalid ticket). Aborting ticket creation.")
+            return SystemError
+
+    
+def zs_add_note_to_ticket(ticket_number: str, mode: str, DRY_RUN=False, raw_title=None, raw_body=None, raw_body_type="text/plain"):
+    """Adds a note to an existing ticket in Znuny.
+
+    Arguments:
+        ticket_number {str} -- The ticket number of the ticket to add the note to.
+        mode {str} -- The mode of the note. Can be "raw", "context" or "analysis". "raw" will add the raw detection to the note. "context" will add the context of the detection to the note. "analysis" will add the analysis of the detection to the note.
+        DRY_RUN {bool} -- If set to True, the note will not be added to the ticket. (default: {False})
+        raw_title {str} -- The title of the note if mode is set to "raw". (default: {None})
+        raw_body {str} -- The body of the note if mode is set to "raw". (default: {None})
+        raw_body_type {str} -- The body type of the note if mode is set to "raw". (default: {"text/plain"})
+
+
+    Keyword Arguments:
+        include_context {bool} -- If set to True, the context of the detection will be added to the note. (default: {False})
+
+    Returns:
+        bool -- True if note was added successfully, False if not.
+    """
+    if not config["integrations"]["znuny_otrs"]["ticketing"]["enabled"]:
+        mlog.info("Ticketing is disabled. Not adding note to ticket.")
+        return True
+
+    if mode not in ["raw", "context", "analysis"]:
+        mlog.critical("Invalid mode specified. Aborting note creation.")
+        return ValueError("Invalid mode specified. Aborting note creation.")
+    
+    if mode == "raw" and (raw_title is None or raw_body is None):
+        mlog.critical("Raw mode specified but no raw title or body specified. Aborting note creation.")
+        return ValueError("Raw mode specified but no raw title or body specified. Aborting note creation.")
+    
+    if mode != "raw" and (raw_title is not None or raw_body is not None):
+        mlog.warning("Raw title or body specified but mode is not set to raw. Ignoring raw title and body.")
+
+    # Create client and session
+    client = create_client_session()
+
+    # Fetching ticket to verify that it exists
+    mlog.debug("Fetching ticket from Znuny...")
+    ticket = client.ticket_get_by_number(ticket_number)
+    if type(ticket) is bool and not ticket:
+            mlog.critical("Note creation failed. Znuny did not return a ticket  for the given ticket number ('False'). Aborting note creation.")
+            return ValueError("Note creation failed. Znuny did not return a ticket for the given ticket number. Aborting note creation.")
     try:
-        return ticket["TicketNumber"]
+        _ = ticket.tid
     except KeyError:
-        mlog.critical("Ticket creation failed. Znuny did not return a ticket number. Aborting ticket creation.")
-        return ValueError("Ticket creation failed. Znuny did not return a ticket number. Aborting ticket creation.")
+        mlog.critical("Note creation failed. Znuny did not return a ticket for the given ticket number  (Invalid ticket). Aborting note creation.")
+        return ValueError("Note creation failed. Znuny did not return a ticket for the given ticket number. Aborting note creation.")
 
+    # Prepare Article dictionary
+    if mode == "raw":
+        note_title = PRE_TAG + " " + raw_title
+        note_body = raw_body
+        note_body_type = raw_body_type
+    elif mode == "context":
+        return NotImplementedError("Context mode is not implemented yet.")
+    elif mode == "analysis":
+        return NotImplementedError("Analysis mode is not implemented yet.")
     
-
-
-
-
-# TODO: Ticket creation [X] (untested)
-# TODO: - Ticket Auto-Merging
-# TODO: - Ticket Auto-Linking
-# TODO: Note creation to ticket
-# TODO: Provide new detections
-# TODO: Provide context for detections (CMDB, Ticket, etc.)
-
+    article = pyotrs.Article({"Body": note_body,
+                                "Charset": "UTF8",
+                                "MimeType": note_body_type,
+                                "Subject": note_title,
+                                "TimeUnit": 0})
     
+    mlog.debug("Adding note to ticket...")
+    if DRY_RUN:
+        mlog.warning("Dry run mode is enabled. Not adding actual note to ticket.")
+        mlog.debug("Note: " + str(article))
+        return -1
+    else:
+        # Adding note to ticket
+        result = client.ticket_update(ticket.tid, article)
+
+        # Check if note was added successfully
+        try:
+            return result["ArticleID"]
+        except KeyError:
+            mlog.critical("Note creation failed. Znuny did not return a note ID. Aborting note creation.")
+            return SystemError("Note creation failed. Znuny did not return a note ID. Aborting note creation.")
 
 
 
