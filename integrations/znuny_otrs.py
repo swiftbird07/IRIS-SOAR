@@ -36,7 +36,7 @@ from lib.class_helper import Rule, Detection, ContextProcess, ContextFlow
 from lib.class_helper import DetectionReport, ContextFlow, ContextLog, ContextProcess, cast_to_ipaddress
 from lib.generic_helper import deep_get, get_from_cache, add_to_cache
 
-PRE_TAG = "[ZSOAR Detection]" # Tag before the title of the ticket (without spaces)
+PRE_TAG = "[ZSOAR]" # Tag before the title of the ticket (without spaces)
 
 TICKET_CONNECTOR_CONFIG_DEFAULT = {
     'Name': 'GenericTicketConnectorREST',
@@ -221,7 +221,8 @@ def ticket_check_merge(mlog, config, client: pyotrs.Client, ticket: pyotrs.Ticke
             mlog.debug("Ticket " + found_ticket["TicketNumber"] + " is already merged itslef. Skipping...")
             continue
         return False # Currently merging or linking tickets is not supported using the API.
-    
+
+        # TODO: IDEA: Instead of merging, we could also just add a note to the ticket 
         mlog.info("Merging ticket " + ticketNumber + " into ticket " + found_ticket["TicketNumber"] + "...")
         # Merge the ticket:
         client.ticket_merge(ticketNumber, found_ticket["TicketNumber"])
@@ -344,9 +345,9 @@ def zs_create_ticket(detectionReport: DetectionReport, DRY_RUN=False, detection_
         init_note_title = init_note_title
 
     if init_note_body is None:
-        init_note_body = description
+        init_note_body = description # TODO: Make this more sophisticated
     else:
-        init_note_body = init_note_body + "\n\n" + description
+        init_note_body = init_note_body + "\n\n" + description 
 
 
     note_title = PRE_TAG + " " + detection_title

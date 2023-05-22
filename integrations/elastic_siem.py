@@ -612,7 +612,7 @@ def zs_provide_new_detections(config, TEST="") -> List[Detection]:
 def zs_provide_context_for_detections(
     config, detection_report: DetectionReport, required_type: type, TEST=False, UUID=None, UUID_is_parent=False,  maxContext=50
 ) -> Union[ContextFlow, ContextLog, ContextProcess]:
-    """Returns a DetectionReport object with context for the detections from the XXX integration.
+    """Returns a DetectionReport object with context for the detections from the Elasic integration.
 
     Args:
         config (dict): The configuration dictionary for this integration

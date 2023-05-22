@@ -1,7 +1,7 @@
 # Building Block for Z-SOAR Playbooks
 # Created by: Martin Offermann
 #
-# This is a building book used by Z-SOAR Playbooks
+# This is a building block used by Z-SOAR Playbooks
 # It is used to provide basic context to ContextProcess detection alerts of Elastic SIEM (formerly known as Elastic Endpoint Security).
 #
 # Acceptable Detections:
@@ -13,6 +13,11 @@
 # Actions:
 # - None
 #
+BB_NAME = "BB_Elastic_Process_Context"
+BB_VERSION = "1.0.0"
+BB_AUTHOR = "Martin Offermann"
+BB_LICENSE = "MIT"
+BB_ENABLED = True
 
 import sys
 import os
@@ -31,12 +36,6 @@ import lib.logging_helper as logging_helper
 from lib.class_helper import DetectionReport, ContextProcess
 from integrations.elastic_siem import zs_provide_context_for_detections
 from lib.config_helper import Config
-
-BB_NAME = "BB_Elastic_Process_Context"
-BB_VERSION = "1.0.0"
-BB_AUTHOR = "Martin Offermann"
-BB_LICENSE = "MIT"
-BB_ENABLED = True
 
 # Prepare the logger
 cfg = Config().cfg
@@ -134,11 +133,14 @@ def bb_get_all_children(detection_report: DetectionReport, process: ContextProce
     :param detection_report: A DetectionReport object
     :param process: The process to get the children for
 
+    Be aware that the context is already added to the DetectionReport object when calling this function.
     :return: A list of ContextProcess objects
     """
     children = []
     all_children, _ = get_all_children_recursive(detection_report, children, process, done_hashes=[], all_process_events=False)
-        
+    
+    for child in all_children:
+        detection_report.add_context(child)
 
     # Sort the list by start time
     all_children.sort(key=lambda x: x.process_start_time, reverse=False)
@@ -171,12 +173,16 @@ def bb_get_all_parents(detection_report: DetectionReport, process: ContextProces
     :param detection_report: A DetectionReport object
     :param process: The process to get the parents for
 
+    Be aware that the context is already added to the DetectionReport object when calling this function.
     :return: A list of ContextProcess objects
     """
     mlog.debug("get_all_parents - Getting all parents for process: " + str(process))
 
     parents = []
     all_parents = get_all_parents_recursive(detection_report, parents, process)
+    
+    # Remove parents with the same Hash as the process
+    all_parents = [parent for parent in all_parents if parent.process_uuid != process.process_uuid]
 
     for parent in all_parents:
         detection_report.add_context(parent)
@@ -186,4 +192,48 @@ def bb_get_all_parents(detection_report: DetectionReport, process: ContextProces
 
     return parents
 
-# TODO: Test Parent and Child functions
+def bb_make_process_tree_visualisation(focus_process: ContextProcess, parents: List[ContextProcess], children: List[ContextProcess]) -> str:
+    """Returns a visualisation of the process tree
+
+    :param process: The process to create the tree for
+    :param parents: The parents of the process
+    :param children: The children of the process
+
+    :return: A string containing the visualisation of the process tree
+    """
+    mlog.debug("bb_make_process_tree_visualisation - Creating process tree visualisation for process: " + str(focus_process.process_name))
+    from treelib import Node, Tree, exceptions
+    tree = Tree()
+    # Create tree nodes for all parents
+    for i in range(len(parents) - 1, 0, -1):
+        process = parents[i]
+        if i == len(parents) - 1:
+            tree.create_node(process.process_name + " (" + str(process.process_id) + ")", "0")
+        else:
+            parent = parents[i+1]
+            tree.create_node(process.process_name + " (" + str(process.process_id) + ")", process.process_sha256, parent=parent.process_sha256)
+
+    # Create detected process node
+    parent_sha=parents[0].process_sha256
+    if focus_process.process_sha256 == parent_sha: # Weird bug revolving around how Elastic SIEM handles and defines parent/child EntityIDs
+        parent_sha = parents[1].process_sha256
+        if focus_process.process_sha256 == parent_sha or parent_sha == None: # Sanity check
+            parent_sha = "0"
+    tree.create_node(focus_process.process_name + " (" + str(focus_process.process_id) + ")", focus_process.process_sha256, parent=parent_sha)
+
+    # Create tree nodes for all children
+    for i in range(0, len(children)):
+        process = children[i]
+        if i == 0:
+            parent = focus_process
+        else:
+            parent_sha = process.process_parent
+        try:
+            tree.create_node(process.process_name + " (" + str(process.process_id) + ")", process.process_uuid, parent=parent_sha)
+        except exceptions.DuplicatedNodeIdError:
+            mlog.warning("bb_make_process_tree_visualisation - Duplicated node ID: " + str(process.process_uuid) + " for process: " + str(process.process_name) + ". Skipping...")
+    
+    tree_str = tree.show(stdout=False)
+    tree.show()
+    mlog.debug("bb_make_process_tree_visualisation - Returning process tree visualisation: \n" + tree_str)
+    return tree_str

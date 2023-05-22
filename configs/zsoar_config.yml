@@ -41,6 +41,7 @@ integrations:
       default_type: Security Alert
       enabled: true
       target_queue: ZSOAR Detections::Tests
+      target_queue_escalation: ZSOAR Detections::Tests
     url: http://znuny.pve.lan
     username: zsoar
     verify_certs: false
@@ -58,6 +59,10 @@ logging:
   split_file_on_startup: true
   split_file_on_worker_iteration: false
   split_files_by_module: false
+playbooks:
+  010_Generic_Elastic_Alerts:
+    enabled: true
+    name: 010_Generic_Elastic_Alerts
 setup:
   load_enviroment_variables: true
   setup_step: 2

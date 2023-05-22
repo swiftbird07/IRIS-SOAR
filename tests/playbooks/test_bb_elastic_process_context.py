@@ -12,7 +12,7 @@ import json
 import lib.logging_helper as logging_helper
 from lib.class_helper import DetectionReport, Detection, Rule, ContextProcess
 from lib.config_helper import Config
-from playbooks.bb_elastic_process_context import bb_get_all_processes_by_uuid, bb_get_all_children, bb_get_all_parents
+from playbooks.bb_elastic_process_context import bb_get_all_processes_by_uuid, bb_get_all_children, bb_get_all_parents, bb_make_process_tree_visualisation
 
 # Prepare the config
 cfg = Config().cfg
@@ -39,7 +39,8 @@ assert (
 
 def test_bb_get_complete_process_by_uuid():
     # Test the function
-    process = bb_get_all_processes_by_uuid(detection_report, "ZTM0MWJhZTMtMmI0YS00ODY2LTk3MjItYjE0ZmNkY2RiNWYzLTE3MzUyLTEzMzI3MTExMjgwLjMwNjUwNTQwMA==")
+    global process
+    process = bb_get_all_processes_by_uuid(detection_report, "MmExOGIwZTQtZjNlYS00YmVmLWI2OTItYTk4NzUzNTY3ZjkxLTYzNjctMTY4NDE3NTczOQ==")
     assert type(process) == ContextProcess, "bb_get_complete_process_by_uuid() should return a ContextProcess object"
 
     # Print the results
@@ -47,7 +48,8 @@ def test_bb_get_complete_process_by_uuid():
     mlog.info(process)
 
 def test_bb_get_all_parents():
-    parents = bb_get_all_parents(detection_report, process=bb_get_all_processes_by_uuid(detection_report, "ZTM0MWJhZTMtMmI0YS00ODY2LTk3MjItYjE0ZmNkY2RiNWYzLTE3MzUyLTEzMzI3MTExMjgwLjMwNjUwNTQwMA=="))
+    global parents
+    parents = bb_get_all_parents(detection_report, process=bb_get_all_processes_by_uuid(detection_report, "MmExOGIwZTQtZjNlYS00YmVmLWI2OTItYTk4NzUzNTY3ZjkxLTYzNjctMTY4NDE3NTczOQ=="))
     assert type(parents) == list, "get_all_parents() should return a list of ContextProcess objects"
     assert len(parents) > 0, "get_all_parents() should return at least one parent"
 
@@ -66,7 +68,8 @@ def test_bb_get_all_parents():
         mlog.info(str(parent))
 
 def test_bb_get_all_children():
-    children = bb_get_all_children(detection_report, process=bb_get_all_processes_by_uuid(detection_report, "ZTM0MWJhZTMtMmI0YS00ODY2LTk3MjItYjE0ZmNkY2RiNWYzLTE2NDE2LTEzMzI3MjY5NzYxLjEzNDkzNjcwMA=="))
+    global children
+    children = bb_get_all_children(detection_report, process=bb_get_all_processes_by_uuid(detection_report, "MmExOGIwZTQtZjNlYS00YmVmLWI2OTItYTk4NzUzNTY3ZjkxLTYzNjctMTY4NDE3NTczOQ=="))
     assert type(children) == list, "get_all_children() should return a list of ContextProcess objects"
     assert len(children) > 0, "get_all_children() should return at least one child"
 
@@ -84,6 +87,15 @@ def test_bb_get_all_children():
             pass
         uuids.append(child.process_uuid)
         mlog.info(str(child))
+
+def test_bb_make_process_tree_visualisation():
+    # Test the function
+    print(process)
+    res = bb_make_process_tree_visualisation(process, parents, children)
+    assert type(res) == str, "bb_make_process_tree_visualisation() should return a string"
+    # Print the results
+    mlog.info("Process tree:")
+    mlog.info(res)
     
 # 
 # o

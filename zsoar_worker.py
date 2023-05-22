@@ -144,7 +144,7 @@ def main(config, fromDaemon=False, debug=False):
     # Loop through each detection
     for detection_report in DetectionArray:
         detection_title = detection_report.get_title()
-        detection_id = detection_report.get_id()
+        detection_id = detection_report.uuid
         detectionHandled = False
 
         # Check every playbook if it can handle the detection
@@ -174,7 +174,7 @@ def main(config, fromDaemon=False, debug=False):
             # Let the playbook handle the detection
             if can_handle:
                 try:
-                    mlog.info(f"Calling playbook to handle the current detection {detection_title} ({detection_id})")
+                    mlog.info(f"Playbook can handle the detection. Calling it to handle: '{detection_title}' ({detection_id})")
                     detection_report = playbook_import.zs_handle_detection(detection_report)
                 except Exception as e:
                     mlog.warning("The playbook " + playbook_name + " failed to handle the detection. Error: " + str(e))

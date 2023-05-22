@@ -2,6 +2,7 @@ pyyaml
 logger
 pandas
 psutil
+treelib
 # for elastic_siem integration
 requests
 elasticsearch

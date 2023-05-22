@@ -10,6 +10,7 @@ import datetime
 import json
 import uuid
 import pandas as pd
+import pyotrs
 
 import lib.config_helper as config_helper
 import lib.logging_helper as logging_helper
@@ -1891,7 +1892,7 @@ class ContextProcess:
             "process_signature": str(self.process_signature),
             "process_http": str(self.process_http),
             "process_flow": str(self.process_flow),
-            "process_parents": str(self.process_parent),
+            "process_parent": str(self.process_parent),
             "process_children": str(self.process_children),
             "process_environment_variables": self.process_environment_variables,
             "process_arguments": self.process_arguments,
@@ -1905,6 +1906,7 @@ class ContextProcess:
             "deleted_registry_keys": self.deleted_registry_keys,
             "modified_registry_keys": self.modified_registry_keys,
             "is_complete": self.is_complete,
+            "uuid": self.process_uuid
         }
         return _dict
 
@@ -2427,6 +2429,7 @@ class Detection:
                     self.indicators["domain"].append(san)
 
         self.uuid = uuid
+        self.ticket: pyotrs.Ticket = None
 
         # Remove '*.' from domain indicators and replace with empty
         for domain in self.indicators["domain"]:
@@ -2503,6 +2506,76 @@ class Detection:
 
         return None
 
+    def check_against_whitelist(self) -> bool:
+        """Checks the report against the whitelist.
+
+        Args:
+            cache_integration_name (str): The name of the cache integration
+
+        Returns:
+            bool: True if the report is whitelisted, False otherwise
+        """
+        from lib.generic_helper import get_from_cache
+        mlog = logging_helper.Log("lib.class_helper")
+        detection = self
+
+        wl_ips = get_from_cache("global_whitelist_ips", "LIST")
+        wl_ips = wl_ips if wl_ips is not None else []
+        wl_ips = list(set(wl_ips)) # Remove duplicates
+        wl_ips = [ip for ip in wl_ips if ip != ""] # Remove empty entries
+        mlog.debug(f"Found {len(wl_ips)} IPs in global whitelist.")
+        
+        for ip in detection.indicators["ip"]:
+            if ip in wl_ips:
+                mlog.info(f"IP '{ip}' is whitelisted.")
+                return True
+            
+        wl_domains = get_from_cache("global_whitelist_domains", "LIST")
+        wl_domains = wl_domains if wl_domains is not None else []
+        wl_domains = list(set(wl_domains)) # Remove duplicates
+        wl_domains = [domain for domain in wl_domains if domain != ""] # Remove empty entries
+        mlog.debug(f"Found {len(wl_domains)} domains in global whitelist.")
+
+        for domain in detection.indicators["domain"]:
+            if domain in wl_domains:
+                mlog.info(f"Domain '{domain}' is whitelisted.")
+                return True
+            
+        wl_hashes = get_from_cache("global_whitelist_hashes", "LIST")
+        wl_hashes = wl_hashes if wl_hashes is not None else []
+        wl_hashes = list(set(wl_hashes)) # Remove duplicates
+        wl_hashes = [hash_ for hash_ in wl_hashes if hash_ != ""] # Remove empty entries
+        mlog.debug(f"Found {len(wl_hashes)} hashes in global whitelist.")
+
+        for hash_ in detection.indicators["hash"]:
+            if hash_ in wl_hashes:
+                mlog.info(f"Hash '{hash_}' is whitelisted.")
+                return True
+        
+        wl_urls = get_from_cache("global_whitelist_urls", "LIST")
+        wl_urls = wl_urls if wl_urls is not None else []
+        wl_urls = list(set(wl_urls)) # Remove duplicates
+        wl_urls = [url for url in wl_urls if url != ""] # Remove empty entries
+        mlog.debug(f"Found {len(wl_urls)} URLs in global whitelist.")
+
+        for url in detection.indicators["url"]:
+            if url in wl_urls:
+                mlog.info(f"URL '{url}' is whitelisted.")
+                return True
+        
+        wl_emails = get_from_cache("global_whitelist_emails", "LIST")
+        wl_emails = wl_emails if wl_emails is not None else []
+        wl_emails = list(set(wl_emails)) # Remove duplicates
+        wl_emails = [email for email in wl_emails if email != ""] # Remove empty entries
+        mlog.debug(f"Found {len(wl_emails)} emails in global whitelist.")
+
+        for email in detection.indicators["email"]:
+            if email in wl_emails:
+                mlog.info(f"Email '{email}' is whitelisted.")
+                return True
+        
+        mlog.debug("Detection is not whitelisted in the global whitelist.")
+        return False
 
 class DetectionReport:
     """DetectionReport class. This class is used for storing detection reports.
@@ -2522,6 +2595,7 @@ class DetectionReport:
         context_http_requests (List[HTTP]): The context http requests of the report
         context_dns_requests (List[DNS]): The context dns requests of the report
         context_certificates (List[Certificate]): The context certificates of the report
+        context_tickets (List[Ticket]): The context tickets of the report
         uuid (str): The universal unique ID of the report (uuid4 - random if not set)
         indicators (Dict[str, List[str]]): The indicators of the report (key: indicator type, value: list of indicators)
 
@@ -2550,6 +2624,7 @@ class DetectionReport:
         self.context_devices: List[ContextDevice] = []
         self.context_persons: List[Person] = []
         self.context_files: List[ContextFile] = []
+        self.context_tickets: List[pyotrs.Ticket] = []
 
         self.uuid = uuid
         self.indicators = {"ip": [], "domain": [], "url": [], "hash": [], "email": [], "countries": [], "other": []}
@@ -2582,7 +2657,7 @@ class DetectionReport:
 
     # Getter and setter;
 
-    def add_context(self, context: Union[ContextLog, ContextProcess, ContextFlow, ContextThreatIntel, Location, ContextDevice, Person, ContextFile]):
+    def add_context(self, context: Union[ContextLog, ContextProcess, ContextFlow, ContextThreatIntel, Location, ContextDevice, Person, ContextFile, pyotrs.Ticket]):
         """Adds a context to the detection report, respecting the timeline
 
         Args:
@@ -2592,10 +2667,13 @@ class DetectionReport:
             ValueError: If the context object has no timestamp
             TypeError: If the context object is not of a valid type
         """
-        try:
-            timestamp = context.timestamp
-        except:
-            raise ValueError("Context object has no timestamp.")
+        if not isinstance(context, pyotrs.Ticket):
+            try:
+                timestamp = context.timestamp
+            except:
+                raise ValueError("Context object has no timestamp.")
+        else:
+            timestamp = context.values["Created"]
 
         if isinstance(context, ContextLog):
             add_to_timeline(self.context_logs, context, timestamp)
@@ -2674,6 +2752,9 @@ class DetectionReport:
             if context.file_sha256:
                 self.indicators["hash"].append(context.file_sha256)
 
+        elif isinstance(context, pyotrs.Ticket):
+            add_to_timeline(self.context_tickets, context, timestamp)
+
         else:
             raise TypeError("Unknown context type.")
 
@@ -2736,6 +2817,16 @@ class DetectionReport:
                 if context.uuid == uuid:
                     return context
 
+        if filterType == ContextFile or filterType is None:
+            for context in self.context_files:
+                if context.uuid == uuid:
+                    return context
+        
+        if filterType == pyotrs.Ticket or filterType is None:
+            for context in self.context_tickets:
+                if context.tid == uuid:
+                    return context
+                
         return None
 
     def get_title(self):
