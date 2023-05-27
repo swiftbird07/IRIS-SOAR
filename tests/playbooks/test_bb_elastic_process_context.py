@@ -40,7 +40,7 @@ assert (
 def test_bb_get_complete_process_by_uuid():
     # Test the function
     global process
-    process = bb_get_all_processes_by_uuid(detection_report, "MmExOGIwZTQtZjNlYS00YmVmLWI2OTItYTk4NzUzNTY3ZjkxLTYzNjctMTY4NDE3NTczOQ==")
+    process = bb_get_all_processes_by_uuid(detection_report, "Nzk1MjljZmQtY2Q3NC00NGFmLWE2N2QtZmUzMDMzMDdlMDFjLTM2NTYtMTY4NDg2MDQyNC44Mjc4NjYyMDA=")
     assert type(process) == ContextProcess, "bb_get_complete_process_by_uuid() should return a ContextProcess object"
 
     # Print the results
@@ -49,7 +49,7 @@ def test_bb_get_complete_process_by_uuid():
 
 def test_bb_get_all_parents():
     global parents
-    parents = bb_get_all_parents(detection_report, process=bb_get_all_processes_by_uuid(detection_report, "MmExOGIwZTQtZjNlYS00YmVmLWI2OTItYTk4NzUzNTY3ZjkxLTYzNjctMTY4NDE3NTczOQ=="))
+    parents = bb_get_all_parents(detection_report, process=bb_get_all_processes_by_uuid(detection_report, "Nzk1MjljZmQtY2Q3NC00NGFmLWE2N2QtZmUzMDMzMDdlMDFjLTM2NTYtMTY4NDg2MDQyNC44Mjc4NjYyMDA="))
     assert type(parents) == list, "get_all_parents() should return a list of ContextProcess objects"
     assert len(parents) > 0, "get_all_parents() should return at least one parent"
 
@@ -69,7 +69,7 @@ def test_bb_get_all_parents():
 
 def test_bb_get_all_children():
     global children
-    children = bb_get_all_children(detection_report, process=bb_get_all_processes_by_uuid(detection_report, "MmExOGIwZTQtZjNlYS00YmVmLWI2OTItYTk4NzUzNTY3ZjkxLTYzNjctMTY4NDE3NTczOQ=="))
+    children = bb_get_all_children(detection_report, process=bb_get_all_processes_by_uuid(detection_report, "Nzk1MjljZmQtY2Q3NC00NGFmLWE2N2QtZmUzMDMzMDdlMDFjLTM2NTYtMTY4NDg2MDQyNC44Mjc4NjYyMDA="))
     assert type(children) == list, "get_all_children() should return a list of ContextProcess objects"
     assert len(children) > 0, "get_all_children() should return at least one child"
 
@@ -102,6 +102,3 @@ def test_bb_make_process_tree_visualisation():
 # ZTM0MWJhZTMtMmI0YS00ODY2LTk3MjItYjE0ZmNkY2RiNWYzLTEwOTMyLTEzMzI3MTExMjQ2LjE5NDk4MTMwMA==
 # ZTM0MWJhZTMtMmI0YS00ODY2LTk3MjItYjE0ZmNkY2RiNWYzLTEwNjEyLTEzMzI3MTExMjQ2LjgwMzE2NzAw
 # ZTM0MWJhZTMtMmI0YS00ODY2LTk3MjItYjE0ZmNkY2RiNWYzLTEwNjgtMTMzMjcxMTExODkuMjQxNTQ1OTAw
-
-#test_bb_get_complete_process_by_uuid()
-#test_bb_get_all_children()

@@ -205,12 +205,15 @@ def bb_make_process_tree_visualisation(focus_process: ContextProcess, parents: L
     from treelib import Node, Tree, exceptions
     tree = Tree()
     # Create tree nodes for all parents
-    for i in range(len(parents) - 1, 0, -1):
+    for j in range(0, len(parents) - 0):
+        i = len(parents) - j - 1
         process = parents[i]
         if i == len(parents) - 1:
-            tree.create_node(process.process_name + " (" + str(process.process_id) + ")", "0")
+            #mlog.debug("bb_make_process_tree_visualisation - Creating root node for process: " + str(process.process_name) + " (" + str(process.process_sha256) + ")")
+            tree.create_node(process.process_name + " (" + str(process.process_id) + ")", process.process_sha256)
         else:
             parent = parents[i+1]
+            #mlog.debug("bb_make_process_tree_visualisation - Creating node for process: " + str(process.process_name) + " (" + str(process.process_sha256) + ") " + " with parent: " + str(parent.process_name) + " (" + str(parent.process_sha256) + ")")
             tree.create_node(process.process_name + " (" + str(process.process_id) + ")", process.process_sha256, parent=parent.process_sha256)
 
     # Create detected process node
@@ -225,10 +228,11 @@ def bb_make_process_tree_visualisation(focus_process: ContextProcess, parents: L
     for i in range(0, len(children)):
         process = children[i]
         if i == 0:
-            parent = focus_process
+            parent_sha = focus_process.process_sha256
         else:
             parent_sha = process.process_parent
         try:
+            #mlog.debug("bb_make_process_tree_visualisation - Creating node for process: " + str(process.process_name) + " (" + str(process.process_uuid) + ") " + " with parent: " + str(parent.process_name) + " (" + str(parent_sha) + ")")
             tree.create_node(process.process_name + " (" + str(process.process_id) + ")", process.process_uuid, parent=parent_sha)
         except exceptions.DuplicatedNodeIdError:
             mlog.warning("bb_make_process_tree_visualisation - Duplicated node ID: " + str(process.process_uuid) + " for process: " + str(process.process_name) + ". Skipping...")
