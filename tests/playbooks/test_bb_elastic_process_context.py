@@ -1,6 +1,6 @@
 # Z-SOAR
 # Created by: Martin Offermann
-# This test module is used to test the bb_elastic_process_context playbook.def test_bb_get_complete_process_by_uuid():
+# This test module is used to test the bb_elastic_process_context playbook
 
 
 import pytest

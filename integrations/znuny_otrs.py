@@ -28,6 +28,8 @@ import sys
 from typing import Union, List
 from lib.config_helper import Config
 from lib.logging_helper import Log
+import pandas as pd
+import json
 
 # For new detections:
 from lib.class_helper import Rule, Detection, ContextProcess, ContextFlow
@@ -230,6 +232,19 @@ def ticket_check_merge(mlog, config, client: pyotrs.Client, ticket: pyotrs.Ticke
     if not foundOwnTicket:
         mlog.warning("Could not find own ticket " + ticketNumber + " with the same title.")
 
+
+def format_results(events, format):
+    if format in ("html", "markdown"):
+        data = pd.DataFrame(data=events)
+        if format == "html":
+            tmp = data.to_html(index=False, classes=None)
+            return tmp.replace(' class="dataframe"', "")
+        elif format == "markdown":
+            return data.to_markdown(index="false")
+    elif format == "json":
+        return json.dumps(events, ensure_ascii=False, sort_keys=False)
+    
+
 def create_client_session() -> pyotrs.Client:
     """Creates a new Znuny OTRS client session.
 
@@ -256,6 +271,22 @@ def create_client_session() -> pyotrs.Client:
     mlog.debug("Znuny client created. Starting session...")
     client.session_create()
     return client
+
+
+def zs_get_ticket_by_number(ticket_number: str) -> pyotrs.Ticket:
+    """Gets a ticket from Znuny by its ticket number.
+    
+    Arguments:
+        ticket_number {str} -- The ticket number of the ticket to get.
+    
+    Returns:
+        pyotrs.Ticket -- The ticket object.
+    """
+    mlog.info("Getting ticket " + ticket_number + " from Znuny...")
+    # TODO: Implement caching
+    client = create_client_session()
+    ticket = client.ticket_get_by_number(ticket_number)
+    return ticket
 
 
 def zs_create_ticket(detectionReport: DetectionReport, DRY_RUN=False, detection_title=None, priority=None, state="new", type_=None, queue_tier="T0", include_context=False, init_note_title=None, init_note_body=None) -> str:
@@ -389,7 +420,6 @@ def zs_add_note_to_ticket(ticket_number: str, mode: str, DRY_RUN=False, raw_titl
         raw_body {str} -- The body of the note if mode is set to "raw". (default: {None})
         raw_body_type {str} -- The body type of the note if mode is set to "raw". (default: {"text/plain"})
 
-
     Keyword Arguments:
         include_context {bool} -- If set to True, the context of the detection will be added to the note. (default: {False})
 
@@ -410,6 +440,14 @@ def zs_add_note_to_ticket(ticket_number: str, mode: str, DRY_RUN=False, raw_titl
     
     if mode != "raw" and (raw_title is not None or raw_body is not None):
         mlog.warning("Raw title or body specified but mode is not set to raw. Ignoring raw title and body.")
+
+    if raw_body_type not in ["text/plain", "text/html"]:
+        mlog.critical("Invalid raw body type specified. Aborting note creation.")
+        return ValueError("Invalid raw body type specified. Aborting note creation.")
+    
+    if raw_body_type == "text/html":
+        raw_body = str(raw_body)
+        raw_body = raw_body.replace("\n", "")
 
     # Create client and session
     client = create_client_session()
@@ -457,8 +495,6 @@ def zs_add_note_to_ticket(ticket_number: str, mode: str, DRY_RUN=False, raw_titl
         except KeyError:
             mlog.critical("Note creation failed. Znuny did not return a note ID. Aborting note creation.")
             return SystemError("Note creation failed. Znuny did not return a note ID. Aborting note creation.")
-
-
 
 
 

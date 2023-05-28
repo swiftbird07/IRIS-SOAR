@@ -145,5 +145,63 @@ class Log:
         self.logger.critical(message)
 
 
+def update_actions_log(detection_uuid, new_action):
+    """Updates the actions log file with the given action_log.
+       If an action log with the same playbook and stage already exists, it will be overwritten.
+       
+    Args:
+        detection_uuid (str): The detection uuid
+        action_log (dict): The action log
+        
+    Returns:
+        None
+    """
+    import json
+    path = "logs/actions.log"
+    mlog = Log("logging_helper")
+
+    # Load the actions log
+    try:
+        with open(path, "r") as f:
+            actions_log_file = json.load(f)
+    except FileNotFoundError:
+        mlog.warning(f"Could not find actions log file at {path}. Creating a new one.")
+        actions_log_file = {}
+    except Exception as e:
+        if e is not FileNotFoundError:
+            mlog.critical(f"Could not load actions log file at {path}. Error: {e}")
+            return
+
+    # Get the action log for given detection_uuid
+    try:
+        al_detection = actions_log_file[str(detection_uuid)]
+        mlog.debug(f"Found action log for detection_uuid {detection_uuid}: {al_detection}")
+    except KeyError:
+        mlog.info(f"Could not find action log for detection_uuid {detection_uuid}. Creating a new one.")
+        al_detection = []
+    
+    # Update the action log but check if playbook and stage already exists
+    if al_detection != []:
+        for element in al_detection:
+            element_dict = json.loads(element)
+            if element_dict["playbook"] == new_action.playbook and element_dict["stage"] == new_action.stage:
+                mlog.debug(f"Found existing action log for playbook {new_action.playbook} and stage {new_action.stage}. Overwriting it.")
+                al_detection.remove(element)
+                break
+
+    # Add the new action log
+    al_detection.append(str(new_action))
+    actions_log_file[str(detection_uuid)] = al_detection
+
+    # Save the actions log
+    try:
+        with open(path, "w") as f:
+            json.dump(actions_log_file, f, indent=4)
+    except Exception as e:
+        mlog.critical(f"Could not save actions log file at {path}. Error: {e}")
+
+    return
+    
+
 if __name__ == "__main__":
     pass

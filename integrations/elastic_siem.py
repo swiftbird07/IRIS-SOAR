@@ -375,7 +375,10 @@ def search_entity_by_entity_id(mlog, config, entity_id, entity_type="process"):
             break
 
     if not success:
-        mlog.warning(f"search_entity_by_entity_id() - No entity found for entity_id '{entity_id}' and entity_type '{entity_type}'")
+        if not entity_type == "parent_process":
+            mlog.warning(f"search_entity_by_entity_id() - No entity found for entity_id '{entity_id}' and entity_type '{entity_type}'")
+        else:
+            mlog.debug(f"search_entity_by_entity_id() - No entity found for entity_id '{entity_id}' and entity_type '{entity_type}'")            
         return None
     if search_response["hits"]["total"]["value"] > 1 and entity_type == "process":
         mlog.warning(f"search_entity_by_entity_id() - Found more than one entity for entity_id '{entity_id}' and entity_type '{entity_type}'")

@@ -1319,6 +1319,13 @@ class HTTP:
         timestamp: datetime.datetime = datetime.datetime.now(),
     ):
         self.related_detection_uuid = related_detection_uuid
+        self.full_url = None
+        self.user_agent = None
+        self.referer = None
+        self.status_message = None
+        self.request_body = None
+
+        self.timestamp = timestamp
         mlog = logging_helper.Log("lib.class_helper")
 
         if method not in ["GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS", "PATCH"]:
@@ -1337,6 +1344,7 @@ class HTTP:
             raise ValueError("status_code must be between 0 and 999")
         self.status_code = status_code
 
+        self.path = None
         if path != None and "/" not in path:
             mlog.warning("HTTP Object __init__: path does not contain any '/'. Path: '" + str(path) + "' Object: " + str(self))
         if path[0] != "/":
@@ -1348,7 +1356,7 @@ class HTTP:
             self.full_url = type.lower() + "://" + host + self.path
         else:
             if full_url != type.lower() + "://" + host + self.path:
-                mlog.warning("HTTP Object __init__: full_url does not match type, host and path. " + str(self))
+                mlog.warning("HTTP Object __init__: full_url does not match type, host and/or path. " + str(self))
             self.full_url = full_url
 
         self.user_agent = user_agent
@@ -1371,13 +1379,12 @@ class HTTP:
         if certificate != None:
             if type != "HTTPS":
                 raise ValueError("certificate must be None if type is not HTTPS")
-            if host not in certificate.hosts and host not in certificate.subject_alternative_names:
+            if host not in certificate.subject and host not in certificate.subject_alternative_names:
                 mlog = logging_helper.Log("lib.class_helper")
                 mlog.warning("HTTP __init__: Certificate: HTTP.host does not match certificate subject nor subject_alternative_names")
         self.certificate = certificate
 
         self.file = file
-        self.timestamp = timestamp
 
     def __dict__(self):
         try:
@@ -2577,6 +2584,84 @@ class Detection:
         mlog.debug("Detection is not whitelisted in the global whitelist.")
         return False
 
+class ActionLog:
+    """ActionLog class. This class is used for internally logging actions taken by ZSOAR to a detection report."""
+    def __init__(self, playbook: str, stage: int, title: str, description: str = "", start_time: datetime = datetime.datetime.now(), is_ticket_related: bool = False, result_had_warnings: bool = False, result_had_errors: bool = False, result_request_retry: bool = False, result_message: str = "", result_data: str =  "", result_in_ticket: bool = False, result_time: datetime = None, playbook_done: bool = False):
+        self.playbook = playbook
+        self.stage: int = stage
+        self.title = title
+        self.description = description
+        self.start_time: datetime = start_time
+        self.is_ticket_related: bool = is_ticket_related
+        self.result_had_warnings: bool = result_had_warnings
+        self.result_had_errors: bool = result_had_errors
+        self.result_request_retry: bool = result_request_retry
+        self.result_message: str = result_message
+        self.result_data: dict = result_data
+        self.result_in_ticket = result_in_ticket
+        self.result_time: datetime = result_time if result_time is not None else datetime.datetime.now()
+        self.playbook_done: bool = playbook_done
+
+    def set_successful(self, in_ticket: bool = False, message: str = "The action taken was successful.", data: dict = None) -> bool:
+        """Sets the action log element as successful."""
+        self.result_had_warnings = False
+        self.result_had_errors = False
+        self.result_request_retry = False
+        self.result_message = message
+        self.result_data = data
+        self.result_in_ticket = in_ticket
+        self.result_time = datetime.datetime.now()
+        self.playbook_done = True
+        return self
+    
+    def set_warning(self, in_ticket: bool = False, message: str = "The action taken had warnings, but succeeded", data: dict = None) -> bool:
+        """Sets the action log element as successful, but with warnings (no retry)."""
+        self.result_had_warnings = True
+        self.result_had_errors = False
+        self.result_request_retry = False
+        self.result_message = message
+        self.result_data = data
+        self.result_in_ticket = in_ticket
+        self.result_time = datetime.datetime.now()
+        self.playbook_done = True
+        return self
+    
+    def set_error(self, in_ticket: bool = False, message: str = "The action taken had errors and failed. Requested retry.", data: dict = None) -> bool:
+        """Sets the action log element as failed with errors (with retry request)."""
+        self.result_had_errors = True
+        self.result_request_retry = True
+        self.result_message = message
+        self.result_data = data
+        self.result_in_ticket = in_ticket
+        self.result_time = datetime.datetime.now()
+        self.playbook_done = True
+        return self
+    
+    def __dict__(self):
+        """Returns the dictionary representation of the object."""
+        dict_ = {
+            "playbook": self.playbook,
+            "stage": self.stage,
+            "title": self.title,
+            "description": self.description,
+            "start_time": str(self.start_time),
+            "is_ticket_related": self.is_ticket_related,
+            "result_had_warnings": self.result_had_warnings,
+            "result_had_errors": self.result_had_errors,
+            "result_request_retry": self.result_request_retry,
+            "result_message": self.result_message,
+            "result_data": self.result_data,
+            "result_in_ticket": self.result_in_ticket,
+            "result_time": str(self.result_time),
+            "playbook_done": self.playbook_done
+        }
+
+        return dict_
+
+    def __str__(self):
+        """Returns the string representation of the object."""
+        return json.dumps(del_none_from_dict(self.__dict__()), indent=4, sort_keys=False, default=str)
+    
 class DetectionReport:
     """DetectionReport class. This class is used for storing detection reports.
 
@@ -2609,11 +2694,13 @@ class DetectionReport:
 
     def __init__(self, detections: list, uuid: uuid.UUID = uuid.uuid4()):
         self.detections = detections
-        self.playbooks: List[str] = []
         self.action = None
         self.action_result = None
         self.action_result_message = None
         self.action_result_data = None
+        self.history: List[ActionLog] = [ActionLog(playbook="None/Initial", stage=0, title="Initializing DetectionReport", description="Initializing the DetectionReport onject", start_time=datetime.datetime.now(), is_ticket_related=False)]
+        self.handled_by_playbooks: List[str] = []
+        self.playbooks_to_retry: List[str] = []
 
         # Context for every type of context
         self.context_logs: List[ContextLog] = []
@@ -2624,16 +2711,24 @@ class DetectionReport:
         self.context_devices: List[ContextDevice] = []
         self.context_persons: List[Person] = []
         self.context_files: List[ContextFile] = []
-        self.context_tickets: List[pyotrs.Ticket] = []
+        self.context_tickets: List[pyotrs.Ticket] = [] 
 
         self.uuid = uuid
         self.indicators = {"ip": [], "domain": [], "url": [], "hash": [], "email": [], "countries": [], "other": []}
+
+        self.history[0].result_had_warnings = False
+        self.history[0].result_had_errors = False
+        self.history[0].result_request_retry = False
+        self.history[0].result_in_ticket = False
+        self.history[0].result_message = "Initializing DetectionReport was successful."
+        self.history[0].result_data = "DetectionReport was initialized successfully."
+
 
     def __dict__(self):
         """Returns the object as a dictionary."""
         dict_ = {
             "detections": self.detections,
-            "playbooks": self.playbooks,
+            "handled_by_playbooks": self.handled_by_playbooks,
             "action": self.action,
             "action_result": self.action_result,
             "action_result_message": self.action_result_message,
@@ -2648,6 +2743,7 @@ class DetectionReport:
             "context_files": str(self.context_files),
             "uuid": self.uuid,
             "indicators": self.indicators,
+            "history": self.history
         }
         return dict_
 
@@ -2673,7 +2769,7 @@ class DetectionReport:
             except:
                 raise ValueError("Context object has no timestamp.")
         else:
-            timestamp = context.values["Created"]
+            timestamp = context.fields["Created"]
 
         if isinstance(context, ContextLog):
             add_to_timeline(self.context_logs, context, timestamp)
@@ -2828,7 +2924,82 @@ class DetectionReport:
                     return context
                 
         return None
+    
+    def get_history_by_playbook(self, playbook: str) -> List[ActionLog]:
+        """Returns the history of the given playbook
 
+        Args:
+            playbook (str): The playbook
+
+        Returns:
+            List[History]: The history
+        """
+        history = []
+        for h in self.history:
+            if h.playbook == playbook:
+                history.append(h)
+        return history
+    
+    def get_history_by_playbook_stage(self, playbook: str, stage: int) -> List[ActionLog]:
+        """Returns the history of the given playbook and stage
+
+        Args:
+            playbook (str): The playbook
+            stage (int): The stage
+
+        Returns:
+            List[History]: The history
+        """
+        history = []
+        for h in self.history:
+            if h.playbook == playbook and h.stage == stage:
+                history.append(h)
+        return history
+    
+    def get_tries_by_playbook(self, playbook: str) -> int:
+        """Returns the number of tries for the given playbook
+
+        Args:
+            playbook (str): The playbook
+
+        Returns:
+            int: The number of tries
+        """
+        tries = 0
+        # Check for playbook in history and add count for each element which has stage number 0 (first try).
+        for h in self.history:
+            if h.playbook == playbook and h.stage == 0:
+                tries += 1
+    
+
+    def update_history(self, history: ActionLog):
+        """Adds or updates the given history element to the history of the report.
+           It will also update apropiate fields of the report if the playbook was executed successfully or has failed.
+           Also the action will be added to "actions.log" file (sorted by detection uuid).
+
+        Args:
+            history (HistoryElement): The history element
+
+        Raises:
+            TypeError: If the history element is not of type HistoryElement
+        """
+        if type(history) is not ActionLog:
+            raise TypeError("history must be of type HistoryElement")
+        
+        if history.playbook_done:
+            self.handled_by_playbooks.append(history.playbook)
+        if history.result_request_retry:
+            self.playbooks_to_retry.append(history.playbook)
+
+        for h in self.history:
+            if h.playbook == history.playbook and h.stage == history.stage:
+                self.history.remove(h)
+
+        self.history.append(history)
+
+        # Add to actions.log
+        logging_helper.update_actions_log(self.uuid, history)
+    
     def get_title(self):
         """Returns the title of the report."""
         return self.detections[0].name  # TODO: Make this more sophisticated

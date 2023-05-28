@@ -7,6 +7,7 @@ import lib.logging_helper as logging_helper
 import lib.config_helper as config_helper
 import json
 from functools import reduce
+import pandas as pd
 
 mlog = logging_helper.Log("lib.generic_helper")
 
@@ -80,13 +81,13 @@ def add_to_cache(integration, category, key, value):
         mlog.warning("add_to_cache() - Error adding value to cache: " + str(e))
 
 
-def get_from_cache(integration, category, key):
+def get_from_cache(integration, category, key="LIST"):
     """
     Gets a value from the cache of a specific integration
     
     :param integration: The integration to get the value from
     :param category: The category to get the value from
-    :param key: The key to get the value for
+    :param key: The key to get the value for. If key is "LIST", the value will be treated as a list and returned.
     
     :return: The value from the cache
     """
@@ -104,7 +105,11 @@ def get_from_cache(integration, category, key):
             # Check if category just stores a list
             if key == "LIST":
                 mlog.debug("get_from_cache() - Category stores a list, returning list")
-                return cache[integration][category]
+                try:
+                    return cache[integration][category]
+                except KeyError:
+                    mlog.debug("get_from_cache() - Category does not exist in cache")
+                    return None
             
             # Check if entity is in cache
             entity = deep_get(cache[integration][category], key)
@@ -117,3 +122,15 @@ def get_from_cache(integration, category, key):
     except Exception as e:
         mlog.warning("get_from_cache() - Error getting value from cache: " + str(e))
         return None
+
+def format(events, format):
+    if format in ("html", "markdown"):
+        data = pd.DataFrame(data=events)
+        if format == "html":
+            tmp = data.to_html(index=False, classes=None)
+            return tmp.replace(' class="dataframe"', "")
+        elif format == "markdown":
+            return data.to_markdown(index="false")
+    elif format == "json":
+        return json.dumps(events, ensure_ascii=False, sort_keys=False)
+
