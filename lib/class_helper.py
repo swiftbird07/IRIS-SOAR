@@ -2584,15 +2584,36 @@ class Detection:
         mlog.debug("Detection is not whitelisted in the global whitelist.")
         return False
 
-class ActionLog:
-    """ActionLog class. This class is used for internally logging actions taken by ZSOAR to a detection report."""
-    def __init__(self, playbook: str, stage: int, title: str, description: str = "", start_time: datetime = datetime.datetime.now(), is_ticket_related: bool = False, result_had_warnings: bool = False, result_had_errors: bool = False, result_request_retry: bool = False, result_message: str = "", result_data: str =  "", result_in_ticket: bool = False, result_time: datetime = None, playbook_done: bool = False):
+class AuditLog:
+    """The "AuditLog" class serves as a centralized mechanism to capture and document the actions performed by ZSOAR, particularly by its "Playbooks," that impact the detection reports.
+       Generally a planned action is declared first as a new AuditLog, pushed to the audit trail, and then executed. The relevant AuditLog is then updated with the result of the action.
+
+    Args:
+        playbook (str): The name of the playbook
+        stage (int): The stage of the playbook
+        title (str): The title of the audit log entry. This is the main description of the action (to be) performed.
+        description (str, optional): The description of the audit log entry. Defaults to "".
+        start_time (datetime, optional): The start time of the audit log entry. Defaults to datetime.datetime.now().
+        related_ticket_number (str, optional): The ticket number related to the audit log entry. Defaults to "".
+        is_ticket_related (bool, optional): Indicates whether the audit log entry is related to a ticket. Defaults to False.
+        result_had_warnings (bool, optional): Indicates whether the audit log entry had warnings. Defaults to False.
+        result_had_errors (bool, optional): Indicates whether the audit log entry had errors. Defaults to False.
+        result_request_retry (bool, optional): Indicates whether the action should be retried. Defaults to False.
+        result_message (str, optional): The result message of the action performed. Defaults to "".
+        result_data (dict, optional): Additional relevant data of the action performed. Defaults to {}.
+        result_in_ticket (bool, optional): Indicates whether the result has been added to the ticket. Defaults to False.
+        result_time (datetime, optional): The time of the result. Defaults to None.
+        stage_done (bool, optional): Indicates whether the action of this stage has been completed (in any way). Defaults to False.
+        playbook_done (bool, optional): Indicates whether the playbook has been completed. Defaults to False.
+
+    """
+    def __init__(self, playbook: str, stage: int, title: str, description: str = "", start_time: datetime = datetime.datetime.now(), is_ticket_related: bool = False, result_had_warnings: bool = False, result_had_errors: bool = False, result_request_retry: bool = False, result_message: str = "", result_data: dict = {}, result_in_ticket: bool = False, result_time: datetime = None, playbook_done: bool = False):
         self.playbook = playbook
         self.stage: int = stage
         self.title = title
         self.description = description
         self.start_time: datetime = start_time
-        self.is_ticket_related: bool = is_ticket_related
+        self.related_ticket_number: str = ""
         self.result_had_warnings: bool = result_had_warnings
         self.result_had_errors: bool = result_had_errors
         self.result_request_retry: bool = result_request_retry
@@ -2600,10 +2621,11 @@ class ActionLog:
         self.result_data: dict = result_data
         self.result_in_ticket = result_in_ticket
         self.result_time: datetime = result_time if result_time is not None else datetime.datetime.now()
+        self.stage_done: bool = False
         self.playbook_done: bool = playbook_done
 
     def set_successful(self, in_ticket: bool = False, message: str = "The action taken was successful.", data: dict = None) -> bool:
-        """Sets the action log element as successful."""
+        """Sets the audit log element as successful."""
         self.result_had_warnings = False
         self.result_had_errors = False
         self.result_request_retry = False
@@ -2611,11 +2633,11 @@ class ActionLog:
         self.result_data = data
         self.result_in_ticket = in_ticket
         self.result_time = datetime.datetime.now()
-        self.playbook_done = True
+        self.stage_done = True
         return self
     
     def set_warning(self, in_ticket: bool = False, message: str = "The action taken had warnings, but succeeded", data: dict = None) -> bool:
-        """Sets the action log element as successful, but with warnings (no retry)."""
+        """Sets the audit log element as successful, but with warnings (no retry)."""
         self.result_had_warnings = True
         self.result_had_errors = False
         self.result_request_retry = False
@@ -2623,38 +2645,54 @@ class ActionLog:
         self.result_data = data
         self.result_in_ticket = in_ticket
         self.result_time = datetime.datetime.now()
-        self.playbook_done = True
+        self.stage_done = True
         return self
     
     def set_error(self, in_ticket: bool = False, message: str = "The action taken had errors and failed. Requested retry.", data: dict = None) -> bool:
-        """Sets the action log element as failed with errors (with retry request)."""
+        """Sets the audit log element as failed with errors (with retry request)."""
         self.result_had_errors = True
         self.result_request_retry = True
         self.result_message = message
         self.result_data = data
         self.result_in_ticket = in_ticket
         self.result_time = datetime.datetime.now()
-        self.playbook_done = True
+        self.stage_done = True
         return self
     
     def __dict__(self):
-        """Returns the dictionary representation of the object."""
-        dict_ = {
-            "playbook": self.playbook,
-            "stage": self.stage,
-            "title": self.title,
-            "description": self.description,
-            "start_time": str(self.start_time),
-            "is_ticket_related": self.is_ticket_related,
-            "result_had_warnings": self.result_had_warnings,
-            "result_had_errors": self.result_had_errors,
-            "result_request_retry": self.result_request_retry,
-            "result_message": self.result_message,
-            "result_data": self.result_data,
-            "result_in_ticket": self.result_in_ticket,
-            "result_time": str(self.result_time),
-            "playbook_done": self.playbook_done
-        }
+        """Returns the dictionary representation of the object.
+           It will only return the result_* attributes if the stage is done to enhance readability.
+        """
+        if self.stage_done:
+            dict_ = {
+                "playbook": self.playbook,
+                "stage": self.stage,
+                "title": self.title,
+                "description": self.description,
+                "start_time": str(self.start_time),
+                "related_ticket_number": self.related_ticket_number,
+                "result_had_warnings": self.result_had_warnings,
+                "result_had_errors": self.result_had_errors,
+                "result_request_retry": self.result_request_retry,
+                "result_message": self.result_message,
+                "result_data": str(self.result_data),
+                "result_in_ticket": self.result_in_ticket,
+                "result_time": str(self.result_time),
+                "playbook_done": self.playbook_done,
+                "stage_done": self.stage_done
+
+            }
+        else:
+            dict_ = {
+                "playbook": self.playbook,
+                "stage": self.stage,
+                "title": self.title,
+                "description": self.description,
+                "start_time": str(self.start_time),
+                "related_ticket_number": self.related_ticket_number,
+                "playbook_done": self.playbook_done,
+                "stage_done": self.stage_done
+            }
 
         return dict_
 
@@ -2698,7 +2736,7 @@ class DetectionReport:
         self.action_result = None
         self.action_result_message = None
         self.action_result_data = None
-        self.history: List[ActionLog] = [ActionLog(playbook="None/Initial", stage=0, title="Initializing DetectionReport", description="Initializing the DetectionReport onject", start_time=datetime.datetime.now(), is_ticket_related=False)]
+        self.audit_trail: List[AuditLog] = [AuditLog(playbook="None/Initial", stage=0, title="Initializing DetectionReport", description="Initializing the DetectionReport onject", start_time=datetime.datetime.now(), is_ticket_related=False)]
         self.handled_by_playbooks: List[str] = []
         self.playbooks_to_retry: List[str] = []
 
@@ -2716,12 +2754,12 @@ class DetectionReport:
         self.uuid = uuid
         self.indicators = {"ip": [], "domain": [], "url": [], "hash": [], "email": [], "countries": [], "other": []}
 
-        self.history[0].result_had_warnings = False
-        self.history[0].result_had_errors = False
-        self.history[0].result_request_retry = False
-        self.history[0].result_in_ticket = False
-        self.history[0].result_message = "Initializing DetectionReport was successful."
-        self.history[0].result_data = "DetectionReport was initialized successfully."
+        self.audit_trail[0].result_had_warnings = False
+        self.audit_trail[0].result_had_errors = False
+        self.audit_trail[0].result_request_retry = False
+        self.audit_trail[0].result_in_ticket = False
+        self.audit_trail[0].result_message = "Initializing DetectionReport was successful."
+        self.audit_trail[0].result_data = "DetectionReport was initialized successfully."
 
 
     def __dict__(self):
@@ -2743,7 +2781,7 @@ class DetectionReport:
             "context_files": str(self.context_files),
             "uuid": self.uuid,
             "indicators": self.indicators,
-            "history": self.history
+            "audit_trail": self.audit_trail
         }
         return dict_
 
@@ -2925,36 +2963,36 @@ class DetectionReport:
                 
         return None
     
-    def get_history_by_playbook(self, playbook: str) -> List[ActionLog]:
-        """Returns the history of the given playbook
+    def get_audit_by_playbook(self, playbook: str) -> List[AuditLog]:
+        """Returns the audit of the given playbook
 
         Args:
             playbook (str): The playbook
 
         Returns:
-            List[History]: The history
+            List[audit]: The audit
         """
-        history = []
-        for h in self.history:
+        audit = []
+        for h in self.audit_trail:
             if h.playbook == playbook:
-                history.append(h)
-        return history
+                audit.append(h)
+        return audit
     
-    def get_history_by_playbook_stage(self, playbook: str, stage: int) -> List[ActionLog]:
-        """Returns the history of the given playbook and stage
+    def get_audit_by_playbook_stage(self, playbook: str, stage: int) -> List[AuditLog]:
+        """Returns the audit of the given playbook and stage
 
         Args:
             playbook (str): The playbook
             stage (int): The stage
 
         Returns:
-            List[History]: The history
+            List[audit]: The audit
         """
-        history = []
-        for h in self.history:
+        audit = []
+        for h in self.audit_trail:
             if h.playbook == playbook and h.stage == stage:
-                history.append(h)
-        return history
+                audit.append(h)
+        return audit
     
     def get_tries_by_playbook(self, playbook: str) -> int:
         """Returns the number of tries for the given playbook
@@ -2966,39 +3004,44 @@ class DetectionReport:
             int: The number of tries
         """
         tries = 0
-        # Check for playbook in history and add count for each element which has stage number 0 (first try).
-        for h in self.history:
+        # Check for playbook in audit_trail and add count for each element which has stage number 0 (first try).
+        for h in self.audit_trail:
             if h.playbook == playbook and h.stage == 0:
                 tries += 1
     
 
-    def update_history(self, history: ActionLog):
-        """Adds or updates the given history element to the history of the report.
+    def update_audit(self, audit: AuditLog, logger=None):
+        """Adds or updates the given audit element to the audit_trail of the report.
            It will also update apropiate fields of the report if the playbook was executed successfully or has failed.
-           Also the action will be added to "actions.log" file (sorted by detection uuid).
+           Also the audit will be added to "audit.log" file (sorted by detection uuid).
 
         Args:
-            history (HistoryElement): The history element
+            audit (auditElement): The audit element
+            logger (Log): The logger object (optional) Set if the audit shall be logged to the normal log file as well
 
         Raises:
-            TypeError: If the history element is not of type HistoryElement
+            TypeError: If the audit element is not of type AuditElement
         """
-        if type(history) is not ActionLog:
-            raise TypeError("history must be of type HistoryElement")
+        if type(audit) is not AuditLog:
+            raise TypeError("audit must be of type AuditElement")
         
-        if history.playbook_done:
-            self.handled_by_playbooks.append(history.playbook)
-        if history.result_request_retry:
-            self.playbooks_to_retry.append(history.playbook)
+        if audit.playbook_done:
+            self.handled_by_playbooks.append(audit.playbook)
+        if audit.result_request_retry:
+            self.playbooks_to_retry.append(audit.playbook)
+        
+        if audit.result_data is None:
+            audit.result_data = {}
+        audit.result_data["detection_name"] = self.get_title() # Add detection name to result data for better overview in log entries
 
-        for h in self.history:
-            if h.playbook == history.playbook and h.stage == history.stage:
-                self.history.remove(h)
+        for h in self.audit_trail:
+            if h.playbook == audit.playbook and h.stage == audit.stage:
+                self.audit_trail.remove(h)
 
-        self.history.append(history)
+        self.audit_trail.append(audit)
 
-        # Add to actions.log
-        logging_helper.update_actions_log(self.uuid, history)
+        # Add to audit.log
+        logging_helper.update_audit_log(self.uuid, audit, logger)
     
     def get_title(self):
         """Returns the title of the report."""

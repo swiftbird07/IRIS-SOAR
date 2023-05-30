@@ -145,61 +145,75 @@ class Log:
         self.logger.critical(message)
 
 
-def update_actions_log(detection_uuid, new_action):
-    """Updates the actions log file with the given action_log.
-       If an action log with the same playbook and stage already exists, it will be overwritten.
+def update_audit_log(detection_uuid, new_action, logger=None):
+    """Updates the audit log file with the given audit_log.
+       If an audit log with the same playbook and stage already exists, it will be overwritten.
        
     Args:
         detection_uuid (str): The detection uuid
-        action_log (dict): The action log
+        audit_log (dict): The audit log
+        logger (Log): The logger object (optional) Set if the audit shall be logged to the normal log file as well
         
     Returns:
         None
     """
     import json
-    path = "logs/actions.log"
+    path = "logs/audit.log"
     mlog = Log("logging_helper")
 
-    # Load the actions log
+    # Load the audit log
     try:
         with open(path, "r") as f:
-            actions_log_file = json.load(f)
+            audit_log_file = json.load(f)
     except FileNotFoundError:
-        mlog.warning(f"Could not find actions log file at {path}. Creating a new one.")
-        actions_log_file = {}
+        mlog.warning(f"Could not find audit log file at {path}. Creating a new one.")
+        audit_log_file = {}
     except Exception as e:
         if e is not FileNotFoundError:
-            mlog.critical(f"Could not load actions log file at {path}. Error: {e}")
+            mlog.critical(f"Could not load audit log file at {path}. Error: {e}")
             return
 
-    # Get the action log for given detection_uuid
+    # Get the audit log for given detection_uuid
     try:
-        al_detection = actions_log_file[str(detection_uuid)]
-        mlog.debug(f"Found action log for detection_uuid {detection_uuid}: {al_detection}")
+        al_detection = audit_log_file[str(detection_uuid)]
+        mlog.debug(f"Found audit log for detection_uuid {detection_uuid}: {al_detection}")
     except KeyError:
-        mlog.info(f"Could not find action log for detection_uuid {detection_uuid}. Creating a new one.")
+        mlog.info(f"Could not find audit log for detection_uuid {detection_uuid}. Creating a new one.")
         al_detection = []
     
-    # Update the action log but check if playbook and stage already exists
+    # Update the audit log but check if playbook and stage already exists
+    is_update = False
     if al_detection != []:
         for element in al_detection:
             element_dict = json.loads(element)
             if element_dict["playbook"] == new_action.playbook and element_dict["stage"] == new_action.stage:
-                mlog.debug(f"Found existing action log for playbook {new_action.playbook} and stage {new_action.stage}. Overwriting it.")
+                mlog.debug(f"Found existing audit log for playbook {new_action.playbook} and stage {new_action.stage}. Overwriting it.")
+                is_update = True
                 al_detection.remove(element)
                 break
 
-    # Add the new action log
-    al_detection.append(str(new_action))
-    actions_log_file[str(detection_uuid)] = al_detection
+    # Add the new audit log
+    str_new_action = str(new_action)
+    al_detection.append(str_new_action)
+    audit_log_file[str(detection_uuid)] = al_detection
 
-    # Save the actions log
+    # Save the audit log
     try:
         with open(path, "w") as f:
-            json.dump(actions_log_file, f, indent=4)
+            json.dump(audit_log_file, f, indent=4)
     except Exception as e:
-        mlog.critical(f"Could not save actions log file at {path}. Error: {e}")
+        mlog.critical(f"Could not save audit log file at {path}. Error: {e}")
 
+    if logger is not None:
+        if type(logger) is Log:
+            if is_update:
+                logger.info(f"[AUDIT_UPDATE] DetectionReport '{detection_uuid}' : {str_new_action}")
+            else:
+                logger.info(f"[AUDIT] DetectionReport '{detection_uuid}' : {str_new_action}")
+        else:
+            mlog.error(f"Given logger object is not of type Log. Could not log to logger.")
+    else:
+        mlog.debug(f"No logger object given. Not logging to logger.")
     return
     
 

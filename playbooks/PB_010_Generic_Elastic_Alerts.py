@@ -33,9 +33,9 @@ import sys
 import uuid
 
 import lib.logging_helper as logging_helper
-from lib.class_helper import DetectionReport, ContextProcess, ActionLog
+from lib.class_helper import DetectionReport, ContextProcess, AuditLog
 from lib.config_helper import Config
-from lib.generic_helper import format
+from lib.generic_helper import format_results
 
 from integrations.elastic_siem import zs_provide_context_for_detections
 from integrations.znuny_otrs import zs_create_ticket, zs_add_note_to_ticket, zs_get_ticket_by_number
@@ -73,9 +73,8 @@ def zs_handle_detection(detection_report: DetectionReport) -> DetectionReport:
     """
     detection_title = detection_report.get_title()
     detection_id = detection_report.uuid
-    mlog.info(f"Handling detection report: '{detection_title}' ({detection_id})")
-    action = ActionLog(PB_NAME, 0, "Check Whitelist", "Started handling detection report. Checking if any detections are whitelisted.")
-    detection_report.update_history(action)
+    current_action = AuditLog(PB_NAME, 0, f"Checking Whitelist for detection '{detection_title}'", "Started handling detection report. Checking first if any detections are whitelisted.")
+    detection_report.update_audit(current_action, logger=mlog)
 
     detections_to_handle = []
     for detection in detection_report.detections:
@@ -93,14 +92,14 @@ def zs_handle_detection(detection_report: DetectionReport) -> DetectionReport:
     mlog.info(f"Checking global whitelist for detection: '{detection.name}' ({detection.uuid})")
     if detection.check_against_whitelist():
         mlog.info(f"Detection: '{detection.name}' ({detection.uuid}) is whitelisted, skipping.")
-        detection_report.update_history(action.set_successful(message="Detection is whitelisted, skipping."))
+        detection_report.update_audit(current_action.set_successful(message="Detection is whitelisted, skipping."))
         return detection_report
-    detection_report.update_history(action.set_successful(message="Detection is not whitelisted."))
+    detection_report.update_audit(current_action.set_successful(message="Detection is not whitelisted."))
     
     # Create ticket for detection
     mlog.info(f"Creating ticket for detection: '{detection.name}' ({detection.uuid})")
-    action = ActionLog(PB_NAME, 1, "Create Ticket", "Creating ticket for detection.")
-    detection_report.update_history(action)
+    current_action = AuditLog(PB_NAME, 1, "Create Ticket", "Creating ticket for detection.")
+    detection_report.update_audit(current_action)
 
     ticket_number = zs_create_ticket(detection_report)
     if ticket_number is None or not ticket_number:
@@ -142,16 +141,16 @@ def zs_handle_detection(detection_report: DetectionReport) -> DetectionReport:
     # Create note for the parent/child processes
     try:
         mlog.info(f"Creating note for detection: '{detection.name}' ({detection.uuid})")
-        body = f"Context regarding detected Process: {detection.process_name}\n"
-        body += f"\n\nParent Processes:\n"
-        body += "\n"+format(parents)
+        body = f"Context regarding detected Process: {detection.process}\n"
+        body += f"\n\nParent Processes:\n\n"
+        body += format_results(parents, "html", group_by="process_id")
         body += f"\n\nChild Processes:\n"
-        body += "\n"+format(children)
+        body += "\n"+format_results(children, "html", group_by="process_id")
 
         if process_tree != "":
             body += f"\n\nProcess Tree:\n{process_tree}"
         body += "\n\nRelated Processes:\n"
-        body += "\n"+format(detection_report.context_processes)
+        body += "\n"+format_results(detection_report.context_processes, "html", group_by="process_id")
 
         note = zs_add_note_to_ticket(ticket_number, "raw", False, "Context: Processes", body, "text/html")
     except Exception as e:

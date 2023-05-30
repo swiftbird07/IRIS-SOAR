@@ -123,9 +123,11 @@ def get_from_cache(integration, category, key="LIST"):
         mlog.warning("get_from_cache() - Error getting value from cache: " + str(e))
         return None
 
-def format(events, format):
+def format_results(events, format, group_by="uuid"):
+    events = [event.__dict__() for event in events]
     if format in ("html", "markdown"):
         data = pd.DataFrame(data=events)
+        data = data.groupby([group_by]).agg(lambda x: x.tolist())
         if format == "html":
             tmp = data.to_html(index=False, classes=None)
             return tmp.replace(' class="dataframe"', "")

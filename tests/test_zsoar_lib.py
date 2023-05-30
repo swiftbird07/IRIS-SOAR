@@ -408,26 +408,26 @@ def test_class_helper():
     assert detection2.indicators["url"][0] == "https://www2.example.com/index.html", "Could not add indicators to detection"
     assert detection2.indicators["hash"][0] == "1234567890abcdef1234567890abcdef", "Could not add indicators to detection"
 
-    # Test ActionLog class
-    len_history = len(detection_report.history)
-    action_log = class_helper.ActionLog("test", 0, "Test ActionLog", "Testing the ActionLog")
-    assert action_log.playbook == "test", "Could not create ActionLog"
+    # Test auditLog class
+    len_audit = len(detection_report.audit_trail)
+    audit_log = class_helper.AuditLog("test", 0, "Test auditLog", "Testing the auditLog")
+    assert audit_log.playbook == "test", "Could not create auditLog"
 
-    action_log.set_successful()
-    assert action_log.result_had_errors is False, "Could not set ActionLog to successful"
+    audit_log.set_successful()
+    assert audit_log.result_had_errors is False, "Could not set auditLog to successful"
 
-    detection_report.update_history(action_log)
-    assert len(detection_report.history) == len_history + 1, "Could not add ActionLog to DetectionReport"
+    detection_report.update_audit(audit_log)
+    assert len(detection_report.audit_trail) == len_audit + 1, "Could not add auditLog to DetectionReport"
 
-    action_log.set_error()
-    assert action_log.result_had_errors is True, "Could not set ActionLog to failed"
+    audit_log.set_error()
+    assert audit_log.result_had_errors is True, "Could not set auditLog to failed"
 
-    detection_report.update_history(action_log)
-    assert len(detection_report.history) == len_history + 1, "History was overwritten"
+    detection_report.update_audit(audit_log)
+    assert len(detection_report.audit_trail) == len_audit + 1, "audit was overwritten"
 
-    assert detection_report.get_history_by_playbook("test")[0] == action_log, "Could not get ActionLog by playbook name"
-    assert detection_report.get_history_by_playbook_stage("test", 0)[0]== action_log, "Could not get ActionLog by playbook name and stage"
-    assert detection_report.get_history_by_playbook("test")[0].result_had_errors is True, "ActionLog was not updated with error"
+    assert detection_report.get_audit_by_playbook("test")[0] == audit_log, "Could not get auditLog by playbook name"
+    assert detection_report.get_audit_by_playbook_stage("test", 0)[0]== audit_log, "Could not get auditLog by playbook name and stage"
+    assert detection_report.get_audit_by_playbook("test")[0].result_had_errors is True, "ActionLog was not updated with error"
 
     # Test String printings
     mlog.info("Test for printing objects: ")
