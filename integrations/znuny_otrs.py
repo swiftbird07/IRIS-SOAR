@@ -392,7 +392,10 @@ def zs_create_ticket(detectionReport: DetectionReport, DRY_RUN=False, detection_
     mlog.debug("Initial note added. Sending ticket to Znuny...")
     if DRY_RUN:
         mlog.warning("Dry run mode is enabled. Not sending actual ticket to Znuny.")
-        mlog.debug("Ticket: " + str(ticket_obj))
+        if init_note_body != None:
+            mlog.debug("Ticket: '" + ticket_title + "'\n\n" + str(init_note_body))
+        else:
+            mlog.debug("Ticket: '" + ticket_title + "'")
         return -1
     else:
         # Sending ticket to Znuny
@@ -454,15 +457,16 @@ def zs_add_note_to_ticket(ticket_number: str, mode: str, DRY_RUN=False, raw_titl
 
     # Fetching ticket to verify that it exists
     mlog.debug("Fetching ticket from Znuny...")
-    ticket = client.ticket_get_by_number(ticket_number)
-    if type(ticket) is bool and not ticket:
-            mlog.critical("Note creation failed. Znuny did not return a ticket  for the given ticket number ('False'). Aborting note creation.")
+    if not DRY_RUN:
+        ticket = client.ticket_get_by_number(ticket_number)
+        if type(ticket) is bool and not ticket:
+                mlog.critical("Note creation failed. Znuny did not return a ticket  for the given ticket number ('False'). Aborting note creation.")
+                return ValueError("Note creation failed. Znuny did not return a ticket for the given ticket number. Aborting note creation.")
+        try:
+            _ = ticket.tid
+        except KeyError:
+            mlog.critical("Note creation failed. Znuny did not return a ticket for the given ticket number  (Invalid ticket). Aborting note creation.")
             return ValueError("Note creation failed. Znuny did not return a ticket for the given ticket number. Aborting note creation.")
-    try:
-        _ = ticket.tid
-    except KeyError:
-        mlog.critical("Note creation failed. Znuny did not return a ticket for the given ticket number  (Invalid ticket). Aborting note creation.")
-        return ValueError("Note creation failed. Znuny did not return a ticket for the given ticket number. Aborting note creation.")
 
     # Prepare Article dictionary
     if mode == "raw":
@@ -483,7 +487,10 @@ def zs_add_note_to_ticket(ticket_number: str, mode: str, DRY_RUN=False, raw_titl
     mlog.debug("Adding note to ticket...")
     if DRY_RUN:
         mlog.warning("Dry run mode is enabled. Not adding actual note to ticket.")
-        mlog.debug("Note: " + str(article))
+        if note_body != None:
+            mlog.debug("Note: '" + note_title + "'\n\n" + note_body)
+        else:
+            mlog.debug("Note: '" + note_title)
         return -1
     else:
         # Adding note to ticket

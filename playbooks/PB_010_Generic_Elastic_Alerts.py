@@ -62,11 +62,12 @@ def zs_can_handle_detection(detection_report: DetectionReport) -> bool:
             return True
     return False
 
-def zs_handle_detection(detection_report: DetectionReport) -> DetectionReport:
+def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> DetectionReport:
     """Handles the detection.
 
     Args:
         detection_report (DetectionReport): The detection report
+        DRY_RUN (bool, optional): If True, no external changes will be made. Defaults to False.
 
     Returns:
         DetectionReport: The detection report with the context processes
@@ -101,16 +102,17 @@ def zs_handle_detection(detection_report: DetectionReport) -> DetectionReport:
     current_action = AuditLog(PB_NAME, 1, "Create Ticket", "Creating ticket for detection.")
     detection_report.update_audit(current_action)
 
-    ticket_number = zs_create_ticket(detection_report)
+    ticket_number = zs_create_ticket(detection_report, DRY_RUN)
     if ticket_number is None or not ticket_number:
         mlog.error(f"Failed to create ticket for detection: '{detection.name}' ({detection.uuid})")
         return detection_report
     
     # Add ticket to detection (-report)
     mlog.debug(f"Adding ticket to detection and detection report.")
-    ticket = zs_get_ticket_by_number(ticket_number)
-    detection.ticket = ticket
-    detection_report.add_context(ticket)
+    if not DRY_RUN:
+        ticket = zs_get_ticket_by_number(ticket_number)
+        detection.ticket = ticket
+        detection_report.add_context(ticket)
 
     # Try to get the detection context
     mlog.info(f"Getting context for detection: '{detection.name}' ({detection.uuid})")
@@ -152,7 +154,7 @@ def zs_handle_detection(detection_report: DetectionReport) -> DetectionReport:
         body += "\n\nRelated Processes:\n"
         body += "\n"+format_results(detection_report.context_processes, "html", group_by="process_id")
 
-        note = zs_add_note_to_ticket(ticket_number, "raw", False, "Context: Processes", body, "text/html")
+        note = zs_add_note_to_ticket(ticket_number, "raw", DRY_RUN, "Context: Processes", body, "text/html")
     except Exception as e:
         mlog.error(f"Failed to create note for processes in detection: '{detection.name}' ({detection.uuid}). Exception: {e}")
 

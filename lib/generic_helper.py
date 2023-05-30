@@ -5,6 +5,8 @@
 
 import lib.logging_helper as logging_helper
 import lib.config_helper as config_helper
+from lib.class_helper import del_none_from_dict
+
 import json
 from functools import reduce
 import pandas as pd
@@ -124,10 +126,12 @@ def get_from_cache(integration, category, key="LIST"):
         return None
 
 def format_results(events, format, group_by="uuid"):
-    events = [event.__dict__() for event in events]
+    events = [del_none_from_dict(event.__dict__()) for event in events]
     if format in ("html", "markdown"):
         data = pd.DataFrame(data=events)
         data = data.groupby([group_by]).agg(lambda x: x.tolist())
+        data.dropna(axis=1, how="all", inplace=True)
+
         if format == "html":
             tmp = data.to_html(index=False, classes=None)
             return tmp.replace(' class="dataframe"', "")
