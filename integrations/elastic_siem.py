@@ -21,6 +21,8 @@ from functools import reduce
 import sys
 import uuid
 import json
+import ipaddress
+import re
 
 import lib.logging_helper as logging_helper
 import lib.config_helper as config_helper
@@ -30,7 +32,7 @@ from lib.generic_helper import is_base64
 from lib.class_helper import Rule, Detection, ContextProcess, ContextFlow
 
 # For context for detections (remove unused types):
-from lib.class_helper import DetectionReport, ContextFlow, ContextLog, ContextProcess, cast_to_ipaddress, Location
+from lib.class_helper import DetectionReport, ContextFlow, ContextLog, ContextProcess, cast_to_ipaddress, Location, DNSQuery
 from lib.generic_helper import deep_get, get_from_cache, add_to_cache
 
 
@@ -133,66 +135,124 @@ def init_logging(config):
 
 
 def create_flow_from_doc(mlog, doc_id, doc_dict, detection_id):
-    # Create flow object if applicable
-    if "source" in doc_dict and "destination" in doc_dict:
+    """Creates a ContextFlow object from an Elastic-SIEM document.
+       Will also add DNS or HTTP objects to flow if available.
 
-        # Get source and destination location
-        src_location = None
-        dst_location = None
+    Args:
+        mlog (logging_helper.Log): The logging object
+        doc_id (str): The Elastic-SIEM document ID
+        doc_dict (dict): The Elastic-SIEM document as a dictionary
+        detection_id (str): The detection ID
+    
+    Returns:
+        ContextFlow: The ContextFlow object
+    """
+    src_location = None
+    dst_location = None
+
+    # Create flow object if applicable
+    if "source" in doc_dict and "address" in doc_dict["source"]:
+        src_ip = cast_to_ipaddress(deep_get(doc_dict, "source.address"))
+
+        # Get source location if possible
         if "geo" in doc_dict["source"]:
             try:
                 long_lat = doc_dict["source"]["geo"]["location"]
                 src_location = Location(deep_get(doc_dict, "source.geo.country_name"), deep_get(doc_dict, "source.geo.city_name"), long_lat["lat"], long_lat["lon"], asn=deep_get(doc_dict, "source.as.number"), org=deep_get(doc_dict, "source.as.organization.name"), certainty=80)
             except Exception as e:
-                mlog.warning("Could not parse source flow location from Elastic-SIEM document: " + str(e))
+                mlog.warning("create_flow_from_doc - Could not parse source flow location from Elastic-SIEM document: " + str(e))
+    else:
+        src_ip = cast_to_ipaddress(deep_get(doc_dict, "host.ip")[0])
+        mlog.warning("create_flow_from_doc - No source IP found in Elastic-SIEM document. Using host's IP: " + str(src_ip))
+    
+    if "destination" in doc_dict and "address" in doc_dict["destination"]:
+        dst_ip = cast_to_ipaddress(deep_get(doc_dict, "destination.address"))
 
+        # Get destination location if possible
         if "geo" in doc_dict["destination"]:
             try:
                 long_lat = doc_dict["destination"]["geo"]["location"]
                 dst_location = Location(deep_get(doc_dict, "destination.geo.country_name"), deep_get(doc_dict, "destination.geo.city_name"), long_lat["lat"], long_lat["lon"], asn=deep_get(doc_dict, "destination.as.number"), org=deep_get(doc_dict, "destination.as.organization.name"), certainty=80)
             except Exception as e:
-                mlog.warning("Could not parse destination flow location from Elastic-SIEM document: " + str(e))
-
-        # Get http object if applicable
-        http = None
-        if "http" in doc_dict:
-            pass # TODO: Implement HTTP from Elastic-SIEM flow
-
-        # Get dns object if applicable
-        dns = None
-        if "dns" in doc_dict:
-            pass # TODO: Implement DNS from Elastic-SIEM flow
-
-        # Create the flow object
-        flow = ContextFlow(
-            detection_id,
-            datetime.datetime.now(),
-            "Elastic-SIEM",
-            cast_to_ipaddress(deep_get(doc_dict, "source.address")),
-            deep_get(doc_dict, "source.port"),
-            cast_to_ipaddress(deep_get(doc_dict, "destination.address")),
-            deep_get(doc_dict, "destination.port"),
-            deep_get(doc_dict, "network.protocol"),
-            deep_get(doc_dict, "network.application"),
-            None,
-            deep_get(doc_dict, "source.bytes"),
-            deep_get(doc_dict, "destination.bytes"),
-            deep_get(doc_dict, "host.mac")[0],
-            None,
-            deep_get(doc_dict, "host.name"),
-            None,
-            deep_get(doc_dict, "event.action"),
-            deep_get(doc_dict, "network.transport"),
-            None,
-            flow_source="Elastic Endpoint Security",
-            source_location=src_location,
-            destination_location=dst_location,
-            http=http,
-            dns_query=dns,
-            detection_relevance=50
-        )
+                mlog.warning("create_flow_from_doc - Could not parse destination flow location from Elastic-SIEM document: " + str(e))
     else:
-        flow = None
+        dst_ip = cast_to_ipaddress(deep_get(doc_dict, "host.ip")[0])
+        mlog.warning("create_flow_from_doc - No destination IP found in Elastic-SIEM document. Using host's IP: " + str(src_ip))
+
+
+    # Get http object if applicable
+    http = None
+    if "http" in doc_dict:
+        pass # TODO: Implement HTTP from Elastic-SIEM flow
+
+    # Get dns object if applicable
+    dns = None
+    if "dns" in doc_dict:
+        try:
+            msg = doc_dict["message"]
+            resolved_ip = None
+            has_resp = False
+            dns_type = "A" # Default type if unknown is A
+
+            # Get the resolved IP Address from the message string using regex:
+            resolved_ips = re.findall(r"(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)", msg)
+            resolved_ip = resolved_ips[0] if len(resolved_ips) > 0 else None
+            resolved_ip = ".".join(resolved_ip) if resolved_ip is not None else None
+            if resolved_ip is None:
+                # Try find an ipv6 address
+                resolved_ips = re.findall("([0-9a-fA-F]{1,4}(?::[0-9a-fA-F]{1,4}){7})", msg)
+                resolved_ip = resolved_ips[0] if len(resolved_ips) > 0 else None
+
+            
+            if resolved_ip is not None:
+                try:
+                    resolved_ip = cast_to_ipaddress(resolved_ip)
+                    has_resp = True
+                except Exception as e:
+                    mlog.warning("create_flow_from_doc - DNS: Could not parse resolved IP from Elastic-SIEM document: " + str(e))
+                    resolved_ip = None
+            else:
+                resolved_ip = None
+            
+            # Get type of DNS query
+            if has_resp and type(resolved_ip) == ipaddress.IPv4Address:
+                dns_type = "A"
+            elif has_resp and dns_type(resolved_ip) is ipaddress.IPv6Address:
+                dns_type = "AAAA"
+                
+            dns = DNSQuery(detection_id, type=dns_type, query=deep_get(doc_dict, "dns.question.name"), has_response=has_resp, query_response=resolved_ip)
+
+        except Exception as e:
+            mlog.warning("create_flow_from_doc - Could not parse flow's DNS from Elastic-SIEM document: " + str(e))
+
+    # Create the flow object
+    flow = ContextFlow(
+        detection_id,
+        datetime.datetime.now(),
+        "Elastic-SIEM",
+        src_ip,
+        deep_get(doc_dict, "source.port"),
+        dst_ip,
+        deep_get(doc_dict, "destination.port"),
+        deep_get(doc_dict, "network.protocol"),
+        deep_get(doc_dict, "network.application"),
+        None,
+        deep_get(doc_dict, "source.bytes"),
+        deep_get(doc_dict, "destination.bytes"),
+        deep_get(doc_dict, "host.mac")[0],
+        None,
+        deep_get(doc_dict, "host.name"),
+        None,
+        deep_get(doc_dict, "event.action"),
+        deep_get(doc_dict, "network.transport"),
+        None,
+        flow_source="Elastic Endpoint Security",
+        source_location=src_location,
+        destination_location=dst_location,
+        http=http,
+        dns_query=dns,
+        detection_relevance=50
+    )
 
     mlog.debug("Created flow: " + str(flow))
     return flow
@@ -449,7 +509,7 @@ def acknowledge_alert(mlog, config, alert_id, index):
     Returns:
         None
     """
-    mlog.debug("acknowledge_alert() called with alert_id: " + alert_id)
+    mlog.debug("acknowledge_alert() called with alert_id: " + str(alert_id))
 
     elastic_host = config["elastic_url"]
     elastic_user = config["elastic_user"]
@@ -618,12 +678,12 @@ def zs_provide_new_detections(config, TEST="") -> List[Detection]:
 
         # Create the detection object
         detection = Detection(
-            deep_get(doc_dict, "kibana.alert.uuid"),
-            deep_get(doc_dict, "kibana.alert.rule.name"),
+            doc_dict["kibana.alert.uuid"],
+            doc_dict["kibana.alert.rule.name"],
             rule_list,
-            deep_get(doc_dict, "@timestamp"),
-            description=deep_get(doc_dict, "kibana.alert.rule.description"),
-            tags=deep_get(doc_dict, "kibana.alert.rule.tags"),
+            doc_dict["@timestamp"],
+            description=doc_dict["kibana.alert.rule.description"],
+            tags=doc_dict["kibana.alert.rule.tags"],
             source=deep_get(doc_dict, "host.hostname"),
             process=process,
         )

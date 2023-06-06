@@ -1244,8 +1244,8 @@ class DNSQuery:
         self.query = query
 
         self.has_response = has_response
-        if not has_response and query_response != DEFAULT_IP:
-            raise ValueError("query_response must be DEFAULT_IP if has_response is False")
+        if not has_response and query_response != DEFAULT_IP and query_response != None:
+            raise ValueError("query_response must be DEFAULT_IP or None if 'has_response' is False")
         if has_response and query_response == DEFAULT_IP:
             mlog = logging_helper.Log("lib.class_helper")
             mlog.warning("DNSQuery __init__: query_response is still DEFAULT_IP while has_response is True.", str(self))

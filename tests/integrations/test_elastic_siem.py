@@ -126,7 +126,7 @@ def test_online_context_for_detections():
     ), "DetectionReport class could not be initialized"  # Sanity check - should be already tested by test_zsoar_lib.py -> test_class_helper()
 
 
-    flows = zs_provide_context_for_detections(integration_config, detection_report, ContextFlow, TEST=False, UUID=86677)
+    flows = zs_provide_context_for_detections(integration_config, detection_report, ContextFlow, TEST=False, UUID=2144)
     assert type(flows[0]) == ContextFlow, "zs_provide_context_for_detections() should return a ContextFlow object"
 
 
