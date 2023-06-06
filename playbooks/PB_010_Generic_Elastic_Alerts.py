@@ -134,7 +134,7 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
         mlog.warning(f"Got no parents for detection.")
         detection_report.update_audit(current_sub_action.set_warning(warning_message=f"Found no parents for detection."), logger=mlog)
     else:
-        detection_report.update_audit(current_sub_action.set_successful(message=f"Found {len(parents)} parents for detection."), logger=mlog)
+        detection_report.update_audit(current_sub_action.set_successful(message=f"Found {len(parents)} parents for detection.", data=parents), logger=mlog)
 
     
     children = []
@@ -149,7 +149,7 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
         mlog.warning(f"Got no children for detection.")
         detection_report.update_audit(current_sub_action.set_warning(warning_message=f"Found no children for detection."), logger=mlog)
     else:
-        detection_report.update_audit(current_sub_action.set_successful(message=f"Found {len(parents)} children for detection."), logger=mlog)
+        detection_report.update_audit(current_sub_action.set_successful(message=f"Found {len(parents)} children for detection.", data=children), logger=mlog)
 
 
 
@@ -174,16 +174,24 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
         current_action = AuditLog(PB_NAME, 6, "Create Note", "Creating note for processes in detection.")
         detection_report.update_audit(current_action, logger=mlog)
         # Replace "\n" by "<br" in process_tree
-        process_tree.replace("\n", "<br>")
-        
+        process_tree = process_tree.replace("\n", "<br>")
+        process_tree = process_tree.replace("    ", "&emsp;")
+
         body = f"<br><br>Process Tree:<br>{process_tree}"
-        body += f"Context regarding detected Process: {detection.process}<br>"
+        body += f"<br><br>Context regarding detected Process:<br><br>"
+        body += f"Process Name: {detection.process.process_name}<br>"
+        body += f"Process ID: {detection.process.process_id}<br>"
+        body += f"Process Path: {detection.process.process_path}<br>"
+        body += f"Process Command Line: {detection.process.process_command_line}<br>"
+        body += f"Process SHA256: {detection.process.process_sha256}<br>"
+
         body += f"<br><br>Parent Processes:<br><br>"
         body += format_results(parents, "html", group_by="process_id")
+
         body += f"<br><br>Child Processes:<br>"
         body += "<br>"+format_results(children, "html", group_by="process_id")
 
-        body += "<br><br>Related Processes:<br>"
+        body += "<br><br>Other Related Processes:<br>"
         body += "<br>"+format_results(detection_report.context_processes, "html", group_by="process_id")
 
         note_id = zs_add_note_to_ticket(ticket_number, "raw", DRY_RUN, "Context: Processes", body, "text/html")
