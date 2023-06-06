@@ -16,6 +16,7 @@ from playbooks.PB_010_Generic_Elastic_Alerts import zs_can_handle_detection, zs_
 from playbooks.bb_elastic_process_context import bb_get_all_processes_by_uuid
 
 TEST_ONLINE = True # Set this to True to make changes to Znuny while testing
+TEST_PROCESS_UID = "MmExOGIwZTQtZjNlYS00YmVmLWI2OTItYTk4NzUzNTY3ZjkxLTkzNTI4LTE2ODU2MTc1NTY="
 
 # Prepare the config
 cfg = Config().cfg
@@ -36,7 +37,7 @@ detectionList = []
 detectionList.append(detection)
 detection_report = DetectionReport(detectionList)
 
-process = bb_get_all_processes_by_uuid(detection_report, "Nzk1MjljZmQtY2Q3NC00NGFmLWE2N2QtZmUzMDMzMDdlMDFjLTM2NTYtMTY4NDg2MDQyNC44Mjc4NjYyMDA=")
+process = bb_get_all_processes_by_uuid(detection_report, TEST_PROCESS_UID)
 
 detection_report.add_context(process)
 detection.process = process

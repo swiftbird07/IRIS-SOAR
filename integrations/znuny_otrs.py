@@ -427,7 +427,7 @@ def zs_add_note_to_ticket(ticket_number: str, mode: str, DRY_RUN=False, raw_titl
         include_context {bool} -- If set to True, the context of the detection will be added to the note. (default: {False})
 
     Returns:
-        bool -- True if note was added successfully, False if not.
+        int -- The ID of the added note.
     """
     if not config["integrations"]["znuny_otrs"]["ticketing"]["enabled"]:
         mlog.info("Ticketing is disabled. Not adding note to ticket.")

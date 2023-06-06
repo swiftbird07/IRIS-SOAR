@@ -84,7 +84,7 @@ def test_search_entity_by_entity_id():
     cfg = config_helper.Config().cfg
     integration_config = cfg["integrations"]["elastic_siem"]
 
-    ENTITY_ID = "Nzk1MjljZmQtY2Q3NC00NGFmLWE2N2QtZmUzMDMzMDdlMDFjLTM2NTYtMTY4NDg2MDQyNC44Mjc4NjYyMDA="
+    ENTITY_ID = "MmExOGIwZTQtZjNlYS00YmVmLWI2OTItYTk4NzUzNTY3ZjkxLTkzNTI4LTE2ODU2MTc1NTY="
     ENTITY_TYPE = "process"
 
     # Test the function

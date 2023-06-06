@@ -2607,7 +2607,7 @@ class AuditLog:
         playbook_done (bool, optional): Indicates whether the playbook has been completed. Defaults to False.
 
     """
-    def __init__(self, playbook: str, stage: int, title: str, description: str = "", start_time: datetime = datetime.datetime.now(), is_ticket_related: bool = False, result_had_warnings: bool = False, result_had_errors: bool = False, result_request_retry: bool = False, result_message: str = "", result_data: dict = {}, result_in_ticket: bool = False, result_time: datetime = None, playbook_done: bool = False):
+    def __init__(self, playbook: str, stage: int, title: str, description: str = "", start_time: datetime = datetime.datetime.now(), is_ticket_related: bool = False, result_had_warnings: bool = False, result_had_errors: bool = False, result_request_retry: bool = False, result_message: str = "", result_data: dict = {}, result_in_ticket: bool = False, result_time: datetime = None, playbook_done: bool = False, result_exception=None):
         self.playbook = playbook
         self.stage: int = stage
         self.title = title
@@ -2621,41 +2621,46 @@ class AuditLog:
         self.result_data: dict = result_data
         self.result_in_ticket = result_in_ticket
         self.result_time: datetime = result_time if result_time is not None else datetime.datetime.now()
+        self.result_exception: str = result_exception
+        self.result_warning_messages: List = []
         self.stage_done: bool = False
         self.playbook_done: bool = playbook_done
 
-    def set_successful(self, in_ticket: bool = False, message: str = "The action taken was successful.", data: dict = None) -> bool:
-        """Sets the audit log element as successful."""
+    def set_successful(self, message: str = "The action taken was successful.", data: dict = None, ticket_number = None) -> bool:
+        """Sets the audit log element as successful. If a ticket number is given, "result_in_ticket" is automatically set to True."""
         self.result_had_warnings = False
         self.result_had_errors = False
         self.result_request_retry = False
         self.result_message = message
-        self.result_data = data
-        self.result_in_ticket = in_ticket
+        self.result_data["success"] = data
         self.result_time = datetime.datetime.now()
+        if ticket_number is not None:
+            self.result_in_ticket = True
+            self.related_ticket_number = ticket_number
         self.stage_done = True
         return self
     
-    def set_warning(self, in_ticket: bool = False, message: str = "The action taken had warnings, but succeeded", data: dict = None) -> bool:
+    def set_warning(self, in_ticket: bool = False, warning_message: str = "The action taken had warnings, but succeeded", data: dict = None) -> bool:
         """Sets the audit log element as successful, but with warnings (no retry)."""
         self.result_had_warnings = True
         self.result_had_errors = False
         self.result_request_retry = False
-        self.result_message = message
-        self.result_data = data
+        self.result_warning_messages.append(warning_message)
+        self.result_data["warnings"] = data
         self.result_in_ticket = in_ticket
         self.result_time = datetime.datetime.now()
         self.stage_done = True
         return self
     
-    def set_error(self, in_ticket: bool = False, message: str = "The action taken had errors and failed. Requested retry.", data: dict = None) -> bool:
+    def set_error(self, in_ticket: bool = False, message: str = "The action taken had errors and failed. Requested retry.", data: dict = None, exception=None) -> bool:
         """Sets the audit log element as failed with errors (with retry request)."""
         self.result_had_errors = True
         self.result_request_retry = True
         self.result_message = message
-        self.result_data = data
+        self.result_data["error"] = data
         self.result_in_ticket = in_ticket
         self.result_time = datetime.datetime.now()
+        self.result_exception = str(exception)
         self.stage_done = True
         return self
     
@@ -2676,6 +2681,8 @@ class AuditLog:
                 "result_request_retry": self.result_request_retry,
                 "result_message": self.result_message,
                 "result_data": str(self.result_data),
+                "result_exception": self.result_exception,
+                "result_warning_messages": self.result_warning_messages,
                 "result_in_ticket": self.result_in_ticket,
                 "result_time": str(self.result_time),
                 "playbook_done": self.playbook_done,
@@ -3032,7 +3039,7 @@ class DetectionReport:
         
         if audit.result_data is None:
             audit.result_data = {}
-        audit.result_data["detection_name"] = self.get_title() # Add detection name to result data for better overview in log entries
+        audit.result_data["detection_name"] = self.detections[0].name # Add detection name to result data for better overview in log entries
 
         for h in self.audit_trail:
             if h.playbook == audit.playbook and h.stage == audit.stage:

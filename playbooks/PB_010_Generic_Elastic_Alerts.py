@@ -93,19 +93,22 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
     mlog.info(f"Checking global whitelist for detection: '{detection.name}' ({detection.uuid})")
     if detection.check_against_whitelist():
         mlog.info(f"Detection: '{detection.name}' ({detection.uuid}) is whitelisted, skipping.")
-        detection_report.update_audit(current_action.set_successful(message="Detection is whitelisted, skipping."))
+        detection_report.update_audit(current_action.set_successful(message="Detection is whitelisted, skipping."), logger=mlog)
         return detection_report
-    detection_report.update_audit(current_action.set_successful(message="Detection is not whitelisted."))
+    detection_report.update_audit(current_action.set_successful(message="Detection is not whitelisted."), logger=mlog)
     
     # Create ticket for detection
-    mlog.info(f"Creating ticket for detection: '{detection.name}' ({detection.uuid})")
     current_action = AuditLog(PB_NAME, 1, "Create Ticket", "Creating ticket for detection.")
-    detection_report.update_audit(current_action)
+    detection_report.update_audit(current_action, logger=mlog)
 
     ticket_number = zs_create_ticket(detection_report, DRY_RUN)
     if ticket_number is None or not ticket_number:
         mlog.error(f"Failed to create ticket for detection: '{detection.name}' ({detection.uuid})")
+        detection_report.update_audit(current_action.set_error(message="Failed to create ticket for detection (No ticket_number returned)."), logger=mlog)
         return detection_report
+    else:
+        mlog.info(f"Successfully created ticket for detection: '{detection.name}' ({detection.uuid}) with ticket number: {ticket_number}")
+        detection_report.update_audit(current_action.set_successful(message=f"Successfully created ticket for detection with ticket number: {ticket_number}", ticket_number=ticket_number), logger=mlog)
     
     # Add ticket to detection (-report)
     mlog.debug(f"Adding ticket to detection and detection report.")
@@ -115,48 +118,85 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
         detection_report.add_context(ticket)
 
     # Try to get the detection context
-    mlog.info(f"Getting context for detection: '{detection.name}' ({detection.uuid})")
+    current_action = AuditLog(PB_NAME, 2, "Gathering Context", "Gathering Context for detection.")
+    detection_report.update_audit(current_action, logger=mlog)
+
+    current_sub_action = AuditLog(PB_NAME, 3, "Context - Get Parents", "Gathering Parent Process Context from Elastic.")
+    detection_report.update_audit(current_sub_action, logger=mlog)
     parents = []
     try:
         parents = bb_get_all_parents(detection_report, detection.process)#
     except Exception as e:
         mlog.error(f"Failed to get parents for detection: '{detection.name}' ({detection.uuid}). Exception: {e}")
+        detection_report.update_audit(current_sub_action.set_error(message=f"Failed to get parents for detection.", exception=e), logger=mlog)
+
     if parents is None:
         mlog.warning(f"Got no parents for detection.")
+        detection_report.update_audit(current_sub_action.set_warning(warning_message=f"Found no parents for detection."), logger=mlog)
+    else:
+        detection_report.update_audit(current_sub_action.set_successful(message=f"Found {len(parents)} parents for detection."), logger=mlog)
+
     
     children = []
+    current_sub_action = AuditLog(PB_NAME, 4, "Context - Get Children", "Gathering Children Process Context from Elastic.")
     try:
         children = bb_get_all_children(detection_report, detection.process)
     except Exception as e:
         mlog.error(f"Failed to get children for detection: '{detection.name}' ({detection.uuid}). Exception: {e}")
+        detection_report.update_audit(current_sub_action.set_error(message=f"Failed to get children for detection.", exception=e), logger=mlog)
+
     if children is None:
         mlog.warning(f"Got no children for detection.")
+        detection_report.update_audit(current_sub_action.set_warning(warning_message=f"Found no children for detection."), logger=mlog)
+    else:
+        detection_report.update_audit(current_sub_action.set_successful(message=f"Found {len(parents)} children for detection."), logger=mlog)
+
+
 
     if parents is not None or children is not None:
+        current_sub_action = AuditLog(PB_NAME, 5, "Context - Process Tree", "Gathering Process Tree from BB.")
         try:
             process_tree = bb_make_process_tree_visualisation(detection.process, parents, children)
         except Exception as e:
             mlog.error(f"Failed to create process tree visualisation for detection: '{detection.name}' ({detection.uuid}). Exception: {e}")
+            detection_report.update_audit(current_sub_action.set_error(message=f"Failed to create process tree visualisation for detection.", exception=e), logger=mlog)
         if process_tree == "":
-            mlog.warning(f"Failed to create process tree visualisation for detection.")
+            mlog.warning(f"Failed to get process tree visualisation for detection.")
+            detection_report.update_audit(current_sub_action.set_warning(warning_message=f"Failed to get process tree visualisation for detection (empty response)."), logger=mlog)
+        else:
+            detection_report.update_audit(current_sub_action.set_successful(message=f"Successfully created process tree visualisation for detection.", data=process_tree), logger=mlog)
+    else:
+        detection_report.update_audit(current_action.set_warning(warning_message=f"Found no context processes for detection."), logger=mlog)
+    detection_report.update_audit(current_action.set_successful(message=f"Successfully gathered needed context for detection."), logger=mlog)
 
     # Create note for the parent/child processes
     try:
-        mlog.info(f"Creating note for detection: '{detection.name}' ({detection.uuid})")
-        body = f"Context regarding detected Process: {detection.process}\n"
-        body += f"\n\nParent Processes:\n\n"
+        current_action = AuditLog(PB_NAME, 6, "Create Note", "Creating note for processes in detection.")
+        detection_report.update_audit(current_action, logger=mlog)
+        # Replace "\n" by "<br" in process_tree
+        process_tree.replace("\n", "<br>")
+        
+        body = f"<br><br>Process Tree:<br>{process_tree}"
+        body += f"Context regarding detected Process: {detection.process}<br>"
+        body += f"<br><br>Parent Processes:<br><br>"
         body += format_results(parents, "html", group_by="process_id")
-        body += f"\n\nChild Processes:\n"
-        body += "\n"+format_results(children, "html", group_by="process_id")
+        body += f"<br><br>Child Processes:<br>"
+        body += "<br>"+format_results(children, "html", group_by="process_id")
 
-        if process_tree != "":
-            body += f"\n\nProcess Tree:\n{process_tree}"
-        body += "\n\nRelated Processes:\n"
-        body += "\n"+format_results(detection_report.context_processes, "html", group_by="process_id")
+        body += "<br><br>Related Processes:<br>"
+        body += "<br>"+format_results(detection_report.context_processes, "html", group_by="process_id")
 
-        note = zs_add_note_to_ticket(ticket_number, "raw", DRY_RUN, "Context: Processes", body, "text/html")
+        note_id = zs_add_note_to_ticket(ticket_number, "raw", DRY_RUN, "Context: Processes", body, "text/html")
+        if type(note_id) is not int:
+            mlog.warning(f"Failed to create note for processes in detection.")
+            detection_report.update_audit(current_action.set_error(warning_message=f"Failed to create note for processes in detection (returned).", exception=note_id), logger=mlog)
+        else:
+            mlog.info(f"Successfully created note for processes in detection: '{detection.name}' ({detection.uuid}) with note id: {note_id}")
+            current_action.playbook_done = True
+            detection_report.update_audit(current_action.set_successful(message=f"Successfully created note for processes in detection with note id: {note_id}", data=str(body), ticket_number=ticket_number), logger=mlog)
     except Exception as e:
         mlog.error(f"Failed to create note for processes in detection: '{detection.name}' ({detection.uuid}). Exception: {e}")
+        detection_report.update_audit(current_action.set_error(message=f"Failed to create note for processes in detection (catched).", exception=e), logger=mlog)
 
 
 
