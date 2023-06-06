@@ -206,37 +206,59 @@ def bb_make_process_tree_visualisation(focus_process: ContextProcess, parents: L
     tree = Tree()
     # Create tree nodes for all parents
     for j in range(0, len(parents) - 0):
-        i = len(parents) - j - 1
-        process = parents[i]
-        if i == len(parents) - 1:
-            #mlog.debug("bb_make_process_tree_visualisation - Creating root node for process: " + str(process.process_name) + " (" + str(process.process_sha256) + ")")
-            tree.create_node(process.process_name + " (" + str(process.process_id) + ")", process.process_sha256)
-        else:
-            parent = parents[i+1]
-            #mlog.debug("bb_make_process_tree_visualisation - Creating node for process: " + str(process.process_name) + " (" + str(process.process_sha256) + ") " + " with parent: " + str(parent.process_name) + " (" + str(parent.process_sha256) + ")")
-            tree.create_node(process.process_name + " (" + str(process.process_id) + ")", process.process_sha256, parent=parent.process_sha256)
+        try:
+            i = len(parents) - j - 1
+            process = parents[i]
+            if i == len(parents) - 1:
+                mlog.debug("bb_make_process_tree_visualisation - Creating root node for process: " + str(process.process_name) + " (" + str(process.process_sha256) + ")")
+                root_uid = process.process_sha256
+                if root_uid is None:
+                    root_uid = "0"
+                tree.create_node(process.process_name + " (" + str(process.process_id) + ")", root_uid)
+            else:
+                parent = parents[i+1]
+                parent_sha = parent.process_sha256
+                
+                if parent.process_sha256 is None:
+                    mlog.warning(f"bb_make_process_tree_visualisation - Duplicate root node found! Process: " + str(process.process_name) + " (" + str(process.process_sha256) + "). Linking to first root node...")
+                    parent_sha = root_uid
+                mlog.debug("bb_make_process_tree_visualisation - Creating node for process: " + str(process.process_name) + " (" + str(process.process_sha256) + ") " + " with parent: " + str(parent.process_name) + " (" + str(parent_sha) + ")")
+                tree.create_node(process.process_name + " (" + str(process.process_id) + ")", process.process_sha256, parent=parent_sha)
+        except Exception as e:
+            mlog.error("bb_make_process_tree_visualisation - Parent Processes: " + str(e))
 
     # Create detected process node
-    parent_sha=parents[0].process_sha256
-    if focus_process.process_sha256 == parent_sha: # Weird bug revolving around how Elastic SIEM handles and defines parent/child EntityIDs
-        parent_sha = parents[1].process_sha256
-        if focus_process.process_sha256 == parent_sha or parent_sha == None: # Sanity check
-            parent_sha = "0"
-    tree.create_node(focus_process.process_name + " (" + str(focus_process.process_id) + ")", focus_process.process_sha256, parent=parent_sha)
+    try:
+        parent_sha=parents[0].process_sha256
+        if focus_process.process_sha256 == parent_sha: # Weird bug revolving around how Elastic SIEM handles and defines parent/child EntityIDs
+            parent_sha = parents[1].process_sha256
+            if focus_process.process_sha256 == parent_sha or parent_sha == None: # Sanity check
+                parent_sha = "0"
+
+        mlog.debug("bb_make_process_tree_visualisation - Creating node for detected process: " + str(process.process_name) + " (" + str(process.process_sha256) + ") " + " with parent: " + str(parent.process_name) + " (" + str(parent_sha) + ")")
+        tree.create_node(focus_process.process_name + " (" + str(focus_process.process_id) + ")", focus_process.process_sha256, parent=parent_sha)
+    except Exception as e:
+        mlog.error("bb_make_process_tree_visualisation - Detected Process: " + str(e))
+ 
 
     # Create tree nodes for all children
     for i in range(0, len(children)):
-        process = children[i]
-        if i == 0:
-            parent_sha = focus_process.process_sha256
-        else:
-            parent_sha = process.process_parent
         try:
-            #mlog.debug("bb_make_process_tree_visualisation - Creating node for process: " + str(process.process_name) + " (" + str(process.process_uuid) + ") " + " with parent: " + str(parent.process_name) + " (" + str(parent_sha) + ")")
-            tree.create_node(process.process_name + " (" + str(process.process_id) + ")", process.process_uuid, parent=parent_sha)
-        except exceptions.DuplicatedNodeIdError:
-            mlog.warning("bb_make_process_tree_visualisation - Duplicated node ID: " + str(process.process_uuid) + " for process: " + str(process.process_name) + ". Skipping...")
-    
+            process = children[i]
+            if i == 0:
+                parent_sha = focus_process.process_sha256
+            else:
+                parent_sha = process.process_parent
+
+            mlog.debug("bb_make_process_tree_visualisation - Creating node for process: " + str(process.process_name) + " (" + str(process.process_uuid) + ") " + " with parent: " + str(parent.process_name) + " (" + str(parent_sha) + ")")
+            try:
+                tree.create_node(process.process_name + " (" + str(process.process_id) + ")", process.process_uuid, parent=parent_sha)
+            except exceptions.NodeIDAbsentError:
+                tree.create_node(process.process_name + " (" + str(process.process_id) + ")", process.process_uuid, parent=focus_process.process_sha256)
+
+        except Exception as e:
+            mlog.error("bb_make_process_tree_visualisation - Child Processes: " + str(e))
+
     tree_str = tree.show(stdout=False)
     tree.show()
     mlog.debug("bb_make_process_tree_visualisation - Returning process tree visualisation: \n" + tree_str)

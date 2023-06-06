@@ -207,7 +207,7 @@ def update_audit_log(detection_uuid, new_action, logger=None):
     if logger is not None:
         if type(logger) is Log:
             if is_update:
-                logger.info(f"[AUDIT_UPDATE] DetectionReport '{detection_uuid}' : {str_new_action}")
+                logger.info(f"[AUDIT_UPDATE] DetectionReport '{detection_uuid}' : {str_new_action}") # TODO: Fix this not working
             else:
                 logger.info(f"[AUDIT] DetectionReport '{detection_uuid}' : {str_new_action}")
         else:
