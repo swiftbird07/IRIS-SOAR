@@ -24,12 +24,13 @@ import json
 
 import lib.logging_helper as logging_helper
 import lib.config_helper as config_helper
+from lib.generic_helper import is_base64
 
 # For new detections:
 from lib.class_helper import Rule, Detection, ContextProcess, ContextFlow
 
 # For context for detections (remove unused types):
-from lib.class_helper import DetectionReport, ContextFlow, ContextLog, ContextProcess, cast_to_ipaddress
+from lib.class_helper import DetectionReport, ContextFlow, ContextLog, ContextProcess, cast_to_ipaddress, Location
 from lib.generic_helper import deep_get, get_from_cache, add_to_cache
 
 
@@ -131,30 +132,64 @@ def init_logging(config):
     return mlog
 
 
-def create_flow_from_doc(mlog, doc_id, doc_dict):
+def create_flow_from_doc(mlog, doc_id, doc_dict, detection_id):
     # Create flow object if applicable
-    if "source.ip" in doc_dict and "destination.ip" in doc_dict:
+    if "source" in doc_dict and "destination" in doc_dict:
+
+        # Get source and destination location
+        src_location = None
+        dst_location = None
+        if "geo" in doc_dict["source"]:
+            try:
+                long_lat = doc_dict["source"]["geo"]["location"]
+                src_location = Location(deep_get(doc_dict, "source.geo.country_name"), deep_get(doc_dict, "source.geo.city_name"), long_lat["lat"], long_lat["lon"], asn=deep_get(doc_dict, "source.as.number"), org=deep_get(doc_dict, "source.as.organization.name"), certainty=80)
+            except Exception as e:
+                mlog.warning("Could not parse source flow location from Elastic-SIEM document: " + str(e))
+
+        if "geo" in doc_dict["destination"]:
+            try:
+                long_lat = doc_dict["destination"]["geo"]["location"]
+                dst_location = Location(deep_get(doc_dict, "destination.geo.country_name"), deep_get(doc_dict, "destination.geo.city_name"), long_lat["lat"], long_lat["lon"], asn=deep_get(doc_dict, "destination.as.number"), org=deep_get(doc_dict, "destination.as.organization.name"), certainty=80)
+            except Exception as e:
+                mlog.warning("Could not parse destination flow location from Elastic-SIEM document: " + str(e))
+
+        # Get http object if applicable
+        http = None
+        if "http" in doc_dict:
+            pass # TODO: Implement HTTP from Elastic-SIEM flow
+
+        # Get dns object if applicable
+        dns = None
+        if "dns" in doc_dict:
+            pass # TODO: Implement DNS from Elastic-SIEM flow
+
+        # Create the flow object
         flow = ContextFlow(
+            detection_id,
             datetime.datetime.now(),
-            doc_dict["kibana.alert.uuid"],
-            cast_to_ipaddress(doc_dict["source.ip"]),
-            cast_to_ipaddress(doc_dict["destination.ip"]),
-            doc_dict["source.port"],
-            doc_dict["destination.port"],
-            doc_dict["network.transport"],
-            doc_dict["network.protocol"],
-            doc_dict["network.bytes"],
-            doc_dict["network.packets"],
-            doc_dict["network.community_id"],
-            doc_dict["network.direction"],
-            doc_dict["network.type"],
-            doc_dict["network.application"],
-            doc_dict["network.bytes_out"],
-            doc_dict["network.bytes_in"],
-            doc_dict["network.packets_out"],
-            doc_dict["network.packets_in"],
-            doc_dict["network.packets_total"],
-            doc_dict["network.bytes_total"],
+            "Elastic-SIEM",
+            cast_to_ipaddress(deep_get(doc_dict, "source.address")),
+            deep_get(doc_dict, "source.port"),
+            cast_to_ipaddress(deep_get(doc_dict, "destination.address")),
+            deep_get(doc_dict, "destination.port"),
+            deep_get(doc_dict, "network.protocol"),
+            deep_get(doc_dict, "network.application"),
+            None,
+            deep_get(doc_dict, "source.bytes"),
+            deep_get(doc_dict, "destination.bytes"),
+            deep_get(doc_dict, "host.mac")[0],
+            None,
+            deep_get(doc_dict, "host.name"),
+            None,
+            deep_get(doc_dict, "event.action"),
+            deep_get(doc_dict, "network.transport"),
+            None,
+            flow_source="Elastic Endpoint Security",
+            source_location=src_location,
+            destination_location=dst_location,
+            http=http,
+            dns_query=dns,
+            detection_relevance=50
         )
     else:
         flow = None
@@ -285,7 +320,7 @@ def get_all_indices(mlog, config, security_only=False):
     return indices
 
 
-def search_entity_by_entity_id(mlog, config, entity_id, entity_type="process"):
+def search_entity_by_id(mlog, config, entity_id, entity_type="process", security_only=True):
     """Searches for an entity by its entity ID.
 
     Args:
@@ -297,20 +332,20 @@ def search_entity_by_entity_id(mlog, config, entity_id, entity_type="process"):
     Returns:
         dict: The entity
     """
-    mlog.debug("search_entity_by_entity_id() - called with entity_id '" + entity_id + "' and entity_type: " + entity_type)
+    mlog.debug("search_entity_by_id() - called with entity_id '" + str(entity_id) + "' and entity_type: " + entity_type)
 
     # Look in Cache first if applicable. Also check if entity_type is valid.
     if not entity_type == "parent_process":
         cache_result = get_from_cache("elastic_siem", "entities", entity_id)
         if cache_result is not None:
-            mlog.debug("search_entity_by_entity_id() - found entity in cache")
+            mlog.debug("search_entity_by_id() - found entity in cache")
             return cache_result
         else:
-            mlog.debug("search_entity_by_entity_id() - entity not found in cache")
+            mlog.debug("search_entity_by_id() - entity not found in cache")
     elif entity_type == "parent_process":
-        mlog.debug("search_entity_by_entity_id() - entity type is parent_process. Not checking cache.")
+        mlog.debug("search_entity_by_id() - entity type is parent_process. Not checking cache.")
     else:
-        raise NotImplementedError("search_entity_by_entity_id() - entity type '" + entity_type + "' not implemented")
+        raise NotImplementedError("search_entity_by_id() - entity type '" + entity_type + "' not implemented")
 
 
     elastic_host = config["elastic_url"]
@@ -325,21 +360,21 @@ def search_entity_by_entity_id(mlog, config, entity_id, entity_type="process"):
     }
 
     # Chech index cache first for last successful indeces
-    mlog.debug("search_entity_by_entity_id() - Checking index cache for last successful indices to search first...")
+    mlog.debug("search_entity_by_id() - Checking index cache for last successful indices to search first...")
     indices = get_from_cache("elastic_siem", "successful_indices", "LIST")
     if indices is not None:
-        mlog.debug("search_entity_by_entity_id() - found successful indices in cache. Checking them first.")
+        mlog.debug("search_entity_by_id() - found successful indices in cache. Checking them first.")
     else:
-        mlog.debug("search_entity_by_entity_id() - no successful indices found in cache to search first.")
+        mlog.debug("search_entity_by_id() - no successful indices found in cache to search first.")
 
-    indices_all = get_all_indices(mlog, config, security_only=True)
+    indices_all = get_all_indices(mlog, config, security_only=security_only)
     if indices is not None:
         indices = indices + indices_all
     else:
         indices = indices_all
 
     success = False
-    mlog.debug(f"search_entity_by_entity_id() - Searching for entity with ID {entity_id} in indices: " + str(indices)+ ". This may take a while...")
+    mlog.debug(f"search_entity_by_id() - Searching for entity with ID {entity_id} in indices: " + str(indices)+ ". This may take a while...")
 
     for index in indices:
         url = f"{elastic_host}/{index}/_search?size=" + str(MAX_SIZE_ELASTICSEARCH_SEARCH)
@@ -350,9 +385,12 @@ def search_entity_by_entity_id(mlog, config, entity_id, entity_type="process"):
         elif entity_type == "parent_process":
             search_query = {"query": {"bool": {"must": [{"match": {"process.parent.entity_id": entity_id}}, {"range": {"@timestamp": {"gte": lookback_time}}}]}}}
         elif entity_type == "file":
-            raise NotImplementedError # TODO: Implement file search     
+            raise NotImplementedError # TODO: Implement file search    
+        elif entity_type == "network":
+            search_query = {"query": {"bool": {"must": [{"match": {"process.pid": entity_id}}, {"match": {"event.category": "network"}}, {"range": {"@timestamp": {"gte": "now-2d/d"}}}]}}}
 
-        #mlog.debug(f"search_entity_by_entity_id() - Searching index {index} for entity with URL: " + url + " and data: " + json.dumps(search_query)) | L2 DEBUG
+
+        #mlog.debug(f"search_entity_by_id() - Searching index {index} for entity with URL: " + url + " and data: " + json.dumps(search_query)) | L2 DEBUG
 
 
         # Send Elasticsearch search request
@@ -360,15 +398,15 @@ def search_entity_by_entity_id(mlog, config, entity_id, entity_type="process"):
 
         # Check if Elasticsearch search was successful
         if response.status_code != 200:
-            mlog.error(f"search_entity_by_entity_id() - Elasticsearch search failed with status code {response.status_code}")
+            mlog.error(f"search_entity_by_id() - Elasticsearch search failed with status code {response.status_code}")
             continue
 
-        #mlog.debug(f"search_entity_by_entity_id() - Response text: {response.text}")
+        #mlog.debug(f"search_entity_by_id() - Response text: {response.text}")
 
         # Extract the entity from the Elasticsearch search response
         search_response = json.loads(response.text)
         if search_response["hits"]["total"]["value"] == 0:
-            #mlog.debug(f"search_entity_by_entity_id() - Index {index}: No entity found for entity_id {entity_id} and entity_type {entity_type}") | L2 DEBUG
+            #mlog.debug(f"search_entity_by_id() - Index {index}: No entity found for entity_id {entity_id} and entity_type {entity_type}") | L2 DEBUG
             continue
         else:
             success = True
@@ -376,24 +414,24 @@ def search_entity_by_entity_id(mlog, config, entity_id, entity_type="process"):
 
     if not success:
         if not entity_type == "parent_process":
-            mlog.warning(f"search_entity_by_entity_id() - No entity found for entity_id '{entity_id}' and entity_type '{entity_type}'")
+            mlog.warning(f"search_entity_by_id() - No entity found for entity_id '{entity_id}' and entity_type '{entity_type}'")
         else:
-            mlog.debug(f"search_entity_by_entity_id() - No entity found for entity_id '{entity_id}' and entity_type '{entity_type}'")            
+            mlog.debug(f"search_entity_by_id() - No entity found for entity_id '{entity_id}' and entity_type '{entity_type}'")            
         return None
     if search_response["hits"]["total"]["value"] > 1 and entity_type == "process":
-        mlog.warning(f"search_entity_by_entity_id() - Found more than one entity for entity_id '{entity_id}' and entity_type '{entity_type}'")
+        mlog.warning(f"search_entity_by_id() - Found more than one entity for entity_id '{entity_id}' and entity_type '{entity_type}'")
 
     if entity_type == "process":
         entity = search_response["hits"]["hits"][0]["_source"]
-        mlog.debug(f"search_entity_by_entity_id() - Entity found for entity_id '{entity_id}' and entity_type '{entity_type}': {json.dumps(entity)}")
-    elif entity_type == "parent_process":
-        mlog.debug(f"search_entity_by_entity_id() - Found {search_response['hits']['total']['value']} entities for entity_id '{entity_id}' and entity_type '{entity_type}'")
+        mlog.debug(f"search_entity_by_id() - Entity found for entity_id '{entity_id}' and entity_type '{entity_type}': {json.dumps(entity)}")
+    elif entity_type == "parent_process" or entity_type == "network":
+        mlog.debug(f"search_entity_by_id() - Found {search_response['hits']['total']['value']} entities for entity_id '{entity_id}' and entity_type '{entity_type}'")
         entities = search_response["hits"]["hits"]
         return entities
 
 
     # Save entity to cache
-    add_to_cache("elastic_siem", "entities", entity_id, entity)
+    add_to_cache("elastic_siem", "entities", str(entity_id), entity)
     # Save index name to cache
     add_to_cache("elastic_siem", "successful_indices", "LIST", index)
     
@@ -552,11 +590,11 @@ def zs_provide_new_detections(config, TEST="") -> List[Detection]:
         doc_dict = doc["_source"]
         rule_list.append(
             Rule(
-                doc_dict["kibana.alert.rule.uuid"],
-                doc_dict["kibana.alert.rule.name"],
-                doc_dict["kibana.alert.rule.severity"],
-                description=doc_dict["kibana.alert.rule.description"],
-                tags=doc_dict["kibana.alert.rule.tags"],
+                deep_get(doc_dict, "kibana.alert.rule.uuid"),
+                deep_get(doc_dict, "kibana.alert.rule.name"),
+                deep_get(doc_dict, "kibana.alert.rule.severity"),
+                description=deep_get(doc_dict, "kibana.alert.rule.description"),
+                tags=deep_get(doc_dict, "kibana.alert.rule.tags"),
             )
         )
         mlog.debug("Created rules: " + str(rule_list))
@@ -580,13 +618,13 @@ def zs_provide_new_detections(config, TEST="") -> List[Detection]:
 
         # Create the detection object
         detection = Detection(
-            doc_dict["kibana.alert.uuid"],
-            doc_dict["kibana.alert.rule.name"],
+            deep_get(doc_dict, "kibana.alert.uuid"),
+            deep_get(doc_dict, "kibana.alert.rule.name"),
             rule_list,
-            doc_dict["@timestamp"],
-            description=doc_dict["kibana.alert.rule.description"],
-            tags=doc_dict["kibana.alert.rule.tags"],
-            source=doc_dict["host"]["hostname"],
+            deep_get(doc_dict, "@timestamp"),
+            description=deep_get(doc_dict, "kibana.alert.rule.description"),
+            tags=deep_get(doc_dict, "kibana.alert.rule.tags"),
+            source=deep_get(doc_dict, "host.hostname"),
             process=process,
         )
         mlog.info("Created detection: " + str(detection))
@@ -675,7 +713,7 @@ def zs_provide_context_for_detections(
             else:
                 if UUID_is_parent:
                     mlog.info("Process Parent UUID provided. Will return all processes with parent UUID: " + UUID + " (meaning all children processes)")
-                    docs = search_entity_by_entity_id(mlog, config, UUID, entity_type="parent_process")
+                    docs = search_entity_by_id(mlog, config, UUID, entity_type="parent_process")
 
                     if docs == None or len(docs) == 0:
                         mlog.info("No processes found which have a parent with UUID: " + UUID + " (meaning no child processes found)")
@@ -695,11 +733,27 @@ def zs_provide_context_for_detections(
                             counter += 1
                 else:
                     mlog.info("UUID provided. Will return the single process with UUID: " + UUID)
-                    doc = search_entity_by_entity_id(mlog, config, UUID, entity_type="process")
+                    doc = search_entity_by_id(mlog, config, UUID, entity_type="process")
                     if doc is not None:
                         process = create_process_from_doc(mlog, doc)
                         return_objects.append(process)
 
+        elif required_type == ContextFlow:
+            if UUID is None: # UUID in this context means process ID, SHA256 or EntityID
+                # Need a process ID for now
+                return NotImplementedError
+            else:
+                if type(UUID) == int and UUID < 100000:
+                    flow_docs = search_entity_by_id(mlog, config, UUID, entity_type="network", security_only=False)
+                    for doc in flow_docs:
+                        return_objects.append(create_flow_from_doc(mlog, doc["_id"], doc["_source"], detection_id))
+                elif len(UUID) == 64: # TODO: Implement searching flow by Process / File hash
+                    pass
+                elif is_base64(UUID) and len(UUID) > 69: # TODO: Implement searching flow by Process / File Entity ID
+                    pass
+                else:
+                    mlog.error("UUID does not match either a process ID nor SHA256 / Entity ID")
+                    return None
     # ...
     # ...
     if len(return_objects) == 0:

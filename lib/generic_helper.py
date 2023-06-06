@@ -10,6 +10,7 @@ from lib.class_helper import del_none_from_dict
 import json
 from functools import reduce
 import pandas as pd
+import base64
 
 mlog = logging_helper.Log("lib.generic_helper")
 
@@ -96,7 +97,7 @@ def get_from_cache(integration, category, key="LIST"):
     try:
         config_all = config_helper.Config().cfg
         if config_all["cache"]["file"]["enabled"]:
-            mlog.debug("get_from_cache() - Cache is enabled, checking cache for category '" + category + "' with key: '"+key+"' in integration: " + integration)
+            mlog.debug("get_from_cache() - Cache is enabled, checking cache for category '" + category + "' with key: '"+str(key)+"' in integration: " + integration)
             
             # Load cahceh file to variable
             cache_file = config_all["cache"]["file"]["path"]
@@ -114,7 +115,7 @@ def get_from_cache(integration, category, key="LIST"):
                     return None
             
             # Check if entity is in cache
-            entity = deep_get(cache[integration][category], key)
+            entity = deep_get(cache[integration][category], str(key))
             if entity:
                 mlog.debug("get_from_cache() - Found entity in cache")
                 return entity
@@ -140,3 +141,9 @@ def format_results(events, format, group_by="uuid"):
     elif format == "json":
         return json.dumps(events, ensure_ascii=False, sort_keys=False)
 
+
+def is_base64(s):
+    try:
+        return base64.b64encode(base64.b64decode(s)) == s
+    except Exception:
+        return False

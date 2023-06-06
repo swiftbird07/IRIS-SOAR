@@ -1437,6 +1437,8 @@ class ContextFlow:
         destination_port (int): The destination port of the flow
         protocol (str): The protocol of the flow
         data (str): The data of the flow
+        bytes_send (int): The bytes send of the flow
+        bytes_received (int): The bytes received of the flow
         source_mac (socket.mac): The source MAC of the flow
         destination_mac (str): The destination MAC of the flow
         source_hostname (str): The source hostname of the flow
@@ -1473,6 +1475,8 @@ class ContextFlow:
         protocol: str,
         application: str = None,
         data: str = None,
+        bytes_send: int = None,
+        bytes_received: int = None,
         source_mac: str = None,
         destination_mac: str = None,
         source_hostname: str = None,
@@ -1502,6 +1506,15 @@ class ContextFlow:
 
         self.timestamp = timestamp
         self.data = data
+
+        if bytes_send is not None and (type(bytes_send) != int or bytes_send < 0):
+            raise ValueError("bytes_send must be an integer greater than 0")
+        self.bytes_send = bytes_send
+
+        if bytes_received is not None and (type(bytes_received) != int or bytes_received < 0):
+            raise ValueError("bytes_received must be an integer greater than 0")
+        self.bytes_received = bytes_received
+        
         self.integration = integration
 
         self.source_ip = source_ip

@@ -3,7 +3,7 @@
 import pytest
 
 from lib.class_helper import Detection, DetectionReport, Rule, ContextProcess, ContextLog, ContextFlow
-from integrations.elastic_siem import zs_provide_new_detections, zs_provide_context_for_detections, acknowledge_alert, search_entity_by_entity_id
+from integrations.elastic_siem import zs_provide_new_detections, zs_provide_context_for_detections, acknowledge_alert, search_entity_by_id
 import lib.logging_helper as logging_helper
 import lib.config_helper as config_helper
 import datetime
@@ -42,7 +42,7 @@ def test_zs_provide_context_for_detections():
     ), "DetectionReport class could not be initialized"  # Sanity check - should be already tested by test_zsoar_lib.py -> test_class_helper()
 
     # Test the function
-    flows = zs_provide_context_for_detections(integration_config, detection_report, ContextFlow, TEST=True)
+    flows = zs_provide_context_for_detections(integration_config, detection_report, ContextFlow, TEST=True, UUID=86677)
     assert type(flows[0]) == ContextFlow, "zs_provide_context_for_detections() should return a ContextFlow object"
 
     processes = zs_provide_context_for_detections(integration_config, detection_report, ContextProcess, TEST=True)
@@ -88,7 +88,7 @@ def test_search_entity_by_entity_id():
     ENTITY_TYPE = "process"
 
     # Test the function
-    result = search_entity_by_entity_id(mlog, integration_config, ENTITY_ID, ENTITY_TYPE)
+    result = search_entity_by_id(mlog, integration_config, ENTITY_ID, ENTITY_TYPE)
     assert result != None, "search_enity_by_entity_id() did not return a result"
 
 
@@ -107,7 +107,27 @@ def test_online_new_detections():
 
 
 def test_online_context_for_detections():
-    pass
+    # Prepare the config
+    cfg = config_helper.Config().cfg
+    integration_config = cfg["integrations"]["elastic_siem"]
+    
+    # Prepare a DetectionReport object
+    rule = Rule("123", "Some Rule", 0)
+
+    ruleList = []
+    ruleList.append(rule)
+    detection = Detection("456", "Some Detection", ruleList, datetime.datetime.now())
+
+    detectionList = []
+    detectionList.append(detection)
+    detection_report = DetectionReport(detectionList)
+    assert (
+        detection_report != None
+    ), "DetectionReport class could not be initialized"  # Sanity check - should be already tested by test_zsoar_lib.py -> test_class_helper()
+
+
+    flows = zs_provide_context_for_detections(integration_config, detection_report, ContextFlow, TEST=False, UUID=86677)
+    assert type(flows[0]) == ContextFlow, "zs_provide_context_for_detections() should return a ContextFlow object"
 
 
 #test_online_new_detections()
