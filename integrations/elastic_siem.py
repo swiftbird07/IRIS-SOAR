@@ -398,7 +398,10 @@ def search_entity_by_id(mlog, config, entity_id, entity_type="process", security
 
     # Look in Cache first if applicable. Also check if entity_type is valid.
     if not entity_type == "parent_process":
-        cache_result = get_from_cache("elastic_siem", "entities", entity_id)
+        if entity_type == "network":
+            cache_result = get_from_cache("elastic_siem", "flow_entities", entity_id)   
+        else:
+            cache_result = get_from_cache("elastic_siem", "entities", entity_id)
         if cache_result is not None:
             if cache_result == "empty":
                 mlog.debug("search_entity_by_id() - found empty entity in cache. Will not search for it again.")
@@ -452,7 +455,7 @@ def search_entity_by_id(mlog, config, entity_id, entity_type="process", security
         elif entity_type == "file":
             raise NotImplementedError # TODO: Implement file search    
         elif entity_type == "network":
-            search_query = {"query": {"bool": {"must": [{"match": {"process.pid": entity_id}}, {"match": {"event.category": "network"}}, {"range": {"@timestamp": {"gte": "now-2d/d"}}}]}}}
+            search_query = {"query": {"bool": {"must": [{"match": {"process.pid": entity_id}}, {"match": {"event.category": "network"}}, {"range": {"@timestamp": {"gte": "now-2h/d"}}}]}}}
 
 
         #mlog.debug(f"search_entity_by_id() - Searching index {index} for entity with URL: " + url + " and data: " + json.dumps(search_query)) | L2 DEBUG
@@ -486,7 +489,10 @@ def search_entity_by_id(mlog, config, entity_id, entity_type="process", security
         else:
             mlog.debug(f"search_entity_by_id() - No entity found for entity_id '{entity_id}' and entity_type '{entity_type}'")    
         # Add empty entity to cache so that we don't search for it again
-        add_to_cache("elastic_siem", "entities", str(entity_id), "empty")   
+        if entity_type != "network":
+            add_to_cache("elastic_siem", "entities", entity_id, "empty")
+        else:
+            add_to_cache("elastic_siem", "flow_entities", str(entity_id), "empty")   
         return None
     if search_response["hits"]["total"]["value"] > 1 and entity_type == "process":
         mlog.warning(f"search_entity_by_id() - Found more than one entity for entity_id '{entity_id}' and entity_type '{entity_type}'")

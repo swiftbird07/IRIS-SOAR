@@ -16,6 +16,7 @@ import lib.config_helper as config_helper
 import lib.logging_helper as logging_helper
 
 DEFAULT_IP = ipaddress.ip_address("127.0.0.1")  # When no IP address is provided, this is used
+THRESHOLD_MAX_CONTEXTS = 1000  # The maximum number of contexts for each type that can be added to a detection report
 
 # TODO: Implement all functions used by zsoar_worker.py and its modules
 
@@ -107,6 +108,12 @@ def add_to_timeline(context_list, context, timestamp: datetime):
     Returns:
         None
     """
+    if len(context_list) >= THRESHOLD_MAX_CONTEXTS:
+        mlog = logging_helper.get_logger(__name__)
+        mlog.warning(
+            "[OVERFLOW PROTECTION] Maximum number of contexts reached. No more contexts will be added to the context list of context type '" + type(context_list) + "'."
+        )
+        return
     if len(context_list) == 0:
         context_list.append(context)
     else:

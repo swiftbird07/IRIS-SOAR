@@ -19,6 +19,9 @@ BB_AUTHOR = "Martin Offermann"
 BB_LICENSE = "MIT"
 BB_ENABLED = True
 
+THRESHOLD_MAX_PROCESS_CHILDREN = 1000 # Maximum number of children to fetch for each process
+THRESHOLD_MAX_NETWORK_FLOWS = 500 # Maximum number of network flows to fetch for each process
+
 import sys
 import os
 
@@ -33,7 +36,7 @@ import sys
 import uuid
 
 import lib.logging_helper as logging_helper
-from lib.class_helper import DetectionReport, ContextProcess, ContextFlow
+from lib.class_helper import DetectionReport, ContextProcess, ContextFlow, AuditLog
 from integrations.elastic_siem import zs_provide_context_for_detections
 from lib.config_helper import Config
 
@@ -137,6 +140,7 @@ def bb_get_all_children(detection_report: DetectionReport, process: ContextProce
     :return: A list of ContextProcess objects
     """
     children = []
+    thrown_process_count = 0
     all_children, _ = get_all_children_recursive(detection_report, children, process, done_hashes=[], all_process_events=False)
     
     for child in all_children:
@@ -145,7 +149,12 @@ def bb_get_all_children(detection_report: DetectionReport, process: ContextProce
     # Sort the list by start time
     all_children.sort(key=lambda x: x.process_start_time, reverse=False)
 
-    return all_children
+    if len(all_children) > THRESHOLD_MAX_PROCESS_CHILDREN:
+        mlog.warning("bb_get_all_children - More than " + str(THRESHOLD_MAX_PROCESS_CHILDREN) + " children found for process: " + str(process.process_name) + ". Only returning the first " + str(THRESHOLD_MAX_PROCESS_CHILDREN) + " children.")
+        thrown_process_count = len(all_children) - THRESHOLD_MAX_PROCESS_CHILDREN
+        all_children = all_children[:THRESHOLD_MAX_PROCESS_CHILDREN]
+
+    return all_children, thrown_process_count
 
 
 def get_all_parents_recursive(detection_report, parents: List, process: ContextProcess):
@@ -276,16 +285,22 @@ def bb_get_process_network_flows(detection_report: DetectionReport, process: Con
     mlog.debug("get_network_flows - Getting network flows for process: " + str(process))
     pid = process.process_id
     network_flows = []
+    thrown_flows_count = 0
     # Prepare the config
     cfg = Config().cfg
     integration_config = cfg["integrations"]["elastic_siem"]
 
     network_flows: List[ContextFlow] = zs_provide_context_for_detections(integration_config, detection_report, ContextFlow, False, pid, False)
     if network_flows == None or len(network_flows) == 0:
-        mlog.debug("get_network_flows - No network flows found for process: " + str(process))
-        return None
+        mlog.debug("get_network_flows - No network flows found for process: " + str(process.process_name))
+        return None, 0
     else:
-        mlog.debug("get_network_flows - Returning " + str(len(network_flows)) + " network flows for process: " + str(process))
+        if len(network_flows) > THRESHOLD_MAX_NETWORK_FLOWS:
+            mlog.warning("get_network_flows - Too many network flows found for process: " + str(process.process_name) + ". Limiting to " + str(THRESHOLD_MAX_NETWORK_FLOWS) + " flows...")
+            thrown_flows_count = len(network_flows) - THRESHOLD_MAX_NETWORK_FLOWS
+            network_flows = network_flows[:THRESHOLD_MAX_NETWORK_FLOWS]
+
+        mlog.debug("get_network_flows - Returning " + str(len(network_flows)) + " network flows for process: " + str(process.process_name))
         for flow in network_flows:
             # Add process context to the flow
             flow.process_id = pid
@@ -294,4 +309,4 @@ def bb_get_process_network_flows(detection_report: DetectionReport, process: Con
 
             detection_report.add_context(flow)
 
-    return network_flows
+    return network_flows, thrown_flows_count

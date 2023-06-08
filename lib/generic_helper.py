@@ -129,9 +129,46 @@ def get_from_cache(integration, category, key="LIST"):
 def format_results(events, format, group_by="uuid"):
     if events is None or len(events) == 0:
         return "~ No results found ~"
-    events = [del_none_from_dict(event.__dict__()) for event in events]
+    
+    dict_events = []
+
+    # Removing fields that are unnecessary for the table view
+    for event in events:
+        event = event.__dict__()
+        if "uuid" in event:
+            del event["uuid"]
+        if "process_parent" in event:
+            del event["process_parent"]
+        if "process_flow" in event:
+            del event["process_flow"]
+        if "process_http" in event:
+            del event["process_http"]
+        if "process_parent_start_time" in event:
+            del event["process_parent_start_time"]
+        if "process_sha256" in event:
+            del event["process_sha256"]
+        if "process_sha1" in event:
+            del event["process_sha1"]
+        if "parent_process_arguments" in event:
+            del event["parent_process_arguments"]
+        if "process_modules" in event:
+            del event["process_modules"]
+        if "process_arguments" in event:
+            del event["process_arguments"]
+        if "process_children" in event:
+            del event["process_children"]
+        if "related_detection_uuids" in event:
+            del event["related_detection_uuids"]
+        if "process_uuid" in event:
+            del event["process_uuid"]
+
+        event = del_none_from_dict(event)
+        dict_events.append(event)
+
+    #events = [del_none_from_dict(event.__dict__()) for event in events]
+
     if format in ("html", "markdown"):
-        data = pd.DataFrame(data=events)
+        data = pd.DataFrame(data=dict_events)
         data = data.groupby([group_by]).agg(lambda x: x.tolist())
         data.dropna(axis=1, how="all", inplace=True)
 

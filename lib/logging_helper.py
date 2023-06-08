@@ -55,6 +55,9 @@ class Log:
                 if log_level_stdout == "none" and log_level == "none":
                     log_level_stdout = settings["logging"]["log_level_stdout"]
 
+            if (self.logger.hasHandlers()): # Remove duplicate handlers
+                self.logger.handlers.clear()
+
             if "none" not in log_level_file:
                 if settings["logging"]["split_files_by_module"]:
                     path = "logs/" + module_name + ".log"

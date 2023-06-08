@@ -10,10 +10,9 @@ import datetime
 import json
 
 import lib.logging_helper as logging_helper
-from lib.class_helper import DetectionReport, Detection, Rule, ContextProcess
+from lib.class_helper import DetectionReport, Detection, Rule, ContextProcess, ContextFlow
 from lib.config_helper import Config
-from playbooks.bb_elastic_process_context import bb_get_all_processes_by_uuid, bb_get_all_children, bb_get_all_parents, bb_make_process_tree_visualisation
-
+from playbooks.bb_elastic_process_context import bb_get_all_processes_by_uuid, bb_get_all_children, bb_get_all_parents, bb_make_process_tree_visualisation, bb_get_process_network_flows
 # Prepare the config
 cfg = Config().cfg
 integration_config = cfg["integrations"]["elastic_siem"]
@@ -24,7 +23,7 @@ mlog = logging_helper.Log("test_bb_elastic_process_context")
 # Prepare a DetectionReport object
 rule = Rule("123", "Some Rule", 0)
 
-TEST_PROCESS_UID = "MmExOGIwZTQtZjNlYS00YmVmLWI2OTItYTk4NzUzNTY3ZjkxLTkzNTI4LTE2ODU2MTc1NTY="
+TEST_PROCESS_UID = "MmExOGIwZTQtZjNlYS00YmVmLWI2OTItYTk4NzUzNTY3ZjkxLTEyODEtMTY4NTYzNTcxOA=="
 
 ruleList = []
 ruleList.append(rule)
@@ -71,7 +70,7 @@ def test_bb_get_all_parents():
 
 def test_bb_get_all_children():
     global children
-    children = bb_get_all_children(detection_report, process=bb_get_all_processes_by_uuid(detection_report, TEST_PROCESS_UID))
+    children, _ = bb_get_all_children(detection_report, process=bb_get_all_processes_by_uuid(detection_report, TEST_PROCESS_UID))
     assert type(children) == list, "get_all_children() should return a list of ContextProcess objects"
     assert len(children) > 0, "get_all_children() should return at least one child"
 
@@ -97,6 +96,17 @@ def test_bb_make_process_tree_visualisation():
     assert type(res) == str, "bb_make_process_tree_visualisation() should return a string"
     # Print the results
     mlog.info("Process tree:")
+    mlog.info(res)
+
+def test_bb_get_process_network_flows():
+    # Test the function
+    res, _ = bb_get_process_network_flows(detection_report, process)
+    assert type(res) == list, "bb_get_process_network_flows() should return a list of flows"
+    assert len(res) > 0, "bb_get_process_network_flows() should return at least one flow"
+    for flow in res:
+        assert type(flow) == ContextFlow, "bb_get_process_network_flows() should return a list of flows"
+    # Print the results
+    mlog.info("Process network flows:")
     mlog.info(res)
     
 # 

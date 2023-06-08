@@ -140,7 +140,7 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
     children = []
     current_sub_action = AuditLog(PB_NAME, 4, "Context - Get Children", "Gathering Children Process Context from Elastic.")
     try:
-        children = bb_get_all_children(detection_report, detection.process)
+        children, thrown_count = bb_get_all_children(detection_report, detection.process)
     except Exception as e:
         mlog.error(f"Failed to get children for detection: '{detection.name}' ({detection.uuid}). Exception: {e}")
         detection_report.update_audit(current_sub_action.set_error(message=f"Failed to get children for detection.", exception=e), logger=mlog)
@@ -149,6 +149,10 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
         mlog.warning(f"Got no children for detection.")
         detection_report.update_audit(current_sub_action.set_warning(warning_message=f"Found no children for detection."), logger=mlog)
     else:
+        if thrown_count > 0:
+            mlog.warning(f"[OVERFLOW PROTECTION] Got {len(children)} children for detection, but {thrown_count} children were thrown due to overflow protection.")
+            detection_report.update_audit(current_sub_action.set_warning(warning_message=f"[OVERFLOW PROTECTION] Found {len(children)} children for detection, but {thrown_count} children were thrown due to overflow protection."), logger=mlog)
+
         detection_report.update_audit(current_sub_action.set_successful(message=f"Found {len(parents)} children for detection.", data=children), logger=mlog)
 
 
@@ -210,12 +214,17 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
     try:
         current_action = AuditLog(PB_NAME, 7, "Context - Network Flows (Detected Process)", "Gathering network flows of detected process from BB.")
         detection_report.update_audit(current_action, logger=mlog)
-        detected_process_flows = bb_get_process_network_flows(detection_report, detection.process)
+        detected_process_flows, thrown_count = bb_get_process_network_flows(detection_report, detection.process)
         if detected_process_flows is None:
             mlog.warning(f"Got no network flows for detection.")
             detection_report.update_audit(current_action.set_warning(warning_message=f"Found no network flows for detected process."), logger=mlog)
         else:
             detection_report.update_audit(current_action.set_successful(message=f"Found {len(detected_process_flows)} network flows for detected process.", data=detected_process_flows), logger=mlog)
+            
+            if thrown_count > 0:
+                mlog.warning(f"[OVERFLOW PROTECTION] Threw {thrown_count} network flows for detected process.")
+                detection_report.update_audit(current_action.set_warning(warning_message=f"[OVERFLOW PROTECTION] Threw {thrown_count} network flows out for detected process, due to overflow protection."), logger=mlog)
+
     except Exception as e:
         mlog.error(f"Failed to get network flows for detection: '{detection.name}' ({detection.uuid}). Exception: {e}")
         detection_report.update_audit(current_action.set_error(message=f"Failed to get network flows for detection.", exception=e), logger=mlog)
@@ -226,8 +235,13 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
         detection_report.update_audit(current_action, logger=mlog)
         context_processes_flows = []
         for process in detection_report.context_processes:
-            new_flow = bb_get_process_network_flows(detection_report, process)
+            new_flow, thrown_count = bb_get_process_network_flows(detection_report, process)
             if new_flow is not None:
+                
+                if thrown_count > 0:
+                    mlog.warning(f"[OVERFLOW PROTECTION] Threw {thrown_count} network flows out for process: {process.process_name} ({process.process_id}).")
+                    detection_report.update_audit(current_action.set_warning(warning_message=f"[OVERFLOW PROTECTION] Threw {thrown_count} network flows out for process: {process.process_name} ({process.process_id}), due to overflow protection."), logger=mlog)
+                
                 context_processes_flows += new_flow
         if len(context_processes_flows) == 0:
             mlog.warning(f"Got no network flows from other processes.")
