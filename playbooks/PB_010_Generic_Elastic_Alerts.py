@@ -33,13 +33,13 @@ import sys
 import uuid
 
 import lib.logging_helper as logging_helper
-from lib.class_helper import DetectionReport, ContextProcess, AuditLog
+from lib.class_helper import DetectionReport, ContextProcess, AuditLog, Detection
 from lib.config_helper import Config
 from lib.generic_helper import format_results
 
 from integrations.elastic_siem import zs_provide_context_for_detections
 from integrations.znuny_otrs import zs_create_ticket, zs_add_note_to_ticket, zs_get_ticket_by_number
-from playbooks.bb_elastic_process_context import bb_get_all_children, bb_get_all_parents, bb_make_process_tree_visualisation
+from playbooks.bb_elastic_process_context import bb_get_all_children, bb_get_all_parents, bb_make_process_tree_visualisation, bb_get_process_network_flows
 
 # Prepare the logger
 cfg = Config().cfg
@@ -87,7 +87,7 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
         mlog.critical("Found no detections in detection report to handle.")
         return detection_report
     
-    detection = detections_to_handle[0] # We only handle the first detection
+    detection: Detection = detections_to_handle[0] # We only handle the first detection
 
     # First check the global whitelist for whitelist entries
     mlog.info(f"Checking global whitelist for detection: '{detection.name}' ({detection.uuid})")
@@ -117,7 +117,7 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
         detection.ticket = ticket
         detection_report.add_context(ticket)
 
-    # Try to get the detection context
+    # Try to get the detected process's parents
     current_action = AuditLog(PB_NAME, 2, "Gathering Context", "Gathering Context for detection.")
     detection_report.update_audit(current_action, logger=mlog)
 
@@ -136,7 +136,7 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
     else:
         detection_report.update_audit(current_sub_action.set_successful(message=f"Found {len(parents)} parents for detection.", data=parents), logger=mlog)
 
-    
+    # Try to get the detected process's children
     children = []
     current_sub_action = AuditLog(PB_NAME, 4, "Context - Get Children", "Gathering Children Process Context from Elastic.")
     try:
@@ -152,7 +152,7 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
         detection_report.update_audit(current_sub_action.set_successful(message=f"Found {len(parents)} children for detection.", data=children), logger=mlog)
 
 
-
+    # Create process tree visualisation if parents or children is not None
     if parents is not None or children is not None:
         current_sub_action = AuditLog(PB_NAME, 5, "Context - Process Tree", "Gathering Process Tree from BB.")
         try:
@@ -167,32 +167,33 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
             detection_report.update_audit(current_sub_action.set_successful(message=f"Successfully created process tree visualisation for detection.", data=process_tree), logger=mlog)
     else:
         detection_report.update_audit(current_action.set_warning(warning_message=f"Found no context processes for detection."), logger=mlog)
-    detection_report.update_audit(current_action.set_successful(message=f"Successfully gathered needed context for detection."), logger=mlog)
 
-    # Create note for the parent/child processes
+
+    # Create a note for Process Context
     try:
-        current_action = AuditLog(PB_NAME, 6, "Create Note", "Creating note for processes in detection.")
+        current_action = AuditLog(PB_NAME, 6, "Create Note - Process Context", "Creating note for processes in detection.")
         detection_report.update_audit(current_action, logger=mlog)
         # Replace "\n" by "<br" in process_tree
         process_tree = process_tree.replace("\n", "<br>")
         process_tree = process_tree.replace("    ", "&emsp;")
 
-        body = f"<br><br>Process Tree:<br>{process_tree}"
-        body += f"<br><br>Context regarding detected Process:<br><br>"
+        body = f"<br><br><h2>Process Context:</h2><br><br>"
+        body += f"<br><br><h3>Process Tree:</h3><br>{process_tree}"
+        body += f"<br><br><h3>Context regarding detected Process:</h3><br><br>"
         body += f"Process Name: {detection.process.process_name}<br>"
         body += f"Process ID: {detection.process.process_id}<br>"
         body += f"Process Path: {detection.process.process_path}<br>"
         body += f"Process Command Line: {detection.process.process_command_line}<br>"
         body += f"Process SHA256: {detection.process.process_sha256}<br>"
 
-        body += f"<br><br>Parent Processes:<br><br>"
+        body += f"<br><br><h3>Parent Processes:<br><br><h3>"
         body += format_results(parents, "html", group_by="process_id")
 
-        body += f"<br><br>Child Processes:<br>"
+        body += f"<br><br><h3>Child Processes:</h3><br>"
         body += "<br>"+format_results(children, "html", group_by="process_id")
 
-        body += "<br><br>Other Related Processes:<br>"
-        body += "<br>"+format_results(detection_report.context_processes, "html", group_by="process_id")
+        body += "<br><br><h3>Complete Process Timeline:</h3><br>"
+        body += "<br>"+format_results(detection_report.context_processes, "html", group_by="timestamp")
 
         note_id = zs_add_note_to_ticket(ticket_number, "raw", DRY_RUN, "Context: Processes", body, "text/html")
         if type(note_id) is not int:
@@ -200,15 +201,83 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
             detection_report.update_audit(current_action.set_error(warning_message=f"Failed to create note for processes in detection (returned).", exception=note_id), logger=mlog)
         else:
             mlog.info(f"Successfully created note for processes in detection: '{detection.name}' ({detection.uuid}) with note id: {note_id}")
-            current_action.playbook_done = True
-            detection_report.update_audit(current_action.set_successful(message=f"Successfully created note for processes in detection with note id: {note_id}", data=str(body), ticket_number=ticket_number), logger=mlog)
+            detection_report.update_audit(current_action.set_successful(message=f"Successfully created note for processes in detection with note id: {note_id}", ticket_number=ticket_number), logger=mlog)
     except Exception as e:
         mlog.error(f"Failed to create note for processes in detection: '{detection.name}' ({detection.uuid}). Exception: {e}")
         detection_report.update_audit(current_action.set_error(message=f"Failed to create note for processes in detection (catched).", exception=e), logger=mlog)
 
+    # Gather network flows from alerted process
+    try:
+        current_action = AuditLog(PB_NAME, 7, "Context - Network Flows (Detected Process)", "Gathering network flows of detected process from BB.")
+        detection_report.update_audit(current_action, logger=mlog)
+        detected_process_flows = bb_get_process_network_flows(detection_report, detection.process)
+        if detected_process_flows is None:
+            mlog.warning(f"Got no network flows for detection.")
+            detection_report.update_audit(current_action.set_warning(warning_message=f"Found no network flows for detected process."), logger=mlog)
+        else:
+            detection_report.update_audit(current_action.set_successful(message=f"Found {len(detected_process_flows)} network flows for detected process.", data=detected_process_flows), logger=mlog)
+    except Exception as e:
+        mlog.error(f"Failed to get network flows for detection: '{detection.name}' ({detection.uuid}). Exception: {e}")
+        detection_report.update_audit(current_action.set_error(message=f"Failed to get network flows for detection.", exception=e), logger=mlog)
 
+    # Gather network flows from (other) context processes
+    try:
+        current_action = AuditLog(PB_NAME, 8, "Context - Network Flows (Other Processes)", "Gathering network flows of other processes from BB.")
+        detection_report.update_audit(current_action, logger=mlog)
+        context_processes_flows = []
+        for process in detection_report.context_processes:
+            new_flow = bb_get_process_network_flows(detection_report, process)
+            if new_flow is not None:
+                context_processes_flows += new_flow
+        if len(context_processes_flows) == 0:
+            mlog.warning(f"Got no network flows from other processes.")
+            detection_report.update_audit(current_action.set_warning(warning_message=f"Found no network flows for other context processes."), logger=mlog)
+        else:
+            detection_report.update_audit(current_action.set_successful(message=f"Found {len(context_processes_flows)} network flows for other processes of detection.", data=context_processes_flows), logger=mlog)
+    except Exception as e:
+        mlog.error(f"Failed to get network flows for detection: '{detection.name}' ({detection.uuid}). Exception: {e}")
+        detection_report.update_audit(current_action.set_error(message=f"Failed to get network flows for detection.", exception=e), logger=mlog)
 
-    
-    
-    
+    detection_report.update_audit(current_action.set_successful(message=f"Successfully gathered needed context for detection."), logger=mlog)
 
+    # Create a note for Network Context
+    try:
+        current_action = AuditLog(PB_NAME, 9, "Create Note - Network Context", "Creating note for network flows in the detection.")
+        detection_report.update_audit(current_action, logger=mlog)
+        note_title = "Context: Network Flows"
+
+        # Check if any network flows were found
+        if detected_process_flows is None and len(context_processes_flows) == 0 and len(detection_report.context_flows) == 0:
+            detection_report.update_audit(current_action.set_warning(warning_message=f"Found no network flows for detection."), logger=mlog)
+            note_title += " (empty)"
+
+        body = f"<br><br><h2>Network Context:</h2><br><br>"
+        body += f"<h3>Network Flows of detected Process '{detection.process.process_name}' ({detection.process.process_id}):</h3><br><br>"
+        body += format_results(detected_process_flows, "html", group_by="timestamp")
+
+        body += f"<br><br><h3>Network Flows of other Processes:</h3><br><br>"
+        body += format_results(context_processes_flows, "html", group_by="process_id")
+
+        body += "<br><br><h3>Complete Network Timeline:</h3><br>"
+        body += "<br>"+format_results(detection_report.context_flows, "html", group_by="timestamp")
+
+        note_id = zs_add_note_to_ticket(ticket_number, "raw", DRY_RUN, note_title, body, "text/html")
+        if type(note_id) is not int:
+            mlog.warning(f"Failed to create note for network in detection.")
+            detection_report.update_audit(current_action.set_error(warning_message=f"Failed to create note for network in detection (returned).", exception=note_id), logger=mlog)
+        else:
+            mlog.info(f"Successfully created note for network in detection: '{detection.name}' ({detection.uuid}) with note id: {note_id}")
+            current_action.playbook_done = True
+            detection_report.update_audit(current_action.set_successful(message=f"Successfully created note for network in detection with note id: {note_id}", ticket_number=ticket_number), logger=mlog)
+    except Exception as e:
+        mlog.error(f"Failed to create note for network in detection: '{detection.name}' ({detection.uuid}). Exception: {e}")
+        detection_report.update_audit(current_action.set_error(message=f"Failed to create note for network in detection (catched).", exception=e), logger=mlog)
+
+# TODO:
+# - Flow context
+# - File context
+# - Registry context
+# - Threat Intel context
+# - Host / Server context
+# - Historical context
+# - Analysis (manual / automated)

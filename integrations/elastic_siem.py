@@ -237,6 +237,8 @@ def create_flow_from_doc(mlog, doc_id, doc_dict, detection_id):
         deep_get(doc_dict, "network.protocol"),
         deep_get(doc_dict, "network.application"),
         None,
+        None,
+        None,
         deep_get(doc_dict, "source.bytes"),
         deep_get(doc_dict, "destination.bytes"),
         deep_get(doc_dict, "host.mac")[0],
@@ -398,12 +400,15 @@ def search_entity_by_id(mlog, config, entity_id, entity_type="process", security
     if not entity_type == "parent_process":
         cache_result = get_from_cache("elastic_siem", "entities", entity_id)
         if cache_result is not None:
+            if cache_result == "empty":
+                mlog.debug("search_entity_by_id() - found empty entity in cache. Will not search for it again.")
+                return None
             mlog.debug("search_entity_by_id() - found entity in cache")
             return cache_result
         else:
             mlog.debug("search_entity_by_id() - entity not found in cache")
     elif entity_type == "parent_process":
-        mlog.debug("search_entity_by_id() - entity type is parent_process. Not checking cache.")
+        mlog.debug("search_entity_by_id() - entity type is parent_process. Can't check cache.")
     else:
         raise NotImplementedError("search_entity_by_id() - entity type '" + entity_type + "' not implemented")
 
@@ -458,10 +463,13 @@ def search_entity_by_id(mlog, config, entity_id, entity_type="process", security
 
         # Check if Elasticsearch search was successful
         if response.status_code != 200:
+            if response.status_code == 404:
+                #mlog.debug(f"search_entity_by_id() - Index {index}: Elasticsearch returned status code 404. Index does not exist.") | L2 DEBUG
+                continue
             mlog.error(f"search_entity_by_id() - Elasticsearch search failed with status code {response.status_code}")
             continue
 
-        #mlog.debug(f"search_entity_by_id() - Response text: {response.text}")
+        #mlog.debug(f"search_entity_by_id() - Response text: {response.text}") | L2 DEBUG
 
         # Extract the entity from the Elasticsearch search response
         search_response = json.loads(response.text)
@@ -476,7 +484,9 @@ def search_entity_by_id(mlog, config, entity_id, entity_type="process", security
         if not entity_type == "parent_process":
             mlog.warning(f"search_entity_by_id() - No entity found for entity_id '{entity_id}' and entity_type '{entity_type}'")
         else:
-            mlog.debug(f"search_entity_by_id() - No entity found for entity_id '{entity_id}' and entity_type '{entity_type}'")            
+            mlog.debug(f"search_entity_by_id() - No entity found for entity_id '{entity_id}' and entity_type '{entity_type}'")    
+        # Add empty entity to cache so that we don't search for it again
+        add_to_cache("elastic_siem", "entities", str(entity_id), "empty")   
         return None
     if search_response["hits"]["total"]["value"] > 1 and entity_type == "process":
         mlog.warning(f"search_entity_by_id() - Found more than one entity for entity_id '{entity_id}' and entity_type '{entity_type}'")
@@ -799,12 +809,20 @@ def zs_provide_context_for_detections(
                         return_objects.append(process)
 
         elif required_type == ContextFlow:
+            # TODO: Implement seach in Suricata Indices as well
+            
             if UUID is None: # UUID in this context means process ID, SHA256 or EntityID
                 # Need a process ID for now
                 return NotImplementedError
             else:
                 if type(UUID) == int and UUID < 100000:
-                    flow_docs = search_entity_by_id(mlog, config, UUID, entity_type="network", security_only=False)
+                    mlog.info("Process ID provided. Will return all flows for process with PID: " + str(UUID))
+                    flow_docs = search_entity_by_id(mlog, config, UUID, entity_type="network", security_only=True)
+
+                    if flow_docs == None or len(flow_docs) == 0:
+                        mlog.info("No flows found for process with PID: " + str(UUID))
+                        return None
+                    
                     for doc in flow_docs:
                         return_objects.append(create_flow_from_doc(mlog, doc["_id"], doc["_source"], detection_id))
                 elif len(UUID) == 64: # TODO: Implement searching flow by Process / File hash

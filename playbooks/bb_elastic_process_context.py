@@ -33,7 +33,7 @@ import sys
 import uuid
 
 import lib.logging_helper as logging_helper
-from lib.class_helper import DetectionReport, ContextProcess
+from lib.class_helper import DetectionReport, ContextProcess, ContextFlow
 from integrations.elastic_siem import zs_provide_context_for_detections
 from lib.config_helper import Config
 
@@ -263,3 +263,35 @@ def bb_make_process_tree_visualisation(focus_process: ContextProcess, parents: L
     tree.show()
     mlog.debug("bb_make_process_tree_visualisation - Returning process tree visualisation: \n" + tree_str)
     return tree_str
+
+def bb_get_process_network_flows(detection_report: DetectionReport, process: ContextProcess) -> ContextFlow:
+    """Returns all network flows for a process.
+       Context is automatically added to the DetectionReport object.
+       
+       :param detection_report: The Detection Report
+       :param process: The process to get the network flows for
+       
+       :return: A list of ContextFlow objects
+    """
+    mlog.debug("get_network_flows - Getting network flows for process: " + str(process))
+    pid = process.process_id
+    network_flows = []
+    # Prepare the config
+    cfg = Config().cfg
+    integration_config = cfg["integrations"]["elastic_siem"]
+
+    network_flows: List[ContextFlow] = zs_provide_context_for_detections(integration_config, detection_report, ContextFlow, False, pid, False)
+    if network_flows == None or len(network_flows) == 0:
+        mlog.debug("get_network_flows - No network flows found for process: " + str(process))
+        return None
+    else:
+        mlog.debug("get_network_flows - Returning " + str(len(network_flows)) + " network flows for process: " + str(process))
+        for flow in network_flows:
+            # Add process context to the flow
+            flow.process_id = pid
+            flow.process_name = process.process_name
+            flow.process_uuid = process.process_uuid
+
+            detection_report.add_context(flow)
+
+    return network_flows

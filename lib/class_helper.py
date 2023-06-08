@@ -1430,12 +1430,15 @@ class ContextFlow:
     Attributes:
         related_detection_uuid (str): The related detection unique ID of the context flow
         timestamp (datetime): The timestamp of the flow
-        integration (str): The integration of the flow
+        integration (str): The integration from which the flow was received
         source_ip (socket.inet_aton): The source IP of the flow
         source_port (int): The source port of the flow
         destination_ip (socket.inet_aton): The destination IP of the flow
         destination_port (int): The destination port of the flow
         protocol (str): The protocol of the flow
+        process_uuid (str): The UID of the process that is responsible for the flow
+        process_name (str): The name of the process that is responsible for the flow
+        process_id (int): The PID of the process that is responsible for the flow
         data (str): The data of the flow
         bytes_send (int): The bytes send of the flow
         bytes_received (int): The bytes received of the flow
@@ -1473,7 +1476,9 @@ class ContextFlow:
         destination_ip: Union[ipaddress.IPv4Address, ipaddress.IPv6Address],
         destination_port: int,
         protocol: str,
-        application: str = None,
+        process_uuid: uuid.UUID = None,
+        process_name: str = None,
+        process_id: int = None,
         data: str = None,
         bytes_send: int = None,
         bytes_received: int = None,
@@ -1491,6 +1496,7 @@ class ContextFlow:
         flow_source: str = None,
         source_location: Location = None,
         destination_location: Location = None,
+        application: str = None,
         http: HTTP = None,
         dns_query: DNSQuery = None,
         uuid: uuid.UUID = uuid.uuid4(),
@@ -1524,7 +1530,10 @@ class ContextFlow:
         self.destination_port = destination_port
 
         self.protocol = protocol
-        self.application = application
+
+        self.process_uuid = process_uuid
+        self.process_name = process_name
+        self.process_id = process_id
 
         self.source_mac = source_mac
         self.destination_mac = destination_mac
@@ -1534,6 +1543,7 @@ class ContextFlow:
 
         self.category = category
         self.sub_category = sub_category
+        self.application = application
 
         if flow_direction not in ["L2R", "R2L", "L2L", "R2R", None]:
             raise ValueError("flow_direction must be either L2R, L2L, R2L, R2R or None")
@@ -1602,7 +1612,9 @@ class ContextFlow:
             "destination_location": str(self.destination_location),
             "destination_port": self.destination_port,
             "protocol": self.protocol,
-            "application": self.application,
+            "process_uuid": str(self.process_uuid),
+            "process_id": self.process_id,
+            "process_name": self.process_name,
             "source_mac": self.source_mac,
             "destination_mac": self.destination_mac,
             "source_hostname": self.source_hostname,
@@ -1615,6 +1627,7 @@ class ContextFlow:
             "network": self.network,
             "network_type": self.network_type,
             "flow_source": self.flow_source,
+            "application": self.application,
             "http": str(self.http),
             "dns_query": str(self.dns_query),
             "uuid": str(self.uuid),

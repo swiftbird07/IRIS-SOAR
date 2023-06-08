@@ -127,6 +127,8 @@ def get_from_cache(integration, category, key="LIST"):
         return None
 
 def format_results(events, format, group_by="uuid"):
+    if events is None or len(events) == 0:
+        return "~ No results found ~"
     events = [del_none_from_dict(event.__dict__()) for event in events]
     if format in ("html", "markdown"):
         data = pd.DataFrame(data=events)

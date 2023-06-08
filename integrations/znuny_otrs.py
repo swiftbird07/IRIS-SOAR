@@ -98,7 +98,7 @@ def zs_integration_setup(zsoar_main_call=False):
         print("Please enter the required information below.")
         print("")
 
-    set_int(intgr, "url", "url", "Enter the URL to connec to to Znuny", additional_info="Example: https://tickets.example.com")
+    set_int(intgr, "url", "url", "Enter the URL to connect to to Znuny", additional_info="Example: https://tickets.example.com")
 
     set_int(intgr, "webservice_name", "str", "Enter the WebService name to use. E.g. GenericTicketConnectorREST")
     set_int(
