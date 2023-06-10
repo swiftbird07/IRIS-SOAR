@@ -235,23 +235,27 @@ def bb_make_process_tree_visualisation(focus_process: ContextProcess, parents: L
                 mlog.debug("bb_make_process_tree_visualisation - Creating node for process: " + str(process.process_name) + " (" + str(process.process_sha256) + ") " + " with parent: " + str(parent.process_name) + " (" + str(parent_sha) + ")")
                 tree.create_node(process.process_name + " (" + str(process.process_id) + ")", process.process_sha256, parent=parent_sha)
         except Exception as e:
-            mlog.error("bb_make_process_tree_visualisation - Parent Processes: " + str(e))
+            mlog.error("bb_make_process_tree_visualisation - Error in Parent Processes: " + str(e))
 
     # Create detected process node
     try:
-        parent_sha=parents[0].process_sha256
-        if focus_process.process_sha256 == parent_sha: # Weird bug revolving around how Elastic SIEM handles and defines parent/child EntityIDs
-            parent_sha = parents[1].process_sha256
-            if focus_process.process_sha256 == parent_sha or parent_sha == None: # Sanity check
-                parent_sha = "0"
-        parent_name = parents[0].process_name
-        if parent_name == None:
-            parent_name = "Unknown"
+        if len(parents) == 0:
+            tree.create_node(focus_process.process_name + " (" + str(focus_process.process_id) + ")", focus_process.process_sha256)
+        else:
+            parent_sha=parents[0].process_sha256
+            if focus_process.process_sha256 == parent_sha: # Weird bug revolving around how Elastic SIEM handles and defines parent/child EntityIDs
+                parent_sha = parents[1].process_sha256
+                if focus_process.process_sha256 == parent_sha or parent_sha == None: # Sanity check
+                    parent_sha = "0"
 
-        mlog.debug("bb_make_process_tree_visualisation - Creating node for detected process: " + str(process.process_name) + " (" + str(process.process_sha256) + ") " + " with parent: " + str(parent_name) + " (" + str(parent_sha) + ")")
-        tree.create_node(focus_process.process_name + " (" + str(focus_process.process_id) + ")", focus_process.process_sha256, parent=parent_sha)
+            parent_name = parents[0].process_name
+            if parent_name == None:
+                parent_name = "Unknown"
+
+            #mlog.debug("bb_make_process_tree_visualisation - Creating node for detected process: " + str(process.process_name) + " (" + str(process.process_sha256) + ") " + " with parent: " + str(parent_name) + " (" + str(parent_sha) + ")")
+            tree.create_node(focus_process.process_name + " (" + str(focus_process.process_id) + ")", focus_process.process_sha256, parent=parent_sha)
     except Exception as e:
-        mlog.error("bb_make_process_tree_visualisation - Detected Process: " + str(e))
+        mlog.error("bb_make_process_tree_visualisation - Error in Detected Process: " + str(e))
  
 
     # Create tree nodes for all children
@@ -263,14 +267,14 @@ def bb_make_process_tree_visualisation(focus_process: ContextProcess, parents: L
             else:
                 parent_sha = process.process_parent
 
-            mlog.debug("bb_make_process_tree_visualisation - Creating node for process: " + str(process.process_name) + " (" + str(process.process_uuid) + ") " + " with parent: "  + " (" + str(parent_sha) + ")")
+            #mlog.debug("bb_make_process_tree_visualisation - Creating node for process: " + str(process.process_name) + " (" + str(process.process_uuid) + ") " + " with parent: "  + " (" + str(parent_sha) + ")")
             try:
                 tree.create_node(process.process_name + " (" + str(process.process_id) + ")", process.process_uuid, parent=parent_sha)
             except exceptions.NodeIDAbsentError:
                 tree.create_node(process.process_name + " (" + str(process.process_id) + ")", process.process_uuid, parent=focus_process.process_sha256)
 
         except Exception as e:
-            mlog.error("bb_make_process_tree_visualisation - Child Processes: " + str(e))
+            mlog.error("bb_make_process_tree_visualisation - Error in Child Processes: " + str(e))
 
     tree_str = tree.show(stdout=False)
     tree.show()

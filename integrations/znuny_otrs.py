@@ -378,13 +378,13 @@ def zs_create_ticket(detectionReport: DetectionReport, DRY_RUN=False, detection_
     if init_note_body is None:
         init_note_body = description # TODO: Make this more sophisticated
     else:
-        init_note_body = init_note_body + "\n\n" + description 
+        init_note_body = init_note_body + "\n\n" + str(description) 
 
 
     note_title = PRE_TAG + " " + detection_title
     article = pyotrs.Article({"Body": init_note_body,
                               "Charset": "UTF8",
-                              "MimeType": "text/plain",
+                              "MimeType": "text/html",
                               "Subject": init_note_title,
                               "TimeUnit": 0})
 

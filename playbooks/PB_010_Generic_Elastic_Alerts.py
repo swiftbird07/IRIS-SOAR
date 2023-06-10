@@ -35,7 +35,7 @@ import uuid
 import lib.logging_helper as logging_helper
 from lib.class_helper import DetectionReport, ContextProcess, AuditLog, Detection
 from lib.config_helper import Config
-from lib.generic_helper import format_results
+from lib.generic_helper import format_results, get_unique
 
 from integrations.elastic_siem import zs_provide_context_for_detections
 from integrations.znuny_otrs import zs_create_ticket, zs_add_note_to_ticket, zs_get_ticket_by_number
@@ -100,8 +100,12 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
     # Create ticket for detection
     current_action = AuditLog(PB_NAME, 1, "Create Ticket", "Creating ticket for detection.")
     detection_report.update_audit(current_action, logger=mlog)
+    
+    init_title = f"Detection: {detection.name} ({detection.uuid})"
+    init_body = f"Detection: {detection.name} ({detection.uuid})\n\n"
+    init_body += format_results(detection, "html", transform=True, group_by="")
 
-    ticket_number = zs_create_ticket(detection_report, DRY_RUN)
+    ticket_number = zs_create_ticket(detection_report, DRY_RUN,init_note_title=init_title, init_note_body=init_body)
     if ticket_number is None or not ticket_number:
         mlog.error(f"Failed to create ticket for detection: '{detection.name}' ({detection.uuid})")
         detection_report.update_audit(current_action.set_error(message="Failed to create ticket for detection (No ticket_number returned)."), logger=mlog)
@@ -134,7 +138,10 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
         mlog.warning(f"Got no parents for detection.")
         detection_report.update_audit(current_sub_action.set_warning(warning_message=f"Found no parents for detection."), logger=mlog)
     else:
-        detection_report.update_audit(current_sub_action.set_successful(message=f"Found {len(parents)} parents for detection.", data=parents), logger=mlog)
+        process_names = []
+        for process in detection_report.context_processes:
+            process_names.append(f"{process.process_name} ({process.process_id})")
+        detection_report.update_audit(current_sub_action.set_successful(message=f"Found {len(parents)} parents for detection.", data=process_names), logger=mlog)
 
     # Try to get the detected process's children
     children = []
@@ -153,8 +160,11 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
         if thrown_count > 0:
             mlog.warning(f"[OVERFLOW PROTECTION] Got {len(children)} children for detection, but {thrown_count} children were thrown due to overflow protection.")
             detection_report.update_audit(current_sub_action.set_warning(warning_message=f"[OVERFLOW PROTECTION] Found {len(children)} children for detection, but {thrown_count} children were thrown due to overflow protection."), logger=mlog)
-
-        detection_report.update_audit(current_sub_action.set_successful(message=f"Found {len(parents)} children for detection.", data=children), logger=mlog)
+        
+        process_names = []
+        for process in detection_report.context_processes:
+            process_names.append(f"{process.process_name}")
+        detection_report.update_audit(current_sub_action.set_successful(message=f"Found {len(parents)} children for detection.", data=process_names), logger=mlog)
 
 
     # Create process tree visualisation if parents or children is not None
@@ -191,6 +201,9 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
         body += f"Process Command Line: {detection.process.process_command_line}<br>"
         body += f"Process SHA256: {detection.process.process_sha256}<br>"
 
+        body += f"<br><br><h3>List of all reported process names: </h3><br><br>"
+        body += f"{get_unique(process_names)}"
+
         body += f"<br><br><h3>Parent Processes:<br><br><h3>"
         body += format_results(parents, "html", group_by="process_id")
 
@@ -220,7 +233,11 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
             mlog.warning(f"Got no network flows for detection.")
             detection_report.update_audit(current_action.set_warning(warning_message=f"Found no network flows for detected process."), logger=mlog)
         else:
-            detection_report.update_audit(current_action.set_successful(message=f"Found {len(detected_process_flows)} network flows for detected process.", data=detected_process_flows), logger=mlog)
+            destination_ips = []
+            for flow in detection_report.context_flows: # Add all destination IPs from context flows to list for the audit log
+                destination_ips.append(flow.destination_ip)
+
+            detection_report.update_audit(current_action.set_successful(message=f"Found {len(detected_process_flows)} network flows for detected process.", data=destination_ips), logger=mlog)
             
             if thrown_count > 0:
                 mlog.warning(f"[OVERFLOW PROTECTION] Threw {thrown_count} network flows for detected process.")
@@ -250,7 +267,11 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
             mlog.warning(f"Got no network flows from other processes.")
             detection_report.update_audit(current_action.set_warning(warning_message=f"Found no network flows for other context processes."), logger=mlog)
         else:
-            detection_report.update_audit(current_action.set_successful(message=f"Found {len(context_processes_flows)} network flows for other processes of detection.", data=context_processes_flows), logger=mlog)
+            destination_ips = []
+            for flow in detection_report.context_flows: # Add all destination IPs from context flows to list for the audit log
+                destination_ips.append(flow.destination_ip)
+
+            detection_report.update_audit(current_action.set_successful(message=f"Found {len(context_processes_flows)} network flows for other processes of detection.", data=destination_ips), logger=mlog)
     except Exception as e:
         mlog.error(f"Failed to get network flows for detection: '{detection.name}' ({detection.uuid}). Exception: {e}")
         detection_report.update_audit(current_action.set_error(message=f"Failed to get network flows for detection.", exception=e), logger=mlog)
@@ -272,6 +293,8 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
         body += f"<h3>Network Flows of detected Process '{detection.process.process_name}' ({detection.process.process_id}):</h3><br><br>"
         body += format_results(detected_process_flows, "html", group_by="timestamp")
 
+        body += f"<br><br><h3>List of all reported IPs and domains: </h3><br><br>"
+        body += str(detection_report.indicators["ip"])+"<br>"+str(detection_report.indicators["domain"])+ "<br><br>"
         body += f"<br><br><h3>Network Flows of other Processes (grouped by process):</h3><br><br>"
         body += format_results(context_processes_flows, "html", group_by="process_id")
 
@@ -300,7 +323,10 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
             mlog.warning(f"Got no file events for detection.")
             detection_report.update_audit(current_action.set_warning(warning_message=f"Found no file events for detected process."), logger=mlog)
         else:
-            detection_report.update_audit(current_action.set_successful(message=f"Found {len(detected_process_file_events)} file events for detected process.", data=detected_process_file_events), logger=mlog)
+            file_names = []
+            for event in detected_process_file_events[0]: # Gather all file names for the audit log
+                file_names.append(event.file_name)
+            detection_report.update_audit(current_action.set_successful(message=f"Found {len(detected_process_file_events)} file events for detected process.", data=file_names), logger=mlog)
     except Exception as e:
         mlog.error(f"Failed to get file events for detection: '{detection.name}' ({detection.uuid}). Exception: {e}")
         detection_report.update_audit(current_action.set_error(message=f"Failed to get file events for detection.", exception=e), logger=mlog)
@@ -325,7 +351,10 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
             mlog.warning(f"Got no file events from other processes.")
             detection_report.update_audit(current_action.set_warning(warning_message=f"Found no file events for other context processes."), logger=mlog)
         else:
-            detection_report.update_audit(current_action.set_successful(message=f"Found {len(context_processes_file_events)} file events for other processes of detection.", data=context_processes_file_events), logger=mlog)
+            file_names = []
+            for event in context_processes_file_events: # Gather all file names for the audit log
+                file_names.append(event.file_name)
+            detection_report.update_audit(current_action.set_successful(message=f"Found {len(context_processes_file_events)} file events for other processes of detection.", data=file_names), logger=mlog)
     except Exception as e:
         mlog.error(f"Failed to get file events for detection: '{detection.name}' ({detection.uuid}). Exception: {e}")
         detection_report.update_audit(current_action.set_error(message=f"Failed to get file events for detection.", exception=e), logger=mlog)
@@ -343,8 +372,10 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
 
         body = f"<br><br><h2>File Event Context:</h2><br><br>"
         body += f"<h3>File Events of detected Process '{detection.process.process_name}' ({detection.process.process_id}):</h3><br><br>"
-        body += format_results(detected_process_file_events, "html", group_by="timestamp")
+        body += format_results(detected_process_file_events[0], "html", group_by="timestamp")
 
+        body += f"<br><br><h3>List of all reported files: </h3><br><br>"
+        body += f"{get_unique(file_names)}"
         body += f"<br><br><h3>File Events of other Processes (grouped by process):</h3><br><br>"
         body += format_results(context_processes_file_events, "html", group_by="process_id")
 

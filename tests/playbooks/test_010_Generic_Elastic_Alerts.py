@@ -16,7 +16,7 @@ from playbooks.PB_010_Generic_Elastic_Alerts import zs_can_handle_detection, zs_
 from playbooks.bb_elastic_process_context import bb_get_all_processes_by_uuid
 
 TEST_ONLINE = True # Set this to True to make changes to Znuny while testing
-TEST_PROCESS_UID = "ODkzYjNkNDAtYTdiNy00MjdjLWJhYjItM2U4NGEzZjMzNWMxLTIyMTUyLTE2ODQ4MjUzMzkuMzE5NzU5MzAw"
+TEST_PROCESS_UID = "ODkzYjNkNDAtYTdiNy00MjdjLWJhYjItM2U4NGEzZjMzNWMxLTkwMjAtMTY4NDUxMjc4Mi44MTkzMTM2MDA="
 
 # Prepare the config
 cfg = Config().cfg

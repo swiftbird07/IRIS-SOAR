@@ -126,10 +126,14 @@ def get_from_cache(integration, category, key="LIST"):
         mlog.warning("get_from_cache() - Error getting value from cache: " + str(e))
         return None
 
-def format_results(events, format, group_by="uuid"):
-    if events is None or len(events) == 0:
+def format_results(events, format, group_by="uuid", transform=False):
+    if events is None or (type(events) == list and len(events) == 0):
         return "~ No results found ~"
-    
+    if type(events) is list and len(events) == 1:
+        events = events[0]
+    if type(events) is not list:
+        events = [events]
+
     dict_events = []
 
     # Removing fields that are unnecessary for the table view
@@ -229,17 +233,28 @@ def format_results(events, format, group_by="uuid"):
         event = del_none_from_dict(event)
         dict_events.append(event)
 
+    # If only one event, return it as a dict
+    if len(dict_events) == 1:
+        dict_events = dict_events[0]
+
     #events = [del_none_from_dict(event.__dict__()) for event in events]
 
     if format in ("html", "markdown"):
         data = pd.DataFrame(data=dict_events)
-        data = data.groupby([group_by]).agg(lambda x: x.tolist())
+        if transform:
+            data = data.T
+        if group_by != "":
+            data = data.groupby([group_by]).agg(lambda x: x.tolist())
         data.dropna(axis=1, how="all", inplace=True)
 
         if format == "html":
-            tmp = data.to_html(index=False, classes=None)
+            tmp = data.to_html(index=False, classes=None, bold_rows=True)
             return tmp.replace(' class="dataframe"', "")
         elif format == "markdown":
             return data.to_markdown(index="false")
     elif format == "json":
         return json.dumps(events, ensure_ascii=False, sort_keys=False)
+    
+def get_unique(data):
+    """Get unique values from a list"""
+    return list(set(data))
