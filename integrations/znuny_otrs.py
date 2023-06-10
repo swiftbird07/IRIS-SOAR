@@ -36,7 +36,7 @@ from lib.class_helper import Rule, Detection, ContextProcess, ContextFlow
 
 # For context for detections (remove unused types):
 from lib.class_helper import DetectionReport, ContextFlow, ContextLog, ContextProcess, cast_to_ipaddress
-from lib.generic_helper import deep_get, get_from_cache, add_to_cache
+from lib.generic_helper import dict_get, get_from_cache, add_to_cache
 
 PRE_TAG = "[ZSOAR]" # Tag before the title of the ticket (without spaces)
 

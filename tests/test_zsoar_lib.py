@@ -191,7 +191,7 @@ def test_class_helper():
     assert process != None, "ContextProcessclass (for test child) could not be initialized"
 
     # Test ContextFile class
-    file = class_helper.ContextFile(detection.uuid, "image.png", "C:\\Tmp\image.png", 512456, is_directory=False, file_extension=".png")
+    file = class_helper.ContextFile(detection.uuid, "delete", "image.png", "C:\\Tmp\image.png", 512456, is_directory=False, file_extension=".png")
     assert file != None, "File class could not be initialized"
     assert file.file_extension == "png", "File class file_extension not set correctly"
 

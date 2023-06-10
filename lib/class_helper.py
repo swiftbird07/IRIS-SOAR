@@ -109,11 +109,12 @@ def add_to_timeline(context_list, context, timestamp: datetime):
         None
     """
     if len(context_list) >= THRESHOLD_MAX_CONTEXTS:
-        mlog = logging_helper.get_logger(__name__)
-        mlog.warning(
-            "[OVERFLOW PROTECTION] Maximum number of contexts reached. No more contexts will be added to the context list of context type '" + type(context_list) + "'."
-        )
+        mlog = logging_helper.Log("lib.class_helper")
+        mlog.debug(
+            "add_to_timeline() - [OVERFLOW PROTECTION] Maximum number of contexts reached. No more contexts will be added to the context list of context type '" + str(type(context_list[0])) + "'."
+        ) # This logs to debug instead of warning, as it can likely spam the log and also there should be a warning on playbook level
         return
+    
     if len(context_list) == 0:
         context_list.append(context)
     else:
@@ -989,6 +990,8 @@ class Certificate:
         signature_algorithm (str): The signature algorithm of the certificate
         public_key_algorithm (str): The public key algorithm of the certificate
         public_key_size (int): The public key size of the certificate
+        is_trusted (bool): If the certificate is trusted on the system
+        is_self_signed (bool): If the certificate is self signed
 
 
     Methods:
@@ -1015,6 +1018,8 @@ class Certificate:
         signature_algorithm: str = None,
         public_key_algorithm: str = None,
         public_key_size: int = None,
+        is_trusted: bool = None,
+        is_self_signed: bool = None,
     ):
         self.related_detection_uuid = related_detection_uuid
         self.issuer = issuer
@@ -1044,6 +1049,9 @@ class Certificate:
         self.public_key_size = public_key_size
         self.timestamp = datetime.datetime.now()  # when the object was created (for cross-context compatibility)
 
+        self.is_trusted = is_trusted
+        self.is_self_signed = is_self_signed
+
     def __dict__(self):
         dict_ = {
             "timestamp": self.timestamp,
@@ -1064,6 +1072,8 @@ class Certificate:
             "signature_algorithm": self.signature_algorithm,
             "public_key_algorithm": self.public_key_algorithm,
             "public_key_size": self.public_key_size,
+            "is_trusted": self.is_trusted,
+            "is_self_signed": self.is_self_signed,
         }
         return dict_
 
@@ -1073,14 +1083,15 @@ class Certificate:
 
 
 class ContextFile:
-    """File class. Represents a file.
-       ! This class is not a stand-alone context. !
-       Use the ContextProcess context if th file is related to process activity. Use in ContextFlow context if the file is related to network activity.
+    """File class. Represents a file event in the context of a detection.
 
     Attributes:
         related_detection_uuid (uuid.UUID): The UUID of the detection the file is related to
+        action (str): The action that was performed on the file (create, modify, delete, rename, etc.)
         file_name (str): The name of the file
+        file_original_name (str): The original name of the file (if renamed)
         file_path (str): The path of the file
+        file_original_path (str): The original path of the file (if moved)
         file_size (int): The size of the file
         file_md5 (str): The MD5 hash of the file
         file_sha1 (str): The SHA1 hash of the file
@@ -1088,6 +1099,11 @@ class ContextFile:
         file_type (str): The type of the file
         file_extension (str): The extension of the file
         file_signature (Certificate): The signature of the file
+        file_header_bytes (str): The first bytes of the file
+        file_entropy (float): The entropy of the file
+        process_name (str): The name of the process that created the file
+        process_id (int): The ID of the process that created the file
+        process_uuid (uuid.UUID): The UUID of the process that created the file
         last_modified (datetime): The last modified time of the file
         is_encrypted (bool): Whether the file is encrypted
         is_compressed (bool): Whether the file is compressed
@@ -1116,8 +1132,11 @@ class ContextFile:
     def __init__(
         self,
         related_detection_uuid: uuid.UUID,
+        action: str,
         file_name: str,
+        file_original_name: str = "",
         file_path: str = "",
+        file_original_path: str = "",
         file_size: int = 0,
         file_md5: str = "",
         file_sha1: str = "",
@@ -1125,6 +1144,11 @@ class ContextFile:
         file_type: str = "",
         file_extension: str = "",
         file_signature: Certificate = None,
+        file_header_bytes: str = "",
+        file_entropy: float = 0.0,
+        process_name: str = "",
+        process_id: int = 0,
+        process_uuid: uuid.UUID = None,
         last_modified: datetime = datetime.datetime(1970, 1, 1, 0, 0, 0),
         is_encrypted: bool = False,
         is_compressed: bool = False,
@@ -1143,10 +1167,13 @@ class ContextFile:
         uuid: uuid.UUID = uuid.uuid4(),
     ):
         self.related_detection_uuid = related_detection_uuid
+        self.action = action
         self.file_name = file_name
+        self.file_original_name = file_original_name
         self.file_path = file_path
+        self.file_original_path = file_original_path
 
-        if file_size < 0:
+        if file_size and file_size < -1:
             raise ValueError("file_size must not be negative")
         self.file_size = file_size
 
@@ -1161,6 +1188,13 @@ class ContextFile:
         self.file_extension = file_extension
 
         self.file_signature = file_signature
+
+        self.process_name = process_name
+        self.process_id = process_id
+        self.process_uuid = process_uuid
+
+        self.file_header_bytes = file_header_bytes
+        self.file_entropy = file_entropy
 
         self.is_encrypted = is_encrypted
         self.is_compressed = is_compressed
@@ -1184,8 +1218,11 @@ class ContextFile:
     def __dict__(self):
         dict_ = {
             "related_detection_uuid": self.related_detection_uuid,
+            "action": self.action,
             "file_name": self.file_name,
+            "file_original_name": self.file_original_name,
             "file_path": self.file_path,
+            "file_original_path": self.file_original_path,
             "file_size": self.file_size,
             "file_md5": self.file_md5,
             "file_sha1": self.file_sha1,
@@ -1193,6 +1230,11 @@ class ContextFile:
             "file_type": self.file_type,
             "file_extension": self.file_extension,
             "file_signature": str(self.file_signature),
+            "file_header_bytes": self.file_header_bytes,
+            "file_entropy": str(self.file_entropy),
+            "process_name": self.process_name,
+            "process_id": self.process_id,
+            "process_uuid": self.process_uuid,
             "is_encrypted": self.is_encrypted,
             "is_compressed": self.is_compressed,
             "is_archive": self.is_archive,

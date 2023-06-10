@@ -9,6 +9,8 @@ import lib.config_helper as config_helper
 import datetime
 import uuid
 
+ENTITY_ID = "ODkzYjNkNDAtYTdiNy00MjdjLWJhYjItM2U4NGEzZjMzNWMxLTkwMjAtMTY4NDUxMjc4Mi44MTkzMTM2MDA="
+ENTITY_TYPE = "process"
 
 def test_zs_provide_new_detections():
     # Prepare the config
@@ -84,9 +86,6 @@ def test_search_entity_by_entity_id():
     cfg = config_helper.Config().cfg
     integration_config = cfg["integrations"]["elastic_siem"]
 
-    ENTITY_ID = "MmExOGIwZTQtZjNlYS00YmVmLWI2OTItYTk4NzUzNTY3ZjkxLTkzNTI4LTE2ODU2MTc1NTY="
-    ENTITY_TYPE = "process"
-
     # Test the function
     result = search_entity_by_id(mlog, integration_config, ENTITY_ID, ENTITY_TYPE)
     assert result != None, "search_enity_by_entity_id() did not return a result"
@@ -126,7 +125,7 @@ def test_online_context_for_detections():
     ), "DetectionReport class could not be initialized"  # Sanity check - should be already tested by test_zsoar_lib.py -> test_class_helper()
 
 
-    flows = zs_provide_context_for_detections(integration_config, detection_report, ContextFlow, TEST=False, UUID=2144)
+    flows = zs_provide_context_for_detections(integration_config, detection_report, ContextFlow, TEST=False, UUID=ENTITY_ID)
     assert type(flows[0]) == ContextFlow, "zs_provide_context_for_detections() should return a ContextFlow object"
 
 

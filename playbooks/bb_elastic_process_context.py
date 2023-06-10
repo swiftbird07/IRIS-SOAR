@@ -21,6 +21,7 @@ BB_ENABLED = True
 
 THRESHOLD_MAX_PROCESS_CHILDREN = 1000 # Maximum number of children to fetch for each process
 THRESHOLD_MAX_NETWORK_FLOWS = 500 # Maximum number of network flows to fetch for each process
+THRESHOLD_MAX_FILE_EVENTS = 500 # Maximum number of files to fetch for each process
 
 import sys
 import os
@@ -36,7 +37,7 @@ import sys
 import uuid
 
 import lib.logging_helper as logging_helper
-from lib.class_helper import DetectionReport, ContextProcess, ContextFlow, AuditLog
+from lib.class_helper import DetectionReport, ContextProcess, ContextFlow, ContextFile
 from integrations.elastic_siem import zs_provide_context_for_detections
 from lib.config_helper import Config
 
@@ -243,8 +244,11 @@ def bb_make_process_tree_visualisation(focus_process: ContextProcess, parents: L
             parent_sha = parents[1].process_sha256
             if focus_process.process_sha256 == parent_sha or parent_sha == None: # Sanity check
                 parent_sha = "0"
+        parent_name = parents[0].process_name
+        if parent_name == None:
+            parent_name = "Unknown"
 
-        mlog.debug("bb_make_process_tree_visualisation - Creating node for detected process: " + str(process.process_name) + " (" + str(process.process_sha256) + ") " + " with parent: " + str(parent.process_name) + " (" + str(parent_sha) + ")")
+        mlog.debug("bb_make_process_tree_visualisation - Creating node for detected process: " + str(process.process_name) + " (" + str(process.process_sha256) + ") " + " with parent: " + str(parent_name) + " (" + str(parent_sha) + ")")
         tree.create_node(focus_process.process_name + " (" + str(focus_process.process_id) + ")", focus_process.process_sha256, parent=parent_sha)
     except Exception as e:
         mlog.error("bb_make_process_tree_visualisation - Detected Process: " + str(e))
@@ -259,7 +263,7 @@ def bb_make_process_tree_visualisation(focus_process: ContextProcess, parents: L
             else:
                 parent_sha = process.process_parent
 
-            mlog.debug("bb_make_process_tree_visualisation - Creating node for process: " + str(process.process_name) + " (" + str(process.process_uuid) + ") " + " with parent: " + str(parent.process_name) + " (" + str(parent_sha) + ")")
+            mlog.debug("bb_make_process_tree_visualisation - Creating node for process: " + str(process.process_name) + " (" + str(process.process_uuid) + ") " + " with parent: "  + " (" + str(parent_sha) + ")")
             try:
                 tree.create_node(process.process_name + " (" + str(process.process_id) + ")", process.process_uuid, parent=parent_sha)
             except exceptions.NodeIDAbsentError:
@@ -283,14 +287,14 @@ def bb_get_process_network_flows(detection_report: DetectionReport, process: Con
        :return: A list of ContextFlow objects
     """
     mlog.debug("get_network_flows - Getting network flows for process: " + str(process))
-    pid = process.process_id
+    uuid = process.process_uuid
     network_flows = []
     thrown_flows_count = 0
     # Prepare the config
     cfg = Config().cfg
     integration_config = cfg["integrations"]["elastic_siem"]
 
-    network_flows: List[ContextFlow] = zs_provide_context_for_detections(integration_config, detection_report, ContextFlow, False, pid, False)
+    network_flows: List[ContextFlow] = zs_provide_context_for_detections(integration_config, detection_report, ContextFlow, False, uuid, False)
     if network_flows == None or len(network_flows) == 0:
         mlog.debug("get_network_flows - No network flows found for process: " + str(process.process_name))
         return None, 0
@@ -303,10 +307,48 @@ def bb_get_process_network_flows(detection_report: DetectionReport, process: Con
         mlog.debug("get_network_flows - Returning " + str(len(network_flows)) + " network flows for process: " + str(process.process_name))
         for flow in network_flows:
             # Add process context to the flow
-            flow.process_id = pid
+            flow.process_id = process.process_id
             flow.process_name = process.process_name
             flow.process_uuid = process.process_uuid
 
             detection_report.add_context(flow)
 
     return network_flows, thrown_flows_count
+
+def bb_get_process_file_events(detection_report: DetectionReport, process: ContextProcess) -> ContextFile:
+    """Returns all file events for a process.
+       Context is automatically added to the DetectionReport object.
+       
+       :param detection_report: The Detection Report
+       :param process: The process to get the file events for
+       
+       :return: A list of ContextFile objects
+    """
+    mlog.debug("get_file_events - Getting file events for process: " + str(process))
+    uuid = process.process_uuid
+    file_events = []
+    thrown_events_count = 0
+    # Prepare the config
+    cfg = Config().cfg
+    integration_config = cfg["integrations"]["elastic_siem"]
+
+    file_events: List[ContextFile] = zs_provide_context_for_detections(integration_config, detection_report, ContextFile, False, uuid, False)
+    if file_events == None or len(file_events) == 0:
+        mlog.debug("get_file_events - No file events found for process: " + str(process.process_name))
+        return None, 0
+    else:
+        if len(file_events) > THRESHOLD_MAX_FILE_EVENTS:
+            mlog.warning("get_file_events - Too many file events found for process: " + str(process.process_name) + ". Limiting to " + str(THRESHOLD_MAX_FILE_EVENTS) + " events...")
+            thrown_events_count = len(file_events) - THRESHOLD_MAX_FILE_EVENTS
+            file_events = file_events[:THRESHOLD_MAX_FILE_EVENTS]
+
+        mlog.debug("get_file_events - Returning " + str(len(file_events)) + " file events for process: " + str(process.process_name))
+        for event in file_events:
+            # Add process context to the event
+            event.process_id = process.process_uuid
+            event.process_name = process.process_name
+            event.process_uuid = process.process_uuid
+
+            detection_report.add_context(event)
+
+    return file_events, thrown_events_count

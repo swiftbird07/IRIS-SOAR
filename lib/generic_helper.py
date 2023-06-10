@@ -16,7 +16,7 @@ mlog = logging_helper.Log("lib.generic_helper")
 
 #
 
-def deep_get(dictionary, keys, default=None):
+def dict_get(dictionary, keys, default=None):
     """Gets a value from a nested dictionary.
 
     Args:
@@ -115,7 +115,7 @@ def get_from_cache(integration, category, key="LIST"):
                     return None
             
             # Check if entity is in cache
-            entity = deep_get(cache[integration][category], str(key))
+            entity = dict_get(cache[integration][category], str(key))
             if entity:
                 mlog.debug("get_from_cache() - Found entity in cache")
                 return entity
@@ -134,6 +134,12 @@ def format_results(events, format, group_by="uuid"):
 
     # Removing fields that are unnecessary for the table view
     for event in events:
+        if event is None or type(event) is int:
+            continue
+        if type(event) is list:
+            event = event[0]
+            mlog.warning("format_results() - 'Event' is a list, taking first item")
+
         event = event.__dict__()
         if "uuid" in event:
             del event["uuid"]
@@ -161,6 +167,64 @@ def format_results(events, format, group_by="uuid"):
             del event["related_detection_uuids"]
         if "process_uuid" in event:
             del event["process_uuid"]
+        if "related_detection_uuid" in event:
+            del event["related_detection_uuid"]
+
+        if "process_id" in event:
+            if type(event["process_id"]) is not int: # If a UUID == process_id, limit it to not be too long in the table
+                event["process_id"] = event["process_id"][:5]
+
+        # Try to expand some fields
+        try:
+            if "destination_location" in event:
+                loc = event["destination_location"]
+                del event["destination_location"]
+
+                if loc is not None and loc != "None":
+                    loc = json.loads(loc)
+                    country = dict_get(loc, "country")
+                    if country is not None:
+                        event["destination_location_country"] = country
+
+                    city = dict_get(loc, "city")
+                    if city is not None:
+                        event["destination_location_city"] = city
+
+                    org = dict_get(loc, "org")
+                    if org is not None:
+                        event["destination_location_org"] = org
+
+            if "dns_query" in event:
+                dns_query = event["dns_query"]
+                del event["dns_query"]
+
+                if dns_query is not None and dns_query != "None":
+                    dns_query = json.loads(dns_query)
+
+                    dns_query = dict_get(dns_query, "query")
+                    if dns_query is not None:
+                        event["dns_query"] = dns_query
+
+                    dns_query_response = dict_get(dns_query, "query_response")
+                    if dns_query_response is not None:
+                        event["dns_response"] = dns_query_response
+
+            if "process_signature" in event:
+                signature = event["process_signature"]
+                del event["process_signature"]
+
+                if signature is not None and signature != "None":
+                    signature = json.loads(signature)
+
+                    issuer = dict_get(signature, "issuer")
+                    if issuer is not None:
+                        event["process_signature_issuer"] = issuer
+                    
+                    event["process_signature_trusted"] = dict_get(signature, "is_trusted")
+                        
+        except Exception as e:
+            mlog.warning("format_results() - Error expanding fields: " + str(e))
+        
 
         event = del_none_from_dict(event)
         dict_events.append(event)
@@ -179,10 +243,3 @@ def format_results(events, format, group_by="uuid"):
             return data.to_markdown(index="false")
     elif format == "json":
         return json.dumps(events, ensure_ascii=False, sort_keys=False)
-
-
-def is_base64(s):
-    try:
-        return base64.b64encode(base64.b64decode(s)) == s
-    except Exception:
-        return False
