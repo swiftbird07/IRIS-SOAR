@@ -22,6 +22,7 @@ BB_ENABLED = True
 THRESHOLD_MAX_PROCESS_CHILDREN = 1000 # Maximum number of children to fetch for each process
 THRESHOLD_MAX_NETWORK_FLOWS = 500 # Maximum number of network flows to fetch for each process
 THRESHOLD_MAX_FILE_EVENTS = 500 # Maximum number of files to fetch for each process
+THRESHOLD_MAX_REGISTRY_EVENTS = 500 # Maximum number of registry events to fetch for each process
 
 import sys
 import os
@@ -37,7 +38,7 @@ import sys
 import uuid
 
 import lib.logging_helper as logging_helper
-from lib.class_helper import DetectionReport, ContextProcess, ContextFlow, ContextFile
+from lib.class_helper import DetectionReport, ContextProcess, ContextFlow, ContextFile, ContextRegistry
 from integrations.elastic_siem import zs_provide_context_for_detections
 from lib.config_helper import Config
 
@@ -356,3 +357,41 @@ def bb_get_process_file_events(detection_report: DetectionReport, process: Conte
             detection_report.add_context(event)
 
     return file_events, thrown_events_count
+
+def bb_get_process_registry_events(detection_report: DetectionReport, process: ContextProcess) -> ContextRegistry:
+    """Returns all registry events for a process.
+       Context is automatically added to the DetectionReport object.
+       
+       :param detection_report: The Detection Report
+       :param process: The process to get the registry events for
+       
+       :return: A list of ContextRegistry objects
+    """
+    mlog.debug("get_registry_events - Getting registry events for process: " + str(process))
+    uuid = process.process_uuid
+    registry_events = []
+    thrown_events_count = 0
+    # Prepare the config
+    cfg = Config().cfg
+    integration_config = cfg["integrations"]["elastic_siem"]
+
+    registry_events: List[ContextRegistry] = zs_provide_context_for_detections(integration_config, detection_report, ContextRegistry, False, uuid, False)
+    if registry_events == None or len(registry_events) == 0:
+        mlog.debug("get_registry_events - No registry events found for process: " + str(process.process_name))
+        return None, 0
+    else:
+        if len(registry_events) > THRESHOLD_MAX_REGISTRY_EVENTS:
+            mlog.warning("get_registry_events - Too many registry events found for process: " + str(process.process_name) + ". Limiting to " + str(THRESHOLD_MAX_REGISTRY_EVENTS) + " events...")
+            thrown_events_count = len(registry_events) - THRESHOLD_MAX_REGISTRY_EVENTS
+            registry_events = registry_events[:THRESHOLD_MAX_REGISTRY_EVENTS]
+
+        mlog.debug("get_registry_events - Returning " + str(len(registry_events)) + " registry events for process: " + str(process.process_name))
+        for event in registry_events:
+            # Add process context to the event
+            event.process_id = process.process_uuid
+            event.process_name = process.process_name
+            event.process_uuid = process.process_uuid
+
+            detection_report.add_context(event)
+
+    return registry_events, thrown_events_count

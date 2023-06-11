@@ -191,7 +191,7 @@ def test_class_helper():
     assert process != None, "ContextProcessclass (for test child) could not be initialized"
 
     # Test ContextFile class
-    file = class_helper.ContextFile(detection.uuid, "delete", "image.png", "C:\\Tmp\image.png", 512456, is_directory=False, file_extension=".png")
+    file = class_helper.ContextFile(detection.uuid, datetime.datetime.now(), "delete", "image.png", "C:\\Tmp\image.png", 512456, is_directory=False, file_extension=".png")
     assert file != None, "File class could not be initialized"
     assert file.file_extension == "png", "File class file_extension not set correctly"
 
@@ -306,6 +306,11 @@ def test_class_helper():
     assert len(device.services) == 1, "Device class services not set correctly"
     assert device.services[0].name == "Microsoft Exchange", "Device class services not set correctly"
 
+    # Test ContextRegistry class
+    reg_context = class_helper.ContextRegistry(detection.uuid, datetime.datetime.now(), "modification", "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", "C:\\Windows\\System32\\calc.exe")
+    assert reg_context.registry_key == "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", "Could not create RegistryContext"
+    assert reg_context.registry_value == "C:\\Windows\\System32\\calc.exe", "Could not create RegistryContext"
+
     # Test DetectionReport add_context
     detection_report.add_context(log_message)
     assert len(detection_report.context_logs) == 1, "Could not add context log_message to detection"
@@ -395,6 +400,9 @@ def test_class_helper():
     flow.dns_query = class_helper.DNSQuery(detection.uuid, "A", "*.example.com", True, "10.10.10.10")
     detection_report.add_context(flow)
     assert detection_report.indicators["domain"][1] == "example.com", "Could not add indicators to detection"
+    
+    detection_report.add_context(reg_context)
+    assert detection_report.indicators["registry"][0] == "hklm\\software\\microsoft\\windows\\currentversion\\run->c:\\windows\\system32\\calc.exe", "Could not add indicators to detection"
 
     # Test DetectionReport class indicators
     detection2 = class_helper.DetectionReport(detection.uuid)
@@ -428,6 +436,7 @@ def test_class_helper():
     assert detection_report.get_audit_by_playbook("test")[0] == audit_log, "Could not get auditLog by playbook name"
     assert detection_report.get_audit_by_playbook_stage("test", 0)[0]== audit_log, "Could not get auditLog by playbook name and stage"
     assert detection_report.get_audit_by_playbook("test")[0].result_had_errors is True, "ActionLog was not updated with error"
+
 
     # Test String printings
     mlog.info("Test for printing objects: ")

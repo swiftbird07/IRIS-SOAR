@@ -1087,6 +1087,7 @@ class ContextFile:
 
     Attributes:
         related_detection_uuid (uuid.UUID): The UUID of the detection the file is related to
+        timestamp (datetime): When the object was created (for cross-context compatibility)
         action (str): The action that was performed on the file (create, modify, delete, rename, etc.)
         file_name (str): The name of the file
         file_original_name (str): The original name of the file (if renamed)
@@ -1132,6 +1133,7 @@ class ContextFile:
     def __init__(
         self,
         related_detection_uuid: uuid.UUID,
+        timestamp: datetime,
         action: str,
         file_name: str,
         file_original_name: str = "",
@@ -1167,6 +1169,7 @@ class ContextFile:
         uuid: uuid.UUID = uuid.uuid4(),
     ):
         self.related_detection_uuid = related_detection_uuid
+        self.timestamp = timestamp
         self.action = action
         self.file_name = file_name
         self.file_original_name = file_original_name
@@ -1218,6 +1221,7 @@ class ContextFile:
     def __dict__(self):
         dict_ = {
             "related_detection_uuid": self.related_detection_uuid,
+            "timestamp": self.timestamp,
             "action": self.action,
             "file_name": self.file_name,
             "file_original_name": self.file_original_name,
@@ -2095,6 +2099,67 @@ class ContextLog:
         """Returns the string representation of the object."""
         return json.dumps(del_none_from_dict(self.__dict__()), indent=4, sort_keys=False, default=str)
 
+class ContextRegistry:
+    """The ContextRegistry class. Used for storing registry data.
+
+    Attributes:
+        action (str): The action of the registry event
+        registry_key (str): The registry key
+        registry_value (str): The registry value
+        registry_data (str): The registry data
+        registry_data_type (str): The registry data type
+        registry_hive (str): The registry hive
+        registry_path (str): The registry path
+    """
+    def __init__(
+        self,
+        related_detection_uuid: uuid.UUID,
+        timestamp: datetime.datetime,
+        action: str,
+        registry_key: str,
+        registry_value: str,
+        registry_data: str = None,
+        registry_data_type: str = None,
+        registry_hive: str = None,
+        registry_path: str = None,
+        process_name: str = None,
+        process_id: int = None,
+        process_uuid: str = None,
+    ):
+        self.related_detection_uuid = related_detection_uuid
+        self.timestamp = timestamp
+        self.action = action
+        self.registry_key = registry_key
+        self.registry_value = registry_value
+        self.registry_data = registry_data
+        self.registry_data_type = registry_data_type
+        self.registry_hive = registry_hive
+        self.registry_path = registry_path
+        self.process_name = process_name
+        self.process_id = process_id
+        self.process_uuid = process_uuid
+
+    def __dict__(self):
+        dict_ = {
+            "related_detection_uuid": str(self.related_detection_uuid),
+            "timestamp": str(self.timestamp),
+            "action": self.action,
+            "registry_key": self.registry_key,
+            "registry_value": self.registry_value,
+            "registry_data": self.registry_data,
+            "registry_data_type": self.registry_data_type,
+            "registry_hive": self.registry_hive,
+            "registry_path": self.registry_path,
+            "process_name": self.process_name,
+            "process_id": self.process_id,
+            "process_uuid": self.process_uuid,
+        }
+        return dict_
+
+    def __str__(self):
+        """Returns the string representation of the object."""
+        return json.dumps(del_none_from_dict(self.__dict__()), indent=4, sort_keys=False, default=str)
+    
 
 class ThreatIntel:
     """Detection by an idividual threat intel engine (e.g. Kaspersky, Avast, Microsoft, etc.).
@@ -2355,6 +2420,7 @@ class Detection:
         http_request (HTTP): A HTTP request related to the detection
         dns_request (DNS): A DNS request related to the detection
         certificate (Certificate): A certificate related to the detection
+        registry (Registry): A registry related to the detection
         uuid (str): The universal unique ID of the detection (UUID v4 - random if not set)
 
     Methods:
@@ -2383,6 +2449,7 @@ class Detection:
         device: ContextDevice = None,
         user: Person = None,
         file: ContextFile = None,
+        registry: ContextRegistry = None,
         uuid: uuid.UUID = uuid.uuid4(),
     ):
         self.vendor_id = vendor_id
@@ -2466,14 +2533,17 @@ class Detection:
         http_request = None
         if flow != None and flow.http:
             http_request = flow.http
+        self.http_request = http_request
 
         dns_request = None
         if flow != None and flow.dns_query:
             dns_request = flow.dns_query
+        self.dns_request = dns_request
 
         certificate = None
         if flow != None and flow.http != None and flow.http.certificate:
             certificate = flow.http.certificate
+        self.certificate = certificate
 
         if http_request != None:
             if not isinstance(http_request, HTTP):
@@ -2492,6 +2562,7 @@ class Detection:
                     self.indicators["hash"].append(http_request.file.file_sha1)
                 if http_request.file.file_sha256:
                     self.indicators["hash"].append(http_request.file.file_sha256)
+        self.http_request = http_request
 
         if dns_request != None:
             if not isinstance(dns_request, DNSQuery):
@@ -2509,6 +2580,12 @@ class Detection:
             if certificate.subject_alternative_names is not None and len(certificate.subject_alternative_names) > 0:
                 for san in certificate.subject_alternative_names:
                     self.indicators["domain"].append(san)
+
+        if registry != None:
+            if not isinstance(registry, ContextRegistry):
+                raise TypeError("registry must be of type ContextRegistry")
+            self.indicators["registry"].append(registry.registry_key)
+        self.registry = registry
 
         self.uuid = uuid
         self.ticket: pyotrs.Ticket = None
@@ -2544,6 +2621,7 @@ class Detection:
             "device": str(self.device),
             "user": str(self.user),
             "file": str(self.file),
+            "registry": str(self.registry),
             "uuid": self.uuid,
         }
 
@@ -2800,6 +2878,7 @@ class DetectionReport:
         context_http_requests (List[HTTP]): The context http requests of the report
         context_dns_requests (List[DNS]): The context dns requests of the report
         context_certificates (List[Certificate]): The context certificates of the report
+        context_registries (List[Registry]): The context registries of the report
         context_tickets (List[Ticket]): The context tickets of the report
         uuid (str): The universal unique ID of the report (uuid4 - random if not set)
         indicators (Dict[str, List[str]]): The indicators of the report (key: indicator type, value: list of indicators)
@@ -2831,10 +2910,11 @@ class DetectionReport:
         self.context_devices: List[ContextDevice] = []
         self.context_persons: List[Person] = []
         self.context_files: List[ContextFile] = []
+        self.context_registries: List[ContextRegistry] = []
         self.context_tickets: List[pyotrs.Ticket] = [] 
 
         self.uuid = uuid
-        self.indicators = {"ip": [], "domain": [], "url": [], "hash": [], "email": [], "countries": [], "other": []}
+        self.indicators = {"ip": [], "domain": [], "url": [], "hash": [], "email": [], "countries": [], "registry": [], "other": []}
 
         self.audit_trail[0].result_had_warnings = False
         self.audit_trail[0].result_had_errors = False
@@ -2861,6 +2941,7 @@ class DetectionReport:
             "context_devices": str(self.context_devices),
             "context_persons": str(self.context_persons),
             "context_files": str(self.context_files),
+            "context_registries": str(self.context_registries),
             "uuid": self.uuid,
             "indicators": self.indicators,
             "audit_trail": self.audit_trail
@@ -2873,7 +2954,7 @@ class DetectionReport:
 
     # Getter and setter;
 
-    def add_context(self, context: Union[ContextLog, ContextProcess, ContextFlow, ContextThreatIntel, Location, ContextDevice, Person, ContextFile, pyotrs.Ticket]):
+    def add_context(self, context: Union[ContextLog, ContextProcess, ContextFlow, ContextThreatIntel, Location, ContextDevice, Person, ContextFile, ContextRegistry, pyotrs.Ticket]):
         """Adds a context to the detection report, respecting the timeline
 
         Args:
@@ -2957,6 +3038,12 @@ class DetectionReport:
 
         elif isinstance(context, Person):
             add_to_timeline(self.context_persons, context, timestamp)
+
+        elif isinstance(context, ContextRegistry):
+            add_to_timeline(self.context_registries, context, timestamp)
+            registry_indicator = context.registry_key.lower() + "->" + context.registry_value.lower()
+            self.indicators["registry"].append(registry_indicator)
+
 
         elif isinstance(context, ContextFile):
             add_to_timeline(self.context_files, context, timestamp)

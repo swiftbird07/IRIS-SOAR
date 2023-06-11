@@ -33,7 +33,7 @@ import lib.config_helper as config_helper
 from lib.class_helper import Rule, Detection, ContextProcess, ContextFlow
 
 # For context for detections (remove unused types):
-from lib.class_helper import DetectionReport, ContextFlow, ContextLog, ContextProcess, cast_to_ipaddress, Location, DNSQuery, ContextFile, Certificate
+from lib.class_helper import DetectionReport, ContextFlow, ContextLog, ContextProcess, cast_to_ipaddress, Location, DNSQuery, ContextFile, Certificate, ContextRegistry
 from lib.generic_helper import dict_get, get_from_cache, add_to_cache
 
 
@@ -229,7 +229,7 @@ def create_flow_from_doc(mlog, doc_id, doc_dict, detection_id):
     # Create the flow object
     flow = ContextFlow(
         detection_id,
-        datetime.datetime.now(),
+        dict_get(doc_dict, "@timestamp"),
         "Elastic-SIEM",
         src_ip,
         dict_get(doc_dict, "source.port"),
@@ -309,7 +309,7 @@ def create_process_from_doc(mlog, doc_dict, detectionOnly=True):
 
     # Create the process object
     process = ContextProcess(
-        timestamp=datetime.datetime.now(),
+        timestamp=dict_get(doc_dict, "@timestamp"),
         related_detection_uuid=dict_get(doc_dict, "kibana.alert.uuid"),
         process_name=dict_get(doc_dict, "process.name"),
         process_id=dict_get(doc_dict, "process.pid"),
@@ -361,6 +361,7 @@ def create_file_from_doc(mlog, doc_dict, detection_id):
     # Create the file object
     file = ContextFile(
         detection_id,
+        timestamp=dict_get(doc_dict, "@timestamp"),
         action=dict_get(doc_dict, "event.action"),
         file_name=dict_get(doc_dict, "file.name"),
         file_original_name=dict_get(doc_dict, "file.original.name"),
@@ -376,6 +377,27 @@ def create_file_from_doc(mlog, doc_dict, detection_id):
     mlog.debug("Created file: " + str(file.file_name))
     return file
 
+def create_registry_from_doc(mlog, doc_dict, detection_id):
+    """Creates a ContextRegistry object from a Elastic-SIEM document."""
+    mlog.debug(
+        "Creating ContextRegistry object from Elastic-SIEM document."
+    )
+
+    # Create the registry object
+    registry = ContextRegistry(
+        detection_id,
+        timestamp=dict_get(doc_dict, "@timestamp"),
+        action=dict_get(doc_dict, "event.action"),
+        registry_key=dict_get(doc_dict, "registry.key"),
+        registry_value=dict_get(doc_dict, "registry.value"),
+        registry_data=dict_get(doc_dict, "registry.data.bytes"),
+        registry_data_type=dict_get(doc_dict, "registry.data.type"),
+        registry_hive=dict_get(doc_dict, "registry.hive"),
+        registry_path=dict_get(doc_dict, "registry.path"),
+    )
+
+    mlog.debug("Created registry: " + str(registry.registry_key))
+    return registry
 
 
 def get_all_indices(mlog, config, security_only=False):
@@ -451,16 +473,18 @@ def search_entity_by_id(mlog, config, entity_id, entity_type="process", security
     skip_cache = False
 
     # Check if entity_type is valid first
-    valid_entity_types = ["network", "file", "parent_process", "process"]
+    valid_entity_types = ["network", "file", "parent_process", "process", "registry"]
     if entity_type not in valid_entity_types:
         raise NotImplementedError(f"search_entity_by_id() - entity_type '{entity_type}' not implemented")
 
     # Now, check if the enity is in the cache (except for parent_process)
-    if entity_type != "parent_process":
+    if entity_type != "parent_process": # Except for entity_type 'process' this will in the best case return 'empty' (literally) to indicate that the entity was not found previously and does not need to be searched. If it was found previously, it is not saved to the cache because of the size of the data.
         if entity_type == "network":
             cache_result = get_from_cache("elastic_siem", "flow_entities", entity_id)   
         elif entity_type == "file":
             cache_result = get_from_cache("elastic_siem", "file_entities", entity_id)
+        elif entity_type == "registry":
+            cache_result = get_from_cache("elastic_siem", "registry_entities", entity_id)
         else:
             cache_result = get_from_cache("elastic_siem", "entities", entity_id)
             if cache_result and len(cache_result) > 1:
@@ -523,6 +547,8 @@ def search_entity_by_id(mlog, config, entity_id, entity_type="process", security
             search_query = {"query": {"bool": {"must": [{"match": {"process.entity_id": entity_id}}, {"match": {"event.category": "file"}}, {"range": {"@timestamp": {"gte": lookback_time}}}]}}}
         elif entity_type == "network":
             search_query = {"query": {"bool": {"must": [{"match": {"process.entity_id": entity_id}}, {"match": {"event.category": "network"}}, {"range": {"@timestamp": {"gte": lookback_time}}}]}}}
+        elif entity_type == "registry":
+            search_query = {"query": {"bool": {"must": [{"match": {"process.entity_id": entity_id}}, {"match": {"event.category": "registry"}}, {"range": {"@timestamp": {"gte": lookback_time}}}]}}}
 
 
         #mlog.debug(f"search_entity_by_id() - Searching index {index} for entity with URL: " + url + " and data: " + json.dumps(search_query)) | L2 DEBUG
@@ -562,6 +588,9 @@ def search_entity_by_id(mlog, config, entity_id, entity_type="process", security
 
         elif entity_type == "file":
             add_to_cache("elastic_siem", "file_entities", str(entity_id), "empty") 
+        
+        elif entity_type == "registry":
+            add_to_cache("elastic_siem", "registry_entities", str(entity_id), "empty")
 
         else:
             add_to_cache("elastic_siem", "entities", entity_id, "empty")
@@ -583,16 +612,9 @@ def search_entity_by_id(mlog, config, entity_id, entity_type="process", security
 
 
     # Save entity to cache
-    if entity_type == "network":
-        add_to_cache("elastic_siem", "flow_entities", str(entity_id), entity)
-
-    elif entity_type == "file":
-        add_to_cache("elastic_siem", "file_entities", str(entity_id), entity)
-
-    else:
+    if entity_type == "process": # Other entity types are not cached as it is unlikely that they will be searched for again for another detection
         add_to_cache("elastic_siem", "entities", entity_id, entity)
 
-    add_to_cache("elastic_siem", "entities", str(entity_id), entity)
     # Save index name to cache
     add_to_cache("elastic_siem", "successful_indices", "LIST", index)
     
@@ -837,17 +859,18 @@ def zs_provide_context_for_detections(
     mlog.info(f"zs_provide_context_for_detections() called for detection report: {detection_report_str} and required_type: {required_type}" + uuid_str)
 
     return_objects = []
-    provided_typed = []
-    provided_typed.append(ContextFlow)
-    provided_typed.append(ContextLog)
-    provided_typed.append(ContextProcess)
-    provided_typed.append(ContextFile)
+    provided_types = []
+    provided_types.append(ContextFlow)
+    provided_types.append(ContextLog)
+    provided_types.append(ContextProcess)
+    provided_types.append(ContextFile)
+    provided_types.append(ContextRegistry)
 
     detection_name = detection_report.detections[0].name
     detection_id = detection_report.detections[0].uuid
 
-    if required_type not in provided_typed:
-        mlog.error("The required type is not provided by this integration. '" + str(required_type) + "' is not in " + str(provided_typed))
+    if required_type not in provided_types:
+        mlog.error("The required type is not provided by this integration. '" + str(required_type) + "' is not in " + str(provided_types))
         raise TypeError("The required type is not provided by this integration.")
 
     if TEST:  # When called from unit tests, return dummy data. Can be removed in production.
@@ -926,7 +949,7 @@ def zs_provide_context_for_detections(
                 return NotImplementedError
             else:
                 if len(UUID) > 69: # TODO: Implement searching file by Process / File Entity ID
-                    mlog.info("File Entity ID provided. Will return file with Entity ID: " + UUID)
+                    mlog.info("Process Entity ID provided. Will return file with Entity ID: " + UUID)
                     file_docs = search_entity_by_id(mlog, config, UUID, entity_type="file", security_only=True)
 
                     if file_docs == None or len(file_docs) == 0:
@@ -939,6 +962,23 @@ def zs_provide_context_for_detections(
                 else:
                     mlog.error("UUID does not match either a valid Elastic Entity ID")
                     return None
+                
+        elif required_type == ContextRegistry:
+            if UUID is None:
+                # Need a process ID for now
+                return NotImplementedError
+            else:
+                if len(UUID) > 69:
+                    mlog.info("Process Entity ID provided. Will return registry with Entity ID: " + UUID)
+                    registry_docs = search_entity_by_id(mlog, config, UUID, entity_type="registry", security_only=True)
+
+                    if registry_docs == None or len(registry_docs) == 0:
+                        mlog.info("No registry entries found with Entity ID: " + UUID)
+                        return None
+                    
+                    for doc in registry_docs:
+                        registry_obj = create_registry_from_doc(mlog, doc["_source"], detection_id)
+                        return_objects.append(registry_obj)
     # ...
     # ...
     if len(return_objects) == 0:
