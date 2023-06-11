@@ -469,7 +469,6 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
     
 
 # TODO:
-# - Registry context
 # - Threat Intel context
 # - Host / Server context
 # - Historical context

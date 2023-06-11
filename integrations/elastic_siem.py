@@ -4,11 +4,10 @@
 #
 # This module is capable of:
 # [X] Providing new detections.
-# [X] Providing context for detections of type [ContextFlow | ContextProcess | ContextLog]
-# ...from Elastic REST API inteface.
+# [X] Providing context for detections of type [ContextFlow | ContextProcess | ContextFile | ContextRegistry]
 # [X] User interactive setup.
 #
-# Integration Version: 0.0.5
+# Integration Version: 0.1.0
 # Currently limited to process related detections and contexts.
 
 import logging
@@ -17,7 +16,6 @@ import datetime
 import requests
 from elasticsearch import Elasticsearch, AuthenticationException
 from ssl import create_default_context
-from functools import reduce
 import sys
 import uuid
 import json
@@ -27,17 +25,15 @@ import random
 import string
 
 import lib.logging_helper as logging_helper
-import lib.config_helper as config_helper
 
 # For new detections:
 from lib.class_helper import Rule, Detection, ContextProcess, ContextFlow
 
-# For context for detections (remove unused types):
+# For context for detections:
 from lib.class_helper import DetectionReport, ContextFlow, ContextLog, ContextProcess, cast_to_ipaddress, Location, DNSQuery, ContextFile, Certificate, ContextRegistry
 from lib.generic_helper import dict_get, get_from_cache, add_to_cache
 
 
-LOG_LEVEL = "DEBUG"  # Force log level. Recommended to set to DEBUG during development.
 ELASTIC_MAX_RESULTS = 50  # Maximum number of results to return from Elastic-SIEM for a Context in one query
 VERBOSE_DEBUG = False  # If set to True, the script will print additional debug information to stdout, including the full Elastic-SIEM response
 MAX_SIZE_ELASTICSEARCH_SEARCH = 10000  # Maximum number of results to return from Elastic-SIEM in one query

@@ -47,7 +47,7 @@ def add_to_cache(integration, category, key, value):
     try:
         config_all = config_helper.Config().cfg
         if config_all["cache"]["file"]["enabled"]:
-            mlog.debug("add_to_cache() - Cache is enabled, saving value '" + str(value) + "' to cache. Category: '" + category + "' with key: '"+key+"' in integration: " + integration)
+            mlog.debug("add_to_cache() - Cache is enabled, saving value '" + str(value) + "' to cache. Category: '" + str(category) + "' with key: '"+str(key)+"' in integration: " + integration)
             cache_file = config_all["cache"]["file"]["path"]
             with open(cache_file, "r") as f:
                 cache = json.load(f)
@@ -78,7 +78,10 @@ def add_to_cache(integration, category, key, value):
                     cache[integration][category][key] = value
 
             with open(cache_file, "w") as f:
-                json.dump(cache, f)
+                try:
+                    json.dump(cache, f)
+                except TypeError:
+                    json.dump(cache, f, default=str)
             mlog.info("add_to_cache() - Value '" + str(value) + "' saved to cache. Category: '" + category + "' with key: '"+key+"' in integration: " + integration)
     except Exception as e:
         mlog.warning("add_to_cache() - Error adding value to cache: " + str(e))
@@ -97,7 +100,7 @@ def get_from_cache(integration, category, key="LIST"):
     try:
         config_all = config_helper.Config().cfg
         if config_all["cache"]["file"]["enabled"]:
-            mlog.debug("get_from_cache() - Cache is enabled, checking cache for category '" + category + "' with key: '"+str(key)+"' in integration: " + integration)
+            mlog.debug("get_from_cache() - Cache is enabled, checking cache for category '" + str(category) + "' with key: '"+str(key)+"' in integration: " + integration)
             
             # Load cahceh file to variable
             cache_file = config_all["cache"]["file"]["path"]
@@ -120,7 +123,12 @@ def get_from_cache(integration, category, key="LIST"):
                 mlog.debug("get_from_cache() - Found entity in cache")
                 return entity
             else:
-                mlog.debug("get_from_cache() - Entity not found in cache")
+                try:
+                    entity = cache[integration][category][key]
+                    mlog.debug("get_from_cache() - Found entity in cache")
+                    return entity
+                except KeyError:
+                    mlog.debug("get_from_cache() - Entity not found in cache")
                 return None
     except Exception as e:
         mlog.warning("get_from_cache() - Error getting value from cache: " + str(e))

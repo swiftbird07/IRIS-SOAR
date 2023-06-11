@@ -2175,6 +2175,7 @@ class ThreatIntel:
         confidence (int): The confidence of the detection engine (if available)
         engine_version (str): The version of the detection engine
         engine_update (datetime): The last update of the detection engine
+        method (str): The method of the detection engine (e.g. signature, heuristics, etc.)
     """
 
     def __init__(
@@ -2190,6 +2191,7 @@ class ThreatIntel:
         engine_last_updated: datetime = None,
         detection_last_seen: datetime.datetime = None,
         detection_last_update: datetime.datetime = None,
+        method: str = "",
     ):
         self.time_requested = time_requested
 
@@ -2216,6 +2218,7 @@ class ThreatIntel:
         self.engine_update = engine_last_updated
         self.detection_last_seen = detection_last_seen
         self.detection_last_update = detection_last_update
+        self.method = method
 
     def __dict__(self):
         _dict = {
@@ -2230,6 +2233,7 @@ class ThreatIntel:
             "engine_update": str(self.engine_update),
             "detection_last_seen": str(self.detection_last_seen),
             "detection_last_update": str(self.detection_last_update),
+            "method": self.method,
         }
         return _dict
 
@@ -2283,8 +2287,8 @@ class ContextThreatIntel:
             raise ValueError("type must be one of IPv4Address, IPv6Address, HTTP, DNSQuery, ContextFile or ContextProcess")
         self.type = type
 
-        if not isinstance(indicator, type):
-            raise ValueError("indicator must be of the given 'type'")
+        #if not isinstance(indicator, type):
+        #    raise ValueError("indicator must be of the given 'type'")
 
         self.indicator = indicator
         self.source = source
