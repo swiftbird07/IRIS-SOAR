@@ -23,7 +23,7 @@ import time
 import lib.logging_helper as logging_helper
 
 # For context for detections:
-from lib.class_helper import DetectionReport, ThreatIntel, ContextThreatIntel, HTTP, DNSQuery, ContextFile, ContextProcess
+from lib.class_helper import DetectionReport, ThreatIntel, ContextThreatIntel, HTTP, DNSQuery, ContextFile, ContextProcess, Certificate, Whois
 from lib.generic_helper import dict_get, get_from_cache, add_to_cache
 
 THRESHOLD_MAX_TRIES_API_QUOTA_EXCEEDED = 5 # The maximum number of times the API call will be retried if the API quota is exceeded
@@ -112,7 +112,103 @@ def handle_response(response, cache, search_value, search_type, detection_id, ml
         if len(intel) > 0:
             mlog.info(f"VirusTotal API for {str(search_type)} '{search_value}' returned {len(intel)} context entries.")
             context = ContextThreatIntel(search_type, search_value, "Virus Total API", datetime.datetime.now(), intel, related_detection_uuid=detection_id)
-            # TODO Add last certificate, etc...
+
+            # Add certificate information if available
+            try:
+                if search_type != ContextProcess and search_type != ContextFile and dict_get(response_json, "data.attributes.last_https_certificate") != None:
+                    cert_dict = response_json["data"]["attributes"]["last_https_certificate"]
+                    cert = Certificate(
+                        related_detection_uuid=detection_id,
+                        subject=dict_get(cert_dict, "subject.CN"),
+                        issuer=dict_get(cert_dict, "issuer"),
+                        issuer_common_name=dict_get(cert_dict, "issuer.CN"),
+                        issuer_organization=dict_get(cert_dict, "issuer.O"),
+                        issuer_organizational_unit=dict_get(cert_dict, "issuer.OU"),
+                        serial_number=dict_get(cert_dict, "serial_number"),
+                        subject_common_name=dict_get(cert_dict, "subject.CN"),
+                        subject_organization=dict_get(cert_dict, "subject.O"),
+                        subject_organizational_unit=dict_get(cert_dict, "subject.OU"),
+                        subject_alternative_names=dict_get(cert_dict, "extensions.subject_alternative_name"),
+                        valid_from=dict_get(cert_dict, "validity.not_before"),
+                        valid_to=dict_get(cert_dict, "validity.not_after"),
+                        is_trusted=True,
+                        is_self_signed=True if dict_get(cert_dict, "issuer.CN") == dict_get(cert_dict, "subject.CN") else False,
+                    )
+                    context.related_cert = cert
+            except Exception as e:
+                mlog.error(f"Could not parse certificate information from VirusTotal API response. Exception: {str(e)}")
+
+            # Add "WHOIS" information if available
+            try:
+                if search_type != ContextProcess and search_type != ContextFile and dict_get(response_json, "data.attributes.whois") != None:
+                    whois_properties = response_json["data"]["attributes"]["whois"]
+                    whois_properties.split("\r\n")
+                    whois_dict = {}
+                    for property in whois_properties:
+                        if ":" in property:
+                            property = property.split(":") 
+                            whois_dict[property[0]] = property[1]
+
+                    whois = Whois(
+                        domain_name=dict_get(whois_dict, "domain_name"),
+                        registry_domain_id=dict_get(whois_dict, "registry_domain_id"),
+                        registrar_whois_server=dict_get(whois_dict, "registrar_whois_server"),
+                        registrar_url=dict_get(whois_dict, "registrar_url"),
+                        updated_date=dict_get(whois_dict, "updated_date"),
+                        creation_date=dict_get(whois_dict, "creation_date"),
+                        registry_expiry_date=dict_get(whois_dict, "registry_expiry_date"),
+                        registrar=dict_get(whois_dict, "registrar"),
+                        registrar_abuse_contact_email=dict_get(whois_dict, "registrar_abuse_contact_email"),
+                        registrar_abuse_contact_phone=dict_get(whois_dict, "registrar_abuse_contact_phone"),
+                        domain_status=dict_get(whois_dict, "domain_status"),
+                        registry_registrant_id=dict_get(whois_dict, "registry_registrant_id"),
+                        registrant_name=dict_get(whois_dict, "registrant_name"),
+                        registrant_organization=dict_get(whois_dict, "registrant_organization"),
+                        registrant_street=dict_get(whois_dict, "registrant_street"),
+                        registrant_city=dict_get(whois_dict, "registrant_city"),
+                        registrant_state_province=dict_get(whois_dict, "registrant_state_province"),
+                        registrant_postal_code=dict_get(whois_dict, "registrant_postal_code"),
+                        registrant_country=dict_get(whois_dict, "registrant_country"),
+                        registrant_phone=dict_get(whois_dict, "registrant_phone"),
+                        registrant_phone_ext=dict_get(whois_dict, "registrant_phone_ext"),
+                        registrant_fax=dict_get(whois_dict, "registrant_fax"),
+                        registrant_fax_ext=dict_get(whois_dict, "registrant_fax_ext"),
+                        registrant_email=dict_get(whois_dict, "registrant_email"),
+                        registry_admin_id=dict_get(whois_dict, "registry_admin_id"),
+                        admin_name=dict_get(whois_dict, "admin_name"),
+                        admin_organization=dict_get(whois_dict, "admin_organization"),
+                        admin_street=dict_get(whois_dict, "admin_street"),
+                        admin_city=dict_get(whois_dict, "admin_city"),
+                        admin_state_province=dict_get(whois_dict, "admin_state_province"),
+                        admin_postal_code=dict_get(whois_dict, "admin_postal_code"),
+                        admin_country=dict_get(whois_dict, "admin_country"),
+                        admin_phone=dict_get(whois_dict, "admin_phone"),
+                        admin_phone_ext=dict_get(whois_dict, "admin_phone_ext"),
+                        admin_fax=dict_get(whois_dict, "admin_fax"),
+                        admin_fax_ext=dict_get(whois_dict, "admin_fax_ext"),
+                        admin_email=dict_get(whois_dict, "admin_email"),
+                        registry_tech_id=dict_get(whois_dict, "registry_tech_id"),
+                        tech_name=dict_get(whois_dict, "tech_name"),
+                        tech_organization=dict_get(whois_dict, "tech_organization"),
+                        tech_street=dict_get(whois_dict, "tech_street"),
+                        tech_city=dict_get(whois_dict, "tech_city"),
+                        tech_state_province=dict_get(whois_dict, "tech_state_province"),
+                        tech_postal_code=dict_get(whois_dict, "tech_postal_code"),
+                        tech_country=dict_get(whois_dict, "tech_country"),
+                        tech_phone=dict_get(whois_dict, "tech_phone"),
+                        tech_phone_ext=dict_get(whois_dict, "tech_phone_ext"),
+                        tech_fax=dict_get(whois_dict, "tech_fax"),
+                        tech_fax_ext=dict_get(whois_dict, "tech_fax_ext"),
+                        tech_email=dict_get(whois_dict, "tech_email"),
+                        name_server1=dict_get(whois_dict, "name_server1"),
+                        name_server2=dict_get(whois_dict, "name_server2"),
+                        dnssec=dict_get(whois_dict, "dnssec")
+                    )
+                    context.whois = whois
+
+            except Exception as e:
+                mlog.error(f"Could not parse WHOIS information from VirusTotal API response. Exception: {str(e)}")
+            
             return context
         else:
             mlog.error(f"VirusTotal API call for {str(search_type)} '{search_value}' did not return any data.")
@@ -210,7 +306,7 @@ def zs_provide_context_for_detections(
         }
 
         response_url_req = requests.request(
-            "POST", vt_url, data=payload, headers=headers
+            "POST", vt_url, data=payload, headers=headers, verify=verify_certs
         )
         response_url_req_json = response_url_req.json()
 

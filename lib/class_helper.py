@@ -2241,6 +2241,200 @@ class ThreatIntel:
         """Returns the string representation of the object."""
         return json.dumps(del_none_from_dict(self.__dict__()), indent=4, sort_keys=False, default=str)
 
+class Whois:
+    """Whois information of a domain.
+    ! This class is not a stand-alone context. Use it in ContextThreatIntel context to store the whois information.
+    
+    Attributes:
+        Domain_Name:
+        Registry_Domain_ID:
+        Registrar_WHOIS_Server:
+        Registrar_URL:
+        Updated_Date:
+        Creation_Date:
+        Registry_Expiry_Date:
+        Registrar:
+        Registrar_Abuse_Contact_Email:
+        Registrar_Abuse_Contact_Phone:
+        Domain_Status:
+        Registry_Registrant_ID:
+        Registrant_Name:
+        Registrant_Organization:
+        Registrant_Street:
+        Registrant_Street:
+        Registrant_Street:
+        Registrant_City:
+        Registrant_State/Province:
+        Registrant_Postal_Code:
+        Registrant_Country:
+        Registrant_Phone:
+        Registrant_Phone_Ext:
+        Registrant_Fax:
+        Registrant_Fax_Ext:
+        Registrant_Email:
+        Registry_Admin_ID:
+        Admin_Name:
+        Admin_Organization:
+        Admin_Street:
+        Admin_Street:
+        Admin_Street:
+        Admin_City:
+        Admin_State/Province:
+        Admin_Postal_Code:
+        Admin_Country:
+        Admin_Phone:
+        Admin_Phone_Ext:
+        Admin_Fax:
+        Admin_Fax_Ext:
+        Admin_Email:
+        Registry_Tech_ID:
+        Tech_Name:
+        Tech_Organization:
+        Tech_Street:
+        Tech_Street:
+        Tech_Street:
+        Tech_City:
+        Tech_State/Province:
+        Tech_Postal_Code:
+        Tech_Country:
+        Tech_Phone:
+        Tech_Phone_Ext:
+        Tech_Fax:
+        Tech_Fax_Ext:
+        Tech_Email:
+        Name_Server:
+        Name_Server:
+        DNSSEC:
+"""
+    def __init__(self, domain_name, registry_domain_id, registrar_whois_server, registrar_url, 
+                 updated_date, creation_date, registry_expiry_date, registrar, 
+                 registrar_abuse_contact_email, registrar_abuse_contact_phone, domain_status, 
+                 registry_registrant_id, registrant_name, registrant_organization, registrant_street,
+                 registrant_city, registrant_state_province, registrant_postal_code, registrant_country, 
+                 registrant_phone, registrant_phone_ext, registrant_fax, registrant_fax_ext, registrant_email, 
+                 registry_admin_id, admin_name, admin_organization, admin_street, admin_city, 
+                 admin_state_province, admin_postal_code, admin_country, admin_phone, admin_phone_ext, 
+                 admin_fax, admin_fax_ext, admin_email, registry_tech_id, tech_name, tech_organization, 
+                 tech_street, tech_city, tech_state_province, tech_postal_code, tech_country, 
+                 tech_phone, tech_phone_ext, tech_fax, tech_fax_ext, tech_email, name_server1, name_server2, dnssec):
+        
+        self.domain_name = domain_name
+        self.registry_domain_id = registry_domain_id
+        self.registrar_whois_server = registrar_whois_server
+        self.registrar_url = registrar_url
+        self.updated_date = updated_date
+        self.creation_date = creation_date
+        self.registry_expiry_date = registry_expiry_date
+        self.registrar = registrar
+        self.registrar_abuse_contact_email = registrar_abuse_contact_email
+        self.registrar_abuse_contact_phone = registrar_abuse_contact_phone
+        self.domain_status = domain_status
+        self.registry_registrant_id = registry_registrant_id
+        self.registrant_name = registrant_name
+        self.registrant_organization = registrant_organization
+        self.registrant_street = registrant_street
+        self.registrant_city = registrant_city
+        self.registrant_state_province = registrant_state_province
+        self.registrant_postal_code = registrant_postal_code
+        self.registrant_country = registrant_country
+        self.registrant_phone = registrant_phone
+        self.registrant_phone_ext = registrant_phone_ext
+        self.registrant_fax = registrant_fax
+        self.registrant_fax_ext = registrant_fax_ext
+        self.registrant_email = registrant_email
+        self.registry_admin_id = registry_admin_id
+        self.admin_name = admin_name
+        self.admin_organization = admin_organization
+        self.admin_street = admin_street
+        self.admin_city = admin_city
+        self.admin_state_province = admin_state_province
+        self.admin_postal_code = admin_postal_code
+        self.admin_country = admin_country
+        self.admin_phone = admin_phone
+        self.admin_phone_ext = admin_phone_ext
+        self.admin_fax = admin_fax
+        self.admin_fax_ext = admin_fax_ext
+        self.admin_email = admin_email
+        self.registry_tech_id = registry_tech_id
+        self.tech_name = tech_name
+        self.tech_organization = tech_organization
+        self.tech_street = tech_street
+        self.tech_city = tech_city
+        self.tech_state_province = tech_state_province
+        self.tech_postal_code = tech_postal_code
+        self.tech_country = tech_country
+        self.tech_phone = tech_phone
+        self.tech_phone_ext = tech_phone_ext
+        self.tech_fax = tech_fax
+        self.tech_fax_ext = tech_fax_ext
+        self.tech_email = tech_email
+        self.name_server1 = name_server1
+        self.name_server2 = name_server2
+        self.dnssec = dnssec
+
+    def __dict__(self):
+        """Returns the object as a dictionary."""
+        return {
+            'domain_name': self.domain_name,
+            'registry_domain_id': self.registry_domain_id,
+            'registrar_whois_server': self.registrar_whois_server,
+            'registrar_url': self.registrar_url,
+            'updated_date': self.updated_date,
+            'creation_date': self.creation_date,
+            'registry_expiry_date': self.registry_expiry_date,
+            'registrar': self.registrar,
+            'registrar_abuse_contact_email': self.registrar_abuse_contact_email,
+            'registrar_abuse_contact_phone': self.registrar_abuse_contact_phone,
+            'domain_status': self.domain_status,
+            'registry_registrant_id': self.registry_registrant_id,
+            'registrant_name': self.registrant_name,
+            'registrant_organization': self.registrant_organization,
+            'registrant_street': self.registrant_street,
+            'registrant_city': self.registrant_city,
+            'registrant_state_province': self.registrant_state_province,
+            'registrant_postal_code': self.registrant_postal_code,
+            'registrant_country': self.registrant_country,
+            'registrant_phone': self.registrant_phone,
+            'registrant_phone_ext': self.registrant_phone_ext,
+            'registrant_fax': self.registrant_fax,
+            'registrant_fax_ext': self.registrant_fax_ext,
+            'registrant_email': self.registrant_email,
+            'registry_admin_id': self.registry_admin_id,
+            'admin_name': self.admin_name,
+            'admin_organization': self.admin_organization,
+            'admin_street': self.admin_street,
+            'admin_city': self.admin_city,
+            'admin_state_province': self.admin_state_province,
+            'admin_postal_code': self.admin_postal_code,
+            'admin_country': self.admin_country,
+            'admin_phone': self.admin_phone,
+            'admin_phone_ext': self.admin_phone_ext,
+            'admin_fax': self.admin_fax,
+            'admin_fax_ext': self.admin_fax_ext,
+            'admin_email': self.admin_email,
+            'registry_tech_id': self.registry_tech_id,
+            'tech_name': self.tech_name,
+            'tech_organization': self.tech_organization,
+            'tech_street': self.tech_street,
+            'tech_city': self.tech_city,
+            'tech_state_province': self.tech_state_province,
+            'tech_postal_code': self.tech_postal_code,
+            'tech_country': self.tech_country,
+            'tech_phone': self.tech_phone,
+            'tech_phone_ext': self.tech_phone_ext,
+            'tech_fax': self.tech_fax,
+            'tech_fax_ext': self.tech_fax_ext,
+            'tech_email': self.tech_email,
+            'name_server1': self.name_server1,
+            'name_server2': self.name_server2,
+            'dnssec': self.dnssec,
+        }
+
+def __str__(self):
+    """Returns the string representation of the object."""
+    return json.dumps(del_none_from_dict(self.__dict__()), indent=4, sort_keys=False, default=str)
+
+
 
 class ContextThreatIntel:
     """DetectionThreatIntel class. This class is used for storing threat intel (e.g. VirusTotal, AlienVault OTX, etc.).
@@ -2260,6 +2454,13 @@ class ContextThreatIntel:
         score_unknown (int): The number of engines that don't know the indicator
         related_detection_uuid (uuid.UUID): The UUID of the related detection
         detection_relevance (int): The relevance of the threat intel to the detection (0-100)
+        tags (List[str]): The tags of the threat intel
+        last_analyzed (datetime): The last time the indicator was analyzed
+        AS_owner (str): The owner of the AS (if available)
+        AS_number (str): The number of the AS (if available)
+        AS_IP_Range (str): The IP range of the AS (if available)
+        related_cert (Certificate): The related certificate (if available)
+        whois (Whois): The whois of the indicator (if available)
 
     Methods:
         __init__(type, indicator, source, timestamp, threat_intel_detections, score_hit, score_total): Initializes the ContextThreatIntel object
@@ -2282,6 +2483,13 @@ class ContextThreatIntel:
         related_detection_uuid: uuid.UUID = None,
         uuid: uuid.UUID = uuid.uuid4(),
         detection_relevance: int = 50,
+        tags: List[str] = None,
+        last_analyzed: datetime.datetime = None,
+        AS_owner: str = None,
+        AS_number: str = None,
+        AS_IP_Range: str = None,
+        related_cert: Certificate = None,
+        whois: Whois = None,
     ):
         if type not in [ipaddress.IPv4Address, ipaddress.IPv6Address, HTTP, DNSQuery, ContextFile, ContextProcess]:
             raise ValueError("type must be one of IPv4Address, IPv6Address, HTTP, DNSQuery, ContextFile or ContextProcess")
@@ -2373,6 +2581,13 @@ class ContextThreatIntel:
         self.related_detection_uuid = related_detection_uuid
         self.uuid = uuid
         self.detection_relevance = handle_percentage(detection_relevance)
+        self.tags = tags
+        self.last_analyzed = last_analyzed
+        self.AS_owner = AS_owner
+        self.AS_number = AS_number
+        self.AS_IP_Range = AS_IP_Range
+        self.related_cert = related_cert
+        self.whois = whois
 
     def __dict__(self):
         """Returns the object as a dictionary."""
@@ -2390,6 +2605,13 @@ class ContextThreatIntel:
             "score_unknown": self.score_unknown,
             "related_detection_uuid": self.related_detection_uuid,
             "detection_relevance": self.detection_relevance,
+            "tags": self.tags,
+            "last_analyzed": self.last_analyzed,
+            "AS_owner": self.AS_owner,
+            "AS_number": self.AS_number,
+            "AS_IP_Range": self.AS_IP_Range,
+            "related_cert": str(self.related_cert),
+            "whois": str(self.whois),
             "uuid": self.uuid,
         }
         return dict_

@@ -22,12 +22,12 @@ integrations:
   ibm_qradar:
     enabled: false
   virus_total:
+    api_key: $ZS_INT_VIRUSTOTAL_API_KEY
     enabled: true
     logging:
       log_level_file: debug
       log_level_stdout: debug
       log_level_syslog: error
-    api_key: $ZS_INT_VIRUSTOTAL_API_KEY
     verify_certs: false
   znuny_otrs:
     context_provider:

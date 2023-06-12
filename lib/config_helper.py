@@ -243,8 +243,6 @@ def check_config(cfg, mlog, onload=True):
             return False
         
 
-        # TODO: OTRS settings
-
         # integrations
 
         for integration in cfg["integrations"]:
@@ -266,9 +264,18 @@ def check_config(cfg, mlog, onload=True):
             mlog.critical(f"Could not open cache file: {e}")
             return False
     
-       # TODO Add Elasticsearch cache
-    
-            
+        # virust_total
+        if not check_config_bool(cfg["integrations"]["virus_total"]["enabled"], mlog):
+            return False
+        if not check_config_bool(cfg["integrations"]["virus_total"]["verify_certs"], mlog):
+            return False
+        if not check_config_log_level(cfg["integrations"]["virus_total"]["logging"]["log_level_file"], mlog):
+            return False
+        if not check_config_log_level(cfg["integrations"]["virus_total"]["logging"]["log_level_stdout"], mlog):
+            return False
+        if not check_config_log_level(cfg["integrations"]["virus_total"]["logging"]["log_level_syslog"], mlog):
+            return False
+        
 
     except KeyError as e:
         mlog.critical("Could not load config file: Setting not found: {}. Please check the config file and try again.".format(e))
