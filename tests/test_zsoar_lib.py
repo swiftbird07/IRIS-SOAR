@@ -181,7 +181,7 @@ def test_class_helper():
         242,
         "C:\\Tmp\virus.exe",
         process_username="John Doe",
-        process_md5="1234567890abcdef1234567890abcdef",
+        process_md5="6f3b9dda23c69c097372ef91fd09420a",
         process_sha1="1234567890abcdef1234567890abcdef12345678",
         process_sha256="1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
         process_command_line="C:\\Microsoft\word.exe",
@@ -365,7 +365,7 @@ def test_class_helper():
     assert detection_report.indicators["ip"][0] == ipaddress.IPv4Address("123.123.123.123"), "Could not add indicators to detection"
     assert detection_report.indicators["domain"][0] == "www2.example.com", "Could not add indicators to detection"
     assert detection_report.indicators["url"][0] == "https://www2.example.com/index.html", "Could not add indicators to detection"
-    assert detection_report.indicators["hash"][0] == "1234567890abcdef1234567890abcdef", "Could not add indicators to detection"
+    assert detection_report.indicators["hash"][0] == "6f3b9dda23c69c097372ef91fd09420a", "Could not add indicators to detection"
 
     detection_report.add_context(flow)
     detection_report.add_context(flow)
@@ -405,16 +405,26 @@ def test_class_helper():
     assert detection_report.indicators["registry"][0] == "hklm\\software\\microsoft\\windows\\currentversion\\run->c:\\windows\\system32\\calc.exe", "Could not add indicators to detection"
 
     # Test DetectionReport class indicators
-    detection2 = class_helper.DetectionReport(detection.uuid)
-    detection2.add_context(flow)
-    detection2.add_context(process)
+    detection_report2 = class_helper.DetectionReport(detection.uuid)
+    detection_report2.add_context(flow)
+    detection_report2.add_context(process)
 
+    assert detection_report2.indicators is not None, "Could not add indicators to detection"
+    assert len(detection_report2.indicators) != 0, "Could not add indicators to detection"
+    assert detection_report2.indicators["ip"][0] == ipaddress.IPv4Address("123.123.123.123"), "Could not add indicators to detection"
+    assert detection_report2.indicators["domain"][0] == "www2.example.com", "Could not add indicators to detection"
+    assert detection_report2.indicators["url"][0] == "https://www2.example.com/index.html", "Could not add indicators to detection"
+    assert detection_report2.indicators["hash"][0] == "6f3b9dda23c69c097372ef91fd09420a", "Could not add indicators to detection"
+    
+    # Test Detection class indicators
+    detection2 = class_helper.Detection("Roman Bellic Enterprises", "Yet another detection", ruleList, datetime.datetime.now(), description="This is another test detection", process=process, flow=flow)
     assert detection2.indicators is not None, "Could not add indicators to detection"
     assert len(detection2.indicators) != 0, "Could not add indicators to detection"
     assert detection2.indicators["ip"][0] == ipaddress.IPv4Address("123.123.123.123"), "Could not add indicators to detection"
     assert detection2.indicators["domain"][0] == "www2.example.com", "Could not add indicators to detection"
     assert detection2.indicators["url"][0] == "https://www2.example.com/index.html", "Could not add indicators to detection"
-    assert detection2.indicators["hash"][0] == "1234567890abcdef1234567890abcdef", "Could not add indicators to detection"
+    assert detection2.indicators["hash"][0] == "6f3b9dda23c69c097372ef91fd09420a", "Could not add indicators to detection"
+    detection_report.detections.append(detection2)
 
     # Test auditLog class
     len_audit = len(detection_report.audit_trail)
@@ -488,10 +498,13 @@ def test_class_helper():
 
     # TODO: Add negative tests
 
+    return detection_report
+
 def test_generic_helper():
     import lib.generic_helper as generic_helper
     
     generic_helper.add_to_cache("test", "entities", "123", "4566")
     generic_helper.get_from_cache("test", "entities", "123") == "4566", "Could not get from cache"
+    # TODO: Add more tests
 
 test_generic_helper()

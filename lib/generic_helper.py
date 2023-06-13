@@ -5,16 +5,18 @@
 
 import lib.logging_helper as logging_helper
 import lib.config_helper as config_helper
-from lib.class_helper import del_none_from_dict
 
 import json
 from functools import reduce
 import pandas as pd
 import base64
+import datetime
+import ipaddress
+from typing import Union, List
+
+THRESHOLD_MAX_CONTEXTS = 1000  # The maximum number of contexts for each type that can be added to a detection report
 
 mlog = logging_helper.Log("lib.generic_helper")
-
-#
 
 def dict_get(dictionary, keys, default=None):
     """Gets a value from a nested dictionary.
@@ -134,6 +136,45 @@ def get_from_cache(integration, category, key="LIST"):
         mlog.warning("get_from_cache() - Error getting value from cache: " + str(e))
         return None
 
+
+def del_none_from_dict(d):
+    """
+    Delete keys with the value ``None`` in a dictionary, recursively.
+
+    This alters the input so you may wish to ``copy`` the dict first.
+
+    Args:
+        d (dict): The dictionary to remove the keys from
+
+    Returns:
+        dict: The cleaned dictionary
+    """
+    # For Python 3, write `list(d.items())`; `d.items()` won’t work
+    # For Python 2, write `d.items()`; `d.iteritems()` won’t work
+    if d is None:
+        return None
+    for key, value in list(d.items()):
+        if value is None:
+            del d[key]
+        elif type(value) is list:
+            for item in value:
+                if isinstance(item, dict):
+                    del_none_from_dict(item)
+        elif str(value) == "[]":  # Remove trivial empty strings
+            del d[key]
+        elif type(value) is str and value == "":  # Remove trivial empty strings
+            del d[key]
+        elif isinstance(value, dict):
+            del_none_from_dict(value)
+    return d  # For convenience
+
+def color_cell(cell):
+    try:
+        return 'color: ' + ('red' if int(cell) > 0 else 'green')
+    except ValueError:
+        return 'color: black'
+
+
 def format_results(events, format, group_by="uuid", transform=False):
     if events is None or (type(events) == list and len(events) == 0):
         return "~ No results found ~"
@@ -236,6 +277,22 @@ def format_results(events, format, group_by="uuid", transform=False):
                         
         except Exception as e:
             mlog.warning("format_results() - Error expanding fields: " + str(e))
+
+        # Try to remove undetected / clean ThreatIntel Engine hits, as they are too many to be readable
+        try:
+            if "threat_intel_detections" in event:
+                detections_hit = ""
+                detections = event["threat_intel_detections"]
+                del event["threat_intel_detections"]
+
+                if detections is not None and detections != "None":
+                    for detection in detections:
+                        if detection.is_hit == True:
+                            detections_hit += "[ '"+detection.engine +"': "+detection.threat_name+" ]  "
+
+                event["threat_intel_detections"] = detections_hit
+        except Exception as e:
+            mlog.warning("format_results() - Error removing clean ThreatIntel Engine hits: " + str(e))
         
 
         event = del_none_from_dict(event)
@@ -248,16 +305,24 @@ def format_results(events, format, group_by="uuid", transform=False):
     #events = [del_none_from_dict(event.__dict__()) for event in events]
 
     if format in ("html", "markdown"):
-        data = pd.DataFrame(data=dict_events)
+        if type(dict_events) is list and len(dict_events) > 0:
+            data = pd.DataFrame(data=dict_events)
+            if group_by != "":
+                data = data.groupby([group_by]).agg(lambda x: x.tolist())
+            data.dropna(axis=1, how="all", inplace=True)
+        else:
+            data = pd.DataFrame.from_dict(dict_events, orient="index")
+            data = data.T
+
+        # TODO: Add color support
+
         if transform:
             data = data.T
-        if group_by != "":
-            data = data.groupby([group_by]).agg(lambda x: x.tolist())
-        data.dropna(axis=1, how="all", inplace=True)
 
         if format == "html":
             tmp = data.to_html(index=False, classes=None, bold_rows=True)
             return tmp.replace(' class="dataframe"', "")
+        
         elif format == "markdown":
             return data.to_markdown(index="false")
     elif format == "json":
@@ -266,3 +331,104 @@ def format_results(events, format, group_by="uuid", transform=False):
 def get_unique(data):
     """Get unique values from a list"""
     return list(set(data))
+
+
+# [internal note] Copied the following from class_helper to this file, to better separate classes and generic functions
+
+def cast_to_ipaddress(ip) -> Union[ipaddress.IPv4Address, ipaddress.IPv6Address]:
+    """Tries to cast a string to an IP address.
+
+    Args:
+        ip: The IP address to cast
+
+    Returns:
+        ipaddress.IPv4Address or ipaddress.IPv6Address: The IP address object
+
+    Raises:
+        ValueError: If the IP address is invalid
+    """
+    if type(ip) != ipaddress.IPv4Address and type(ip) != ipaddress.IPv6Address and type(ip) != None:
+        try:
+            ip = ipaddress.ip_address(ip)
+        except ValueError:
+            raise ValueError("invalid ip address: " + str(ip))
+    return ip
+
+
+def handle_percentage(percentage):
+    """Handles a percentage value.
+
+    Args:
+        percentage (int): The percentage value
+
+    Returns:
+        int: The percentage value
+
+    Raises:
+        TypeError: If the percentage value is not an integer
+        ValueError: If the percentage value is higher than 100 or lower than 0
+    """
+    if percentage is None:
+        return None
+    if type(percentage) != int:
+        raise TypeError("Percentage value must be an integer")
+    if percentage > 100:
+        raise ValueError("Percentage value cannot be higher than 100")
+    if percentage < 0:
+        raise ValueError("Percentage value cannot be lower than 0")
+    return percentage
+
+
+def add_to_timeline(context_list, context, timestamp: datetime):
+    """Adds a context to a context list, respecting the timeline.
+
+    Args:
+        context_list (list): The context list
+        context (dict): The context to add
+        timestamp (datetime): The timestamp of the context
+
+    Returns:
+        None
+    """
+    if type(context) == list and len(context) >= THRESHOLD_MAX_CONTEXTS:
+        mlog = logging_helper.Log("lib.class_helper")
+        mlog.debug(
+            "add_to_timeline() - [OVERFLOW PROTECTION] Maximum number of contexts reached. No more contexts will be added to the context list of context type '" + str(type(context_list[0])) + "'."
+        ) # This logs to debug instead of warning, as it can likely spam the log and also there should be a warning on playbook level
+        return
+    
+    if len(context_list) == 0:
+        context_list.append(context)
+    else:
+        for i in range(len(context_list)):
+            if context_list[i].timestamp > timestamp:
+                context_list.insert(i, context)
+                break
+            elif i == len(context_list) - 1:
+                context_list.append(context)
+                break
+
+
+def remove_duplicates_from_dict(d):
+    """Removes duplicate values from a dictionary.
+
+    Args:
+        d (dict): The dictionary to remove the duplicates from
+
+    Returns:
+        dict: The dictionary without duplicates
+    """
+    if d is None:
+        return None
+    for key, value in list(d.items()):
+        if type(value) is list:
+            d[key] = list(dict.fromkeys(value))
+        elif isinstance(value, dict):
+            remove_duplicates_from_dict(value)
+    return d  # For convenience
+
+def is_local_tld(domain):
+    """Checks whether a domain has a local (private) TLD."""
+    domain = domain.lower()  # Convert to lower case
+    local_tlds = ['.local', '.localdomain', '.domain', '.lan', '.home', '.host', '.corp']
+    return any(domain.endswith(tld) for tld in local_tlds)

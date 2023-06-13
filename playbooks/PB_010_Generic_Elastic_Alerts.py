@@ -12,25 +12,16 @@
 #
 # Actions:
 # - Create Ticket
+# - Add notes to related tickets
 #
 PB_NAME = "PB_010_Generic_Elastic_Alerts"
-PB_VERSION = "0.0.1"
+PB_VERSION = "0.1.0"
 PB_AUTHOR = "Martin Offermann"
 PB_LICENSE = "MIT"
 PB_ENABLED = True
 
-import sys
-import os
 
-import logging
 from typing import Union, List
-import datetime
-import requests
-from elasticsearch import Elasticsearch, AuthenticationException
-from ssl import create_default_context
-from functools import reduce
-import sys
-import uuid
 
 import lib.logging_helper as logging_helper
 from lib.class_helper import DetectionReport, ContextProcess, AuditLog, Detection
@@ -56,9 +47,13 @@ def zs_can_handle_detection(detection_report: DetectionReport) -> bool:
     Returns:
         bool: True if the playbook can handle the detection, False if not
     """
+    if PB_ENABLED == False:
+        mlog.info(f"Playbook '{PB_NAME}' is disabled. Not handling detection.")
+        return False
     # Check if any of the detecions of the detection report is an Elastic Alert
     for detection in detection_report.detections:
         if detection.vendor_id == "elastic_siem":
+            mlog.info(f"Playbook '{PB_NAME}' can handle detection '{detection.name}' ({detection.uuid}).")
             return True
     return False
 

@@ -289,12 +289,12 @@ def zs_get_ticket_by_number(ticket_number: str) -> pyotrs.Ticket:
     return ticket
 
 
-def zs_create_ticket(detectionReport: DetectionReport, DRY_RUN=False, detection_title=None, priority=None, state="new", type_=None, queue_tier="T0", include_context=False, init_note_title=None, init_note_body=None) -> str:
+def zs_create_ticket(detection_report: DetectionReport, DRY_RUN=False, detection_title=None, priority=None, state="new", type_=None, queue_tier="T0", include_context=False, init_note_title=None, init_note_body=None) -> str:
     """Creates a ticket in Znuny.
     
     Arguments:
         config {dict} -- The configuration dictionary.
-        detectionReport {DetectionReport} -- The detection to create the ticket for.
+        detection_report {DetectionReport} -- The detection to create the ticket for.
         title {str} -- The title of the ticket. If not set, the title of the first detection will be used.
         priority {str} -- The priority of the ticket. If not set "normal" will be used.
         state {str} -- The state of the ticket. If not set "new" will be used.
@@ -321,18 +321,18 @@ def zs_create_ticket(detectionReport: DetectionReport, DRY_RUN=False, detection_
 
     # Fetching detection report for required information. 
     
-    length = len(detectionReport.detections)
+    length = len(detection_report.detections)
     if length == 0:
         mlog.critical("The detection report is empty. Aborting ticket creation.")
         return ValueError("The detection report is empty. Aborting ticket creation.")
     
-    for detection in detectionReport.detections: # Check if all detections are of type Detection
+    for detection in detection_report.detections: # Check if all detections are of type Detection
         if not isinstance(detection, Detection):
             mlog.critical("One of the detections of the detection report is not of type Detection. Aborting ticket creation.")
             return TypeError("One of the detections of the detecion report is not of type Detection. Abortung ticket creation.")
         
     # The first detection is used as the ticket will be created for the first detection in a report.
-    detection = detectionReport.detections[0]
+    detection = detection_report.detections[0]
 
     timestamp = detection.timestamp
     if detection_title is None:
@@ -406,7 +406,9 @@ def zs_create_ticket(detectionReport: DetectionReport, DRY_RUN=False, detection_
                 mlog.critical("Ticket creation failed. Znuny did not return a ticket number ('False'). Aborting ticket creation.")
                 return SystemError
         try:
-            return ticket["TicketNumber"]
+            ticket_number = ticket["TicketNumber"]
+            detection_report.add_context(ticket)
+            return ticket_number
         except KeyError:
             mlog.critical("Ticket creation failed. Znuny did not return a ticket number (Invalid ticket). Aborting ticket creation.")
             return SystemError

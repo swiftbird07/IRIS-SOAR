@@ -14,137 +14,11 @@ import pyotrs
 
 import lib.config_helper as config_helper
 import lib.logging_helper as logging_helper
+from lib.generic_helper import del_none_from_dict, handle_percentage, cast_to_ipaddress, add_to_timeline, remove_duplicates_from_dict
 
 DEFAULT_IP = ipaddress.ip_address("127.0.0.1")  # When no IP address is provided, this is used
-THRESHOLD_MAX_CONTEXTS = 1000  # The maximum number of contexts for each type that can be added to a detection report
 
 # TODO: Implement all functions used by zsoar_worker.py and its modules
-
-
-def cast_to_ipaddress(ip) -> Union[ipaddress.IPv4Address, ipaddress.IPv6Address]:
-    """Tries to cast a string to an IP address.
-
-    Args:
-        ip: The IP address to cast
-
-    Returns:
-        ipaddress.IPv4Address or ipaddress.IPv6Address: The IP address object
-
-    Raises:
-        ValueError: If the IP address is invalid
-    """
-    if type(ip) != ipaddress.IPv4Address and type(ip) != ipaddress.IPv6Address and type(ip) != None:
-        try:
-            ip = ipaddress.ip_address(ip)
-        except ValueError:
-            raise ValueError("invalid ip address: " + str(ip))
-    return ip
-
-
-def del_none_from_dict(d):
-    """
-    Delete keys with the value ``None`` in a dictionary, recursively.
-
-    This alters the input so you may wish to ``copy`` the dict first.
-
-    Args:
-        d (dict): The dictionary to remove the keys from
-
-    Returns:
-        dict: The cleaned dictionary
-    """
-    # For Python 3, write `list(d.items())`; `d.items()` won’t work
-    # For Python 2, write `d.items()`; `d.iteritems()` won’t work
-    if d is None:
-        return None
-    for key, value in list(d.items()):
-        if value is None:
-            del d[key]
-        elif type(value) is list:
-            for item in value:
-                if isinstance(item, dict):
-                    del_none_from_dict(item)
-        elif str(value) == "[]":  # Remove trivial empty strings
-            del d[key]
-        elif type(value) is str and value == "":  # Remove trivial empty strings
-            del d[key]
-        elif isinstance(value, dict):
-            del_none_from_dict(value)
-    return d  # For convenience
-
-
-def handle_percentage(percentage):
-    """Handles a percentage value.
-
-    Args:
-        percentage (int): The percentage value
-
-    Returns:
-        int: The percentage value
-
-    Raises:
-        TypeError: If the percentage value is not an integer
-        ValueError: If the percentage value is higher than 100 or lower than 0
-    """
-    if percentage is None:
-        return None
-    if type(percentage) != int:
-        raise TypeError("Percentage value must be an integer")
-    if percentage > 100:
-        raise ValueError("Percentage value cannot be higher than 100")
-    if percentage < 0:
-        raise ValueError("Percentage value cannot be lower than 0")
-    return percentage
-
-
-def add_to_timeline(context_list, context, timestamp: datetime):
-    """Adds a context to a context list, respecting the timeline.
-
-    Args:
-        context_list (list): The context list
-        context (dict): The context to add
-        timestamp (datetime): The timestamp of the context
-
-    Returns:
-        None
-    """
-    if len(context_list) >= THRESHOLD_MAX_CONTEXTS:
-        mlog = logging_helper.Log("lib.class_helper")
-        mlog.debug(
-            "add_to_timeline() - [OVERFLOW PROTECTION] Maximum number of contexts reached. No more contexts will be added to the context list of context type '" + str(type(context_list[0])) + "'."
-        ) # This logs to debug instead of warning, as it can likely spam the log and also there should be a warning on playbook level
-        return
-    
-    if len(context_list) == 0:
-        context_list.append(context)
-    else:
-        for i in range(len(context_list)):
-            if context_list[i].timestamp > timestamp:
-                context_list.insert(i, context)
-                break
-            elif i == len(context_list) - 1:
-                context_list.append(context)
-                break
-
-
-def remove_duplicates_from_dict(d):
-    """Removes duplicate values from a dictionary.
-
-    Args:
-        d (dict): The dictionary to remove the duplicates from
-
-    Returns:
-        dict: The dictionary without duplicates
-    """
-    if d is None:
-        return None
-    for key, value in list(d.items()):
-        if type(value) is list:
-            d[key] = list(dict.fromkeys(value))
-        elif isinstance(value, dict):
-            remove_duplicates_from_dict(value)
-    return d  # For convenience
-
 
 class Location:
     """Location class. This class is used for storing location information.
@@ -2176,6 +2050,8 @@ class ThreatIntel:
         engine_version (str): The version of the detection engine
         engine_update (datetime): The last update of the detection engine
         method (str): The method of the detection engine (e.g. signature, heuristics, etc.)
+        is_related_indicator (bool): If the the object is part of a related indicator or directly related to the indicator of the ContextThreatIntel object
+        related_indicator_name (str): The name of the related indicator (if is_related_indicator is True)
     """
 
     def __init__(
@@ -2192,6 +2068,8 @@ class ThreatIntel:
         detection_last_seen: datetime.datetime = None,
         detection_last_update: datetime.datetime = None,
         method: str = "",
+        is_related_indicator: bool = False,
+        related_indicator_name: str = "",
     ):
         self.time_requested = time_requested
 
@@ -2219,11 +2097,15 @@ class ThreatIntel:
         self.detection_last_seen = detection_last_seen
         self.detection_last_update = detection_last_update
         self.method = method
+        self.is_related_indicator = is_related_indicator
+        self.related_indicator_name = related_indicator_name
 
     def __dict__(self):
         _dict = {
             "time_requested": str(self.time_requested),
             "engine": self.engine,
+            "is_related_indicator": self.is_related_indicator,
+            "related_indicator_name": self.related_indicator_name,
             "is_known": self.is_known,
             "is_hit": self.is_hit,
             "hit_type": self.hit_type,
@@ -2445,7 +2327,7 @@ class ContextThreatIntel:
         indicator(socket.intet_aton | HTTP | DNSQuery | ContextProcess ) The indicator
         source (str): The integration source of the indicator
         timestamp (datetime): The timestamp of the lookup
-        threat_intel_detections (List[ThreatIntelDetection]): The threat intel detections of the indicator
+        threat_intel_detections (List[ThreatIntel]): The threat intel detections of the indicator
         score_hit (int): The hits on the particular indicator
         score_total (int): The total number of engines that were queried
         score_hit_sus (int): The number of suspicious hits on the indicator
@@ -2460,6 +2342,12 @@ class ContextThreatIntel:
         AS_number (str): The number of the AS (if available)
         AS_IP_Range (str): The IP range of the AS (if available)
         related_cert (Certificate): The related certificate (if available)
+        related_domains (List[ThreatIntel]): Related domains to an IP or File indicator (if available)
+        related_files (List[ThreatIntel]): Related files to an IP or Domain indicator (if available)
+        related_ips (List[ThreatIntel]): Related IPs to a Domain or File indicator (if available)
+        related_urls (List[ThreatIntel]): Related URLs to an IP, Domain or File indicator (if available)
+        categories (List[List[str]]): The categories of the indicator (if available). Nested List contains the engine name [0] and the category [1]
+
         whois (Whois): The whois of the indicator (if available)
 
     Methods:
@@ -2483,13 +2371,19 @@ class ContextThreatIntel:
         related_detection_uuid: uuid.UUID = None,
         uuid: uuid.UUID = uuid.uuid4(),
         detection_relevance: int = 50,
-        tags: List[str] = None,
+        tags: List[str] = [],
         last_analyzed: datetime.datetime = None,
         AS_owner: str = None,
         AS_number: str = None,
         AS_IP_Range: str = None,
         related_cert: Certificate = None,
         whois: Whois = None,
+        related_domains: List[ThreatIntel] = [],
+        related_files: List[ThreatIntel] = [],
+        related_ips: List[ThreatIntel] = [],
+        related_urls: List[ThreatIntel] = [],
+        categories: List[List[str]] = [],
+        links: List[str] = [],
     ):
         if type not in [ipaddress.IPv4Address, ipaddress.IPv6Address, HTTP, DNSQuery, ContextFile, ContextProcess]:
             raise ValueError("type must be one of IPv4Address, IPv6Address, HTTP, DNSQuery, ContextFile or ContextProcess")
@@ -2588,6 +2482,19 @@ class ContextThreatIntel:
         self.AS_IP_Range = AS_IP_Range
         self.related_cert = related_cert
         self.whois = whois
+        self.related_ips = related_ips
+        self.related_domains = related_domains
+        self.related_files = related_files
+        self.related_urls = related_urls
+
+        self.categories = []
+        if categories:
+            if isinstance(categories, list) and len(categories) == 2:
+                self.categories = categories
+            else:
+                raise ValueError("categories must be a list of two elements (engine and category)")
+            
+        self.links = links
 
     def __dict__(self):
         """Returns the object as a dictionary."""
@@ -2611,6 +2518,10 @@ class ContextThreatIntel:
             "AS_number": self.AS_number,
             "AS_IP_Range": self.AS_IP_Range,
             "related_cert": str(self.related_cert),
+            "related_ips": str(self.related_ips),
+            "related_domains": str(self.related_domains),
+            "related_files": str(self.related_files),
+            "related_urls": str(self.related_urls),
             "whois": str(self.whois),
             "uuid": self.uuid,
         }
@@ -2776,8 +2687,6 @@ class Detection:
                 raise TypeError("http_request must be of type HTTP")
             self.indicators["domain"].append(http_request.host)
             self.indicators["url"].append(http_request.full_url)
-            self.indicators["ip"].append(http_request.flow.source_ip)
-            self.indicators["ip"].append(http_request.flow.destination_ip)
             if http_request.request_body:
                 self.indicators["other"].append(http_request.request_body)
             if http_request.file:
@@ -2794,8 +2703,6 @@ class Detection:
             if not isinstance(dns_request, DNSQuery):
                 raise TypeError("dns_request must be of type DNSQuery")
             self.indicators["domain"].append(dns_request.query)
-            self.indicators["ip"].append(dns_request.flow.source_ip)
-            self.indicators["ip"].append(dns_request.flow.destination_ip)
             if dns_request.query_response and cast_to_ipaddress(dns_request.query_response):
                 self.indicators["ip"].append(dns_request.query_response)
 
@@ -2820,7 +2727,7 @@ class Detection:
         for domain in self.indicators["domain"]:
             if domain.startswith("*."):
                 mlog = logging_helper.Log("lib.class_helper")
-                mlog.debug("Removing '*.' from domain indicator: %s", domain)
+                mlog.debug(f"Removing '*.' from domain indicator: {domain}")
                 self.indicators["domain"].remove(domain)
                 self.indicators["domain"].append(domain[2:])
 
@@ -2986,13 +2893,14 @@ class AuditLog:
         playbook_done (bool, optional): Indicates whether the playbook has been completed. Defaults to False.
 
     """
-    def __init__(self, playbook: str, stage: int, title: str, description: str = "", start_time: datetime = datetime.datetime.now(), is_ticket_related: bool = False, result_had_warnings: bool = False, result_had_errors: bool = False, result_request_retry: bool = False, result_message: str = "", result_data: dict = {}, result_in_ticket: bool = False, result_time: datetime = None, playbook_done: bool = False, result_exception=None):
+    def __init__(self, playbook: str, stage: int, title: str, description: str = "", start_time: datetime = datetime.datetime.now(), is_ticket_related: bool = False, result_had_warnings: bool = False, result_had_errors: bool = False, result_request_retry: bool = False, result_message: str = "", result_data: dict = {}, result_in_ticket: bool = False, result_time: datetime = None, playbook_done: bool = False, result_exception=None, result_was_successful=False):
         self.playbook = playbook
         self.stage: int = stage
         self.title = title
         self.description = description
         self.start_time: datetime = start_time
         self.related_ticket_number: str = ""
+        self.result_was_successful: bool = result_was_successful
         self.result_had_warnings: bool = result_had_warnings
         self.result_had_errors: bool = result_had_errors
         self.result_request_retry: bool = result_request_retry
@@ -3007,6 +2915,7 @@ class AuditLog:
 
     def set_successful(self, message: str = "The action taken was successful.", data: dict = None, ticket_number = None) -> bool:
         """Sets the audit log element as successful. If a ticket number is given, "result_in_ticket" is automatically set to True."""
+        self.result_was_successful = True
         self.result_had_warnings = False
         self.result_had_errors = False
         self.result_request_retry = False
@@ -3055,6 +2964,7 @@ class AuditLog:
                 "description": self.description,
                 "start_time": str(self.start_time),
                 "related_ticket_number": self.related_ticket_number,
+                "result_was_successful": self.result_was_successful,
                 "result_had_warnings": self.result_had_warnings,
                 "result_had_errors": self.result_had_errors,
                 "result_request_retry": self.result_request_retry,
@@ -3126,6 +3036,7 @@ class DetectionReport:
         self.audit_trail: List[AuditLog] = [AuditLog(playbook="None/Initial", stage=0, title="Initializing DetectionReport", description="Initializing the DetectionReport onject", start_time=datetime.datetime.now(), is_ticket_related=False)]
         self.handled_by_playbooks: List[str] = []
         self.playbooks_to_retry: List[str] = []
+        self.ticket: pyotrs.Ticket = None
 
         # Context for every type of context
         self.context_logs: List[ContextLog] = []
@@ -3137,7 +3048,6 @@ class DetectionReport:
         self.context_persons: List[Person] = []
         self.context_files: List[ContextFile] = []
         self.context_registries: List[ContextRegistry] = []
-        self.context_tickets: List[pyotrs.Ticket] = [] 
 
         self.uuid = uuid
         self.indicators = {"ip": [], "domain": [], "url": [], "hash": [], "email": [], "countries": [], "registry": [], "other": []}
@@ -3156,6 +3066,7 @@ class DetectionReport:
             "detections": self.detections,
             "handled_by_playbooks": self.handled_by_playbooks,
             "action": self.action,
+            "ticket_number": self.get_ticket_number() if self.ticket else None,
             "action_result": self.action_result,
             "action_result_message": self.action_result_message,
             "action_result_data": self.action_result_data,
@@ -3180,23 +3091,28 @@ class DetectionReport:
 
     # Getter and setter;
 
-    def add_context(self, context: Union[ContextLog, ContextProcess, ContextFlow, ContextThreatIntel, Location, ContextDevice, Person, ContextFile, ContextRegistry, pyotrs.Ticket]):
+    def add_context(self, context: Union[ContextLog, ContextProcess, ContextFlow, ContextThreatIntel, Location, ContextDevice, Person, ContextFile, ContextRegistry, HTTP, DNSQuery, Certificate, dict]):
         """Adds a context to the detection report, respecting the timeline
 
         Args:
-            context (Union[ContextLog, ContextProcess, ContextFlow, ContextThreatIntel, Location, Device, Person, ContextFile, HTTP, DNSQuery, Certificate]): The context to add
+            context (Union[ContextLog, ContextProcess, ContextFlow, ContextThreatIntel, Location, Device, Person, ContextFile, HTTP, DNSQuery, Certificate, dict]): The context to add (dict menas Ticket object)
 
         Raises:
             ValueError: If the context object has no timestamp
             TypeError: If the context object is not of a valid type
         """
-        if not isinstance(context, pyotrs.Ticket):
+        if context is None:
+            mlog = logging_helper.Log(__name__)
+            mlog.warning("DetectionReport: add_context() - Context is None, skipping.")
+            return
+        
+        if not isinstance(context, dict):
             try:
                 timestamp = context.timestamp
             except:
                 raise ValueError("Context object has no timestamp.")
         else:
-            timestamp = context.fields["Created"]
+            timestamp = context["Ticket"]["Created"]
 
         if isinstance(context, ContextLog):
             add_to_timeline(self.context_logs, context, timestamp)
@@ -3281,8 +3197,11 @@ class DetectionReport:
             if context.file_sha256:
                 self.indicators["hash"].append(context.file_sha256)
 
-        elif isinstance(context, pyotrs.Ticket):
-            add_to_timeline(self.context_tickets, context, timestamp)
+        elif isinstance(context, dict):
+            if context["Ticket"]:
+                self.ticket = context
+            else:
+                raise TypeError("Given dict was no valid ticket object.")
 
         else:
             raise TypeError("Unknown context type.")
@@ -3441,3 +3360,10 @@ class DetectionReport:
     def get_title(self):
         """Returns the title of the report."""
         return self.detections[0].name  # TODO: Make this more sophisticated
+
+    def get_ticket_number(self):
+        """Returns the ticket number of the report."""
+        if self.ticket is not None:
+            return self.ticket["TicketNumber"]
+        else:
+            raise ValueError("The detection_report has no ticket.")

@@ -32,7 +32,7 @@ def test_zs_provide_context_for_detections():
     ), "DetectionReport class could not be initialized"  # Sanity check - should be already tested by test_zsoar_lib.py -> test_class_helper()
 
     # Test IP search
-    result1 = zs_provide_context_for_detections(integration_config, detection_report, ContextThreatIntel, TEST=True, search_type=ipaddress.IPv4Address, search_value=ipaddress.ip_address("1.1.1.1"))
+    result1 = zs_provide_context_for_detections(integration_config, detection_report, ContextThreatIntel, TEST=True, search_type=ipaddress.IPv4Address, search_value=ipaddress.ip_address("136.243.123.201"))
     assert type(result1) == ContextThreatIntel, "zs_provide_context_for_detections() should return a ContextThreatIntel object"
 
     # Test domain search

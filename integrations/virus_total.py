@@ -29,12 +29,19 @@ from lib.generic_helper import dict_get, get_from_cache, add_to_cache
 THRESHOLD_MAX_TRIES_API_QUOTA_EXCEEDED = 5 # The maximum number of times the API call will be retried if the API quota is exceeded
 
 
-def handle_response(response, cache, search_value, search_type, detection_id, mlog, wait_if_api_quota_exceeded, tries=0):
+def handle_response(response, cache, search_value, search_type, detection_id, mlog, wait_if_api_quota_exceeded, tries=0, response2=None):
     if cache or response.status_code == 200:
         if not cache:
             response_json = response.json()
         else:
             response_json = response
+
+        # Add additional VirusTotal relationship data if available
+        if not cache and response2:
+            if response2.status_code == 200:
+                response_json["additional_vt_relationship"] = response2.json()
+            else:
+                mlog.error(f"Second VirusTotal API call for {str(search_type)} '{search_value}' returned an error: {response2.text}")
 
         intel = []
 
@@ -43,7 +50,7 @@ def handle_response(response, cache, search_value, search_type, detection_id, ml
 
             if not cache:
                 mlog.info(f"VirusTotal API call for {str(search_type)} '{search_value}' returned data.")
-                add_to_cache("virus_total", str(search_type), str(search_value), response.json())
+                add_to_cache("virus_total", str(search_type), str(search_value), response_json)
 
             scans = response_json["scans"]
             
@@ -79,7 +86,7 @@ def handle_response(response, cache, search_value, search_type, detection_id, ml
 
             if not cache:
                 mlog.info(f"VirusTotal API call for {str(search_type)} '{search_value}' returned data.")
-                add_to_cache("virus_total", str(search_type), str(search_value), response.json())
+                add_to_cache("virus_total", str(search_type), str(search_value), response_json)
             try:
                 scans = response_json["data"]["attributes"]["last_analysis_results"]
             except KeyError:
@@ -135,6 +142,8 @@ def handle_response(response, cache, search_value, search_type, detection_id, ml
                         is_self_signed=True if dict_get(cert_dict, "issuer.CN") == dict_get(cert_dict, "subject.CN") else False,
                     )
                     context.related_cert = cert
+                    mlog.debug(f"Added certificate information. Cert: {str(cert)}")
+
             except Exception as e:
                 mlog.error(f"Could not parse certificate information from VirusTotal API response. Exception: {str(e)}")
 
@@ -205,13 +214,54 @@ def handle_response(response, cache, search_value, search_type, detection_id, ml
                         dnssec=dict_get(whois_dict, "dnssec")
                     )
                     context.whois = whois
+                    mlog.debug(f"Added WHOIS information: {str(whois)}")
 
             except Exception as e:
                 mlog.error(f"Could not parse WHOIS information from VirusTotal API response. Exception: {str(e)}")
             
+            # Try to get category information
+            try:
+                if search_type != ContextProcess and search_type != ContextFile and dict_get(response_json, "data.attributes.categories") != None:
+                    for category in response_json["data"]["attributes"]["categories"]:
+                        l = []
+                        l.append(category)
+                        l.append(response_json["data"]["attributes"]["categories"][category])
+                        context.categories.append(l)
+            except Exception as e:
+                mlog.error(f"Could not parse category information from VirusTotal API response. Exception: {str(e)}")
+                
+            # Try to get links
+            try:
+                links = dict_get(response_json, "data.links")
+                if links != None:
+                    for link in links:
+                        context.links.append(links[link])
+
+                permalink = dict_get(response_json, "permalink")
+                if permalink != None:
+                    context.links.append(permalink)
+            except Exception as e:
+                mlog.error(f"Could not parse links from VirusTotal API response. Exception: {str(e)}")
+
+            # Try to get relationships
+            try:
+                if dict_get(response_json, "additional_vt_relationship.data") != None:
+                    relationships = response_json["additional_vt_relationship"]["data"]
+
+                    if type(relationships) == list and len(relationships) > 0 and relationships[0]["type"] == "resolution":
+                        for resolution in relationships:
+                            context.related_domains.append(resolution["attributes"]["host_name"])
+                        mlog.debug(f"Added related domains: {context.related_domains}")
+
+
+            except Exception as e:
+                mlog.error(f"Could not parse relationships from VirusTotal API response. Exception: {str(e)}")
+                            
+
             return context
         else:
             mlog.error(f"VirusTotal API call for {str(search_type)} '{search_value}' did not return any data.")
+            add_to_cache("virus_total", str(search_type), str(search_value), response_json)
             return None
     
 
@@ -231,8 +281,7 @@ def handle_response(response, cache, search_value, search_type, detection_id, ml
         return None
 
 
-def zs_provide_context_for_detections(
-    config, detection_report: DetectionReport, required_type: type, TEST=False, search_type="IP", search_value=None, maxContext=50, wait_if_api_quota_exceeded=False) -> ContextThreatIntel:
+def zs_provide_context_for_detections(config, detection_report: DetectionReport, required_type: type, TEST=False, search_type=ipaddress.IPv4Address, search_value=None, maxContext=50, wait_if_api_quota_exceeded=False) -> ContextThreatIntel:
     """Returns a DetectionReport object with context for the detections from the Virus Total integration.
 
     Args:
@@ -288,9 +337,12 @@ def zs_provide_context_for_detections(
     api_key = config["api_key"]
     verify_certs = config["verify_certs"]
     params = None
+    url2 = None
+    response2 = None
 
     if search_type == ipaddress.IPv4Address or search_type == ipaddress.IPv6Address:
         url = f"https://www.virustotal.com/api/v3/ip_addresses/{search_value}"
+        url2 = f"https://www.virustotal.com/api/v3/ip_addresses/{search_value}/resolutions"
     elif search_type == DNSQuery:
         url = f"https://www.virustotal.com/api/v3/domains/{search_value}"
 
@@ -314,7 +366,7 @@ def zs_provide_context_for_detections(
         mlog.info(f"VirusTotal API call for URL '{search_value}' returned analysis ID '{id_url_analysis}'.")
         url = "https://www.virustotal.com/api/v3/analyses/" + id_url_analysis
 
-    elif search_type == ContextProcess:
+    elif search_type == ContextProcess or search_type == ContextFile:
         url = "https://www.virustotal.com/vtapi/v2/file/report"
         params = {"apikey": api_key, "resource": search_value}
         
@@ -329,8 +381,11 @@ def zs_provide_context_for_detections(
 
     if not cache:
         response = requests.request("GET", url, headers=headers, verify=verify_certs, params=params)
+
+        if url2:
+            response2 = requests.request("GET", url2, headers=headers, verify=verify_certs, params=params)
     
-    return handle_response(response, cache, search_value, search_type, detection_id, mlog, wait_if_api_quota_exceeded)
+    return handle_response(response, cache, search_value, search_type, detection_id, mlog, wait_if_api_quota_exceeded, response2=response2)
 
 
 
