@@ -3106,13 +3106,15 @@ class DetectionReport:
             mlog.warning("DetectionReport: add_context() - Context is None, skipping.")
             return
         
-        if not isinstance(context, dict):
+        if not isinstance(context, dict) and not isinstance(context, pyotrs.Ticket):
             try:
                 timestamp = context.timestamp
             except:
                 raise ValueError("Context object has no timestamp.")
-        else:
+        elif type(context) is dict:
             timestamp = context["Ticket"]["Created"]
+        else:
+            timestamp = context.field_get("Created")
 
         if isinstance(context, ContextLog):
             add_to_timeline(self.context_logs, context, timestamp)
@@ -3197,11 +3199,12 @@ class DetectionReport:
             if context.file_sha256:
                 self.indicators["hash"].append(context.file_sha256)
 
-        elif isinstance(context, dict):
-            if context["Ticket"]:
+        elif isinstance(context, dict) or isinstance(context, pyotrs.Ticket):
+            if isinstance(context, pyotrs.Ticket) or context["Ticket"]:
                 self.ticket = context
             else:
                 raise TypeError("Given dict was no valid ticket object.")
+        
 
         else:
             raise TypeError("Unknown context type.")

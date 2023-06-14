@@ -409,6 +409,7 @@ def test_class_helper():
     detection_report2.add_context(flow)
     detection_report2.add_context(process)
 
+
     assert detection_report2.indicators is not None, "Could not add indicators to detection"
     assert len(detection_report2.indicators) != 0, "Could not add indicators to detection"
     assert detection_report2.indicators["ip"][0] == ipaddress.IPv4Address("123.123.123.123"), "Could not add indicators to detection"
@@ -424,6 +425,7 @@ def test_class_helper():
     assert detection2.indicators["domain"][0] == "www2.example.com", "Could not add indicators to detection"
     assert detection2.indicators["url"][0] == "https://www2.example.com/index.html", "Could not add indicators to detection"
     assert detection2.indicators["hash"][0] == "6f3b9dda23c69c097372ef91fd09420a", "Could not add indicators to detection"
+
     detection_report.detections.append(detection2)
 
     # Test auditLog class

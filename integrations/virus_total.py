@@ -343,6 +343,7 @@ def zs_provide_context_for_detections(config, detection_report: DetectionReport,
     if search_type == ipaddress.IPv4Address or search_type == ipaddress.IPv6Address:
         url = f"https://www.virustotal.com/api/v3/ip_addresses/{search_value}"
         url2 = f"https://www.virustotal.com/api/v3/ip_addresses/{search_value}/resolutions"
+
     elif search_type == DNSQuery:
         url = f"https://www.virustotal.com/api/v3/domains/{search_value}"
 
@@ -356,15 +357,15 @@ def zs_provide_context_for_detections(config, detection_report: DetectionReport,
             "x-apikey": api_key,
             "Content-Type": "application/x-www-form-urlencoded",
         }
+        if not cache:
+            response_url_req = requests.request(
+                "POST", vt_url, data=payload, headers=headers, verify=verify_certs
+            )
+            response_url_req_json = response_url_req.json()
 
-        response_url_req = requests.request(
-            "POST", vt_url, data=payload, headers=headers, verify=verify_certs
-        )
-        response_url_req_json = response_url_req.json()
-
-        id_url_analysis = response_url_req_json["data"]["id"]
-        mlog.info(f"VirusTotal API call for URL '{search_value}' returned analysis ID '{id_url_analysis}'.")
-        url = "https://www.virustotal.com/api/v3/analyses/" + id_url_analysis
+            id_url_analysis = response_url_req_json["data"]["id"]
+            mlog.info(f"VirusTotal API call for URL '{search_value}' returned analysis ID '{id_url_analysis}'.")
+            url = "https://www.virustotal.com/api/v3/analyses/" + id_url_analysis
 
     elif search_type == ContextProcess or search_type == ContextFile:
         url = "https://www.virustotal.com/vtapi/v2/file/report"
