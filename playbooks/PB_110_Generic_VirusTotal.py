@@ -109,7 +109,7 @@ def zs_handle_detection(detection_report: DetectionReport, TEST=False) -> Detect
         if len(ips) > 0 or len(domains) > 0 or len(urls) > 0 or len(hashes) > 0:
             detection_report.update_audit(init_action.set_successful("Got indicators", data=detection.indicators), mlog)
         else:
-            detection_report.update_audit(init_action.set_warning(f"No indicators were found for detection {detection.name}."), mlog)
+            detection_report.update_audit(init_action.set_warning(warning_message=f"No indicators were found for detection {detection.name}."), mlog)
             continue
 
         if len(ips) > 0:
@@ -142,7 +142,7 @@ def zs_handle_detection(detection_report: DetectionReport, TEST=False) -> Detect
                         had_public_ips = True
                         break
                 if had_public_ips:
-                    detection_report.update_audit(current_action.set_warning(message=f"Could not get threat intel for any of the {str(len(ips))} IPs", data=ips), mlog)
+                    detection_report.update_audit(current_action.set_warning(warning_message=f"Could not get threat intel for any of the {str(len(ips))} IPs", data=ips), mlog)
                 else:
                     detection_report.update_audit(current_action.set_successful(message=f"All {str(len(ips))} IPs were private. No threat intel search possible for them.", data=ips), mlog)
         
@@ -165,7 +165,7 @@ def zs_handle_detection(detection_report: DetectionReport, TEST=False) -> Detect
             if len(network_contexts) != 0:
                 detection_report.update_audit(current_action.set_successful(message=f"Got threat intel for {str(len(network_contexts))} out of {str(len(domains))} domains", data=domains), mlog)
             else:
-                detection_report.update_audit(current_action.set_warning(message=f"Could not get threat intel for any of the {str(len(domains))} domains", data=domains), mlog)
+                detection_report.update_audit(current_action.set_warning(warning_message=f"Could not get threat intel for any of the {str(len(domains))} domains", data=domains), mlog)
         
         if len(urls) > 0:
             mlog.debug(f"Found URLs: {urls}. Handling them.")
@@ -186,7 +186,7 @@ def zs_handle_detection(detection_report: DetectionReport, TEST=False) -> Detect
             if len(network_contexts) != 0:
                 detection_report.update_audit(current_action.set_successful(message=f"Got threat intel for {str(len(network_contexts))} out of {str(len(urls))} URLs", data=urls), mlog)
             else:
-                detection_report.update_audit(current_action.set_warning(message=f"Could not get threat intel for any of the {str(len(urls))} URLs", data=urls), mlog)
+                detection_report.update_audit(current_action.set_warning(warning_message=f"Could not get threat intel for any of the {str(len(urls))} URLs", data=urls), mlog)
 
         if len(hashes) > 0:
             mlog.debug(f"Found hashes: {hashes}. Handling them.")
@@ -204,7 +204,7 @@ def zs_handle_detection(detection_report: DetectionReport, TEST=False) -> Detect
             if len(process_contexts) != 0:
                 detection_report.update_audit(current_action.set_successful(message=f"Got threat intel for {str(len(process_contexts))} out of {str(len(hashes))} hashes", data=hashes), mlog)
             else:
-                detection_report.update_audit(current_action.set_warning(message=f"Could not get threat intel for any of the {str(len(hashes))} hashes", data=hashes), mlog)
+                detection_report.update_audit(current_action.set_warning(warning_message=f"Could not get threat intel for any of the {str(len(hashes))} hashes", data=hashes), mlog)
 
         if len(ips) == 0 and len(domains) == 0 and len(urls) == 0 and len(hashes) == 0:
             mlog.info("No indicators found in this detection.")
