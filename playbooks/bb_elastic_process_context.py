@@ -65,7 +65,7 @@ def bb_get_all_processes_by_uuid(detection_report: DetectionReport, uuid, childr
     mlog.debug("bb_get_all_processes_by_uuid - Fetching complete process for UUID: " + str(uuid))
 
     # Gather context
-    processes = zs_provide_context_for_detections(integration_config, detection_report, ContextProcess, UUID=uuid, maxContext=-1, TEST=False, UUID_is_parent=children)
+    processes = zs_provide_context_for_detections(integration_config, detection_report, ContextProcess, search_value=uuid, maxContext=-1, TEST=False, UUID_is_parent=children)
     if processes == None:
         if children == False:
             mlog.debug("bb_get_all_processes_by_uuid - No process found for UUID: " + str(uuid))
@@ -143,7 +143,11 @@ def bb_get_all_children(detection_report: DetectionReport, process: ContextProce
     """
     children = []
     thrown_process_count = 0
-    all_children, _ = get_all_children_recursive(detection_report, children, process, done_hashes=[], all_process_events=False)
+    if process != None:
+        all_children, _ = get_all_children_recursive(detection_report, children, process, done_hashes=[], all_process_events=False)
+    else:
+        mlog.warning("bb_get_all_children - Process is None. Returning empty list.")
+        return [], 0
     
     for child in all_children:
         detection_report.add_context(child)
@@ -170,7 +174,7 @@ def get_all_parents_recursive(detection_report, parents: List, process: ContextP
         mlog.debug("get_all_parents_recursive - Parent found for process name " + str(process.process_name) + " with UUID: " + str(process.process_uuid) + ". Parent UUID: " + str(parent_uuid) + ". Fetching parent now...")
         parent = bb_get_all_processes_by_uuid(detection_report, parent_uuid)
         if parent == None:
-            mlog.warning("get_all_parents_recursive - Parent not found for UUID: " + str(parent_uuid))
+            mlog.warning("get_all_parents_recursive - Parent process not found for UUID: " + str(parent_uuid))
             return parents
         mlog.debug("get_all_parents_recursive - ...got Parent name: " + str(parent.process_name) + ". Will append to list and fetch parents for this parent now...")
         parents.append(parent)
@@ -190,7 +194,11 @@ def bb_get_all_parents(detection_report: DetectionReport, process: ContextProces
     mlog.debug("get_all_parents - Getting all parents for process: " + str(process))
 
     parents = []
-    all_parents = get_all_parents_recursive(detection_report, parents, process)
+    if process != None:
+        all_parents = get_all_parents_recursive(detection_report, parents, process)
+    else:
+        mlog.warning("get_all_parents - Process is None. Returning empty list.")
+        return []
     
     # Remove parents with the same Hash as the process
     all_parents = [parent for parent in all_parents if parent.process_uuid != process.process_uuid]
@@ -199,7 +207,10 @@ def bb_get_all_parents(detection_report: DetectionReport, process: ContextProces
         detection_report.add_context(parent)
 
     # Sort the list by start time from newest to oldest
-    parents.sort(key=lambda x: x.process_start_time, reverse=True)
+    try:
+        all_parents.sort(key=lambda x: x.process_start_time, reverse=True)
+    except:
+        mlog.warning("get_all_parents - Could not sort list of parents by start time. Will return unsorted list.")
 
     return parents
 

@@ -22,11 +22,13 @@ PB_ENABLED = True
 
 
 from typing import Union, List
+import json
+import traceback
 
 import lib.logging_helper as logging_helper
 from lib.class_helper import DetectionReport, ContextProcess, AuditLog, Detection
 from lib.config_helper import Config
-from lib.generic_helper import format_results, get_unique
+from lib.generic_helper import format_results, get_unique, del_none_from_dict
 
 from integrations.elastic_siem import zs_provide_context_for_detections
 from integrations.znuny_otrs import zs_create_ticket, zs_add_note_to_ticket, zs_get_ticket_by_number
@@ -97,8 +99,18 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
     detection_report.update_audit(current_action, logger=mlog)
     
     init_title = f"Detection: {detection.name} ({detection.uuid})"
-    init_body = f"Detection: {detection.name} ({detection.uuid})\n\n"
-    init_body += format_results(detection, "html", transform=True, group_by="")
+    init_body = f"<h2>Detection: {detection.name} ({detection.uuid})</h2><br><br><br>"
+    for k, v in detection.__dict__().items():
+        if type(v) == list and len(v) == 1:
+            v = v[0]
+            
+        try:
+            v = json.dumps(del_none_from_dict(json.loads(str(v))), indent=4, sort_keys=False, default=str)
+            v = v.replace("\n", "<br>")
+        except:
+            v = str(v)
+        init_body += f"<h3>{k}:</h3> <font size='+2'>{v}</font><br><br>"
+    #init_body += format_results(detection, "html", transform=False, group_by="")
 
     ticket_number = zs_create_ticket(detection_report, DRY_RUN,init_note_title=init_title, init_note_body=init_body)
     if ticket_number is None or not ticket_number:
@@ -126,7 +138,7 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
     try:
         parents = bb_get_all_parents(detection_report, detection.process)#
     except Exception as e:
-        mlog.error(f"Failed to get parents for detection: '{detection.name}' ({detection.uuid}). Exception: {e}")
+        mlog.error(f"Failed to get parents for detection: '{detection.name}' ({detection.uuid}). Exception: {traceback.format_exc()}")
         detection_report.update_audit(current_sub_action.set_error(message=f"Failed to get parents for detection.", exception=e), logger=mlog)
 
     if parents is None:
@@ -145,7 +157,7 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
     try:
         children, thrown_count = bb_get_all_children(detection_report, detection.process)
     except Exception as e:
-        mlog.error(f"Failed to get children for detection: '{detection.name}' ({detection.uuid}). Exception: {e}")
+        mlog.error(f"Failed to get children for detection: '{detection.name}' ({detection.uuid}). Exception: {traceback.format_exc()}")
         detection_report.update_audit(current_sub_action.set_error(message=f"Failed to get children for detection.", exception=e), logger=mlog)
 
     if children is None:
@@ -163,12 +175,13 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
 
 
     # Create process tree visualisation if parents or children is not None
-    if parents is not None or children is not None:
+    process_tree = None
+    if len(parents) > 0 or len(children) > 0:
         current_sub_action = AuditLog(PB_NAME, 5, "Context - Process Tree", "Gathering Process Tree from BB.")
         try:
             process_tree = bb_make_process_tree_visualisation(detection.process, parents, children)
         except Exception as e:
-            mlog.error(f"Failed to create process tree visualisation for detection: '{detection.name}' ({detection.uuid}). Exception: {e}")
+            mlog.error(f"Failed to create process tree visualisation for detection: '{detection.name}' ({detection.uuid}). Exception: {traceback.format_exc()}")
             detection_report.update_audit(current_sub_action.set_error(message=f"Failed to create process tree visualisation for detection.", exception=e), logger=mlog)
         if process_tree == "":
             mlog.warning(f"Failed to get process tree visualisation for detection.")
@@ -183,47 +196,56 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
     try:
         current_action = AuditLog(PB_NAME, 6, "Create Note - Process Context", "Creating note for processes in detection.")
         detection_report.update_audit(current_action, logger=mlog)
-        # Replace "\n" by "<br" in process_tree
-        process_tree = process_tree.replace("\n", "<br>")
-        process_tree = process_tree.replace("    ", "&emsp;")
 
-        body = f"<br><br><h2>Process Context:</h2><br><br>"
-        body += f"<br><br><h3>Process Tree:</h3><br>{process_tree}"
-        body += f"<br><br><h3>Context regarding detected Process:</h3><br><br>"
-        body += f"Process Name: {detection.process.process_name}<br>"
-        body += f"Process ID: {detection.process.process_id}<br>"
-        body += f"Process Path: {detection.process.process_path}<br>"
-        body += f"Process Command Line: {detection.process.process_command_line}<br>"
-        body += f"Process SHA256: {detection.process.process_sha256}<br>"
-
-        body += f"<br><br><h3>List of all reported process names: </h3><br><br>"
-        body += f"{get_unique(process_names)}"
-
-        body += f"<br><br><h3>Parent Processes:<br><br><h3>"
-        body += format_results(parents, "html", group_by="process_id")
-
-        body += f"<br><br><h3>Child Processes:</h3><br>"
-        body += "<br>"+format_results(children, "html", group_by="process_id")
-
-        body += "<br><br><h3>Complete Process Timeline:</h3><br>"
-        body += "<br>"+format_results(detection_report.context_processes, "html", group_by="timestamp")
-
-        note_id = zs_add_note_to_ticket(ticket_number, "raw", DRY_RUN, "Context: Processes", body, "text/html")
-        if type(note_id) is not int:
-            mlog.warning(f"Failed to create note for processes in detection.")
-            detection_report.update_audit(current_action.set_error(warning_message=f"Failed to create note for processes in detection (returned).", exception=note_id), logger=mlog)
+        if not detection.process:
+            mlog.warning(f"Detection has no process. Skipping note creation.")
+            detection_report.update_audit(current_action.set_warning(warning_message=f"Detection has no process. Skipping note creation."), logger=mlog)
         else:
-            mlog.info(f"Successfully created note for processes in detection: '{detection.name}' ({detection.uuid}) with note id: {note_id}")
-            detection_report.update_audit(current_action.set_successful(message=f"Successfully created note for processes in detection with note id: {note_id}", ticket_number=ticket_number), logger=mlog)
+            # Replace "\n" by "<br" in process_tree
+            if process_tree:
+                process_tree = process_tree.replace("\n", "<br>")
+                process_tree = process_tree.replace("    ", "&emsp;")
+
+            body = f"<br><br><h2>Process Context:</h2><br><br>"
+            body += f"<br><br><h3>Process Tree:</h3><br>{process_tree if process_tree else 'No process tree available.'}<br><br>"
+            body += f"<br><br><h3>Context regarding detected Process:</h3><br><br>"
+            body += f"Process Name: {detection.process.process_name if detection.process else 'N/A'}<br>"
+            body += f"Process ID: {detection.process.process_id}<br>"
+            body += f"Process Path: {detection.process.process_path}<br>"
+            body += f"Process Command Line: {detection.process.process_command_line}<br>"
+            body += f"Process SHA256: {detection.process.process_sha256}<br>"
+
+            body += f"<br><br><h3>List of all reported process names: </h3><br><br>"
+            body += f"{get_unique(process_names)}"
+
+            body += f"<br><br><h3>Parent Processes:<br><br><h3>"
+            body += format_results(parents, "html", group_by="process_id")
+
+            body += f"<br><br><h3>Child Processes:</h3><br>"
+            body += "<br>"+format_results(children, "html", group_by="process_id")
+
+            body += "<br><br><h3>Complete Process Timeline:</h3><br>"
+            body += "<br>"+format_results(detection_report.context_processes, "html", group_by="timestamp")
+
+            note_id = zs_add_note_to_ticket(ticket_number, "raw", DRY_RUN, "Context: Processes", body, "text/html")
+            if type(note_id) is not int:
+                mlog.warning(f"Failed to create note for processes in detection.")
+                detection_report.update_audit(current_action.set_error(warning_message=f"Failed to create note for processes in detection (returned).", exception=note_id), logger=mlog)
+            else:
+                mlog.info(f"Successfully created note for processes in detection: '{detection.name}' ({detection.uuid}) with note id: {note_id}")
+                detection_report.update_audit(current_action.set_successful(message=f"Successfully created note for processes in detection with note id: {note_id}", ticket_number=ticket_number), logger=mlog)
     except Exception as e:
-        mlog.error(f"Failed to create note for processes in detection: '{detection.name}' ({detection.uuid}). Exception: {e}")
+        mlog.error(f"Failed to create note for processes in detection: '{detection.name}' ({detection.uuid}). Exception: {traceback.format_exc()}")
         detection_report.update_audit(current_action.set_error(message=f"Failed to create note for processes in detection (catched).", exception=e), logger=mlog)
 
+    detected_process_flows = None
     # Gather network flows from alerted process
     try:
         current_action = AuditLog(PB_NAME, 7, "Context - Network Flows (Detected Process)", "Gathering network flows of detected process from BB.")
         detection_report.update_audit(current_action, logger=mlog)
-        detected_process_flows, thrown_count = bb_get_process_network_flows(detection_report, detection.process)
+
+        if detection.process:
+            detected_process_flows, thrown_count = bb_get_process_network_flows(detection_report, detection.process)
         if detected_process_flows is None:
             mlog.warning(f"Got no network flows for detection.")
             detection_report.update_audit(current_action.set_warning(warning_message=f"Found no network flows for detected process."), logger=mlog)
@@ -239,8 +261,9 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
                 detection_report.update_audit(current_action.set_warning(warning_message=f"[OVERFLOW PROTECTION] Threw {thrown_count} network flows out for detected process, due to overflow protection."), logger=mlog)
 
     except Exception as e:
-        mlog.error(f"Failed to get network flows for detection: '{detection.name}' ({detection.uuid}). Exception: {e}")
+        mlog.error(f"Failed to get network flows for detection: '{detection.name}' ({detection.uuid}). Exception: {traceback.format_exc()}")
         detection_report.update_audit(current_action.set_error(message=f"Failed to get network flows for detection.", exception=e), logger=mlog)
+
 
     # Gather network flows from (other) context processes
     try:
@@ -268,7 +291,7 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
 
             detection_report.update_audit(current_action.set_successful(message=f"Found {len(context_processes_flows)} network flows for other processes of detection.", data=destination_ips), logger=mlog)
     except Exception as e:
-        mlog.error(f"Failed to get network flows for detection: '{detection.name}' ({detection.uuid}). Exception: {e}")
+        mlog.error(f"Failed to get network flows for detection: '{detection.name}' ({detection.uuid}). Exception: {traceback.format_exc()}")
         detection_report.update_audit(current_action.set_error(message=f"Failed to get network flows for detection.", exception=e), logger=mlog)
 
     detection_report.update_audit(current_action.set_successful(message=f"Successfully gathered needed context for detection."), logger=mlog)
@@ -285,7 +308,10 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
             note_title += " (empty)"
 
         body = f"<br><br><h2>Network Context:</h2><br><br>"
-        body += f"<h3>Network Flows of detected Process '{detection.process.process_name}' ({detection.process.process_id}):</h3><br><br>"
+        if detection.process:
+            body += f"<h3>Network Flows of detected Process '{detection.process.process_name}' ({detection.process.process_id}):</h3><br><br>"
+        else:
+            body += f"<h3>Network Flows of detected Process <N/A>:</h3><br><br>"
         body += format_results(detected_process_flows, "html", group_by="timestamp")
 
         body += f"<br><br><h3>List of all reported IPs and domains: </h3><br><br>"
@@ -305,15 +331,18 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
             current_action.playbook_done = True
             detection_report.update_audit(current_action.set_successful(message=f"Successfully created note for network in detection with note id: {note_id}", ticket_number=ticket_number), logger=mlog)
     except Exception as e:
-        mlog.error(f"Failed to create note for network in detection: '{detection.name}' ({detection.uuid}). Exception: {e}")
+        mlog.error(f"Failed to create note for network in detection: '{detection.name}' ({detection.uuid}). Exception: {traceback.format_exc()}")
         detection_report.update_audit(current_action.set_error(message=f"Failed to create note for network in detection (catched).", exception=e), logger=mlog)
 
 
     # Gather file events from alerted process
+    detected_process_file_events = None
+    file_names = []
     try:
         current_action = AuditLog(PB_NAME, 10, "File Events - Alerted Process", "Gathering file events of alerted process from BB.")
         detection_report.update_audit(current_action, logger=mlog)
-        detected_process_file_events, thrown = bb_get_process_file_events(detection_report, detection.process)
+        if detection.process:
+            detected_process_file_events, thrown = bb_get_process_file_events(detection_report, detection.process)
         if detected_process_file_events is None:
             mlog.warning(f"Got no file events for detection.")
             detection_report.update_audit(current_action.set_warning(warning_message=f"Found no file events for detected process."), logger=mlog)
@@ -323,7 +352,7 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
                 file_names.append(event.file_name)
             detection_report.update_audit(current_action.set_successful(message=f"Found {len(detected_process_file_events)} file events for detected process.", data=file_names), logger=mlog)
     except Exception as e:
-        mlog.error(f"Failed to get file events for detection: '{detection.name}' ({detection.uuid}). Exception: {e}")
+        mlog.error(f"Failed to get file events for detection: '{detection.name}' ({detection.uuid}). Exception: {traceback.format_exc()}")
         detection_report.update_audit(current_action.set_error(message=f"Failed to get file events for detection.", exception=e), logger=mlog)
 
     # Gather file events from other context processes
@@ -351,7 +380,7 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
                 file_names.append(event.file_name)
             detection_report.update_audit(current_action.set_successful(message=f"Found {len(context_processes_file_events)} file events for other processes of detection.", data=file_names), logger=mlog)
     except Exception as e:
-        mlog.error(f"Failed to get file events for detection: '{detection.name}' ({detection.uuid}). Exception: {e}")
+        mlog.error(f"Failed to get file events for detection: '{detection.name}' ({detection.uuid}). Exception: {traceback.format_exc()}")
         detection_report.update_audit(current_action.set_error(message=f"Failed to get file events for detection.", exception=e), logger=mlog)
 
     # Create a note for File Events
@@ -361,12 +390,15 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
         note_title = "Context: File Events"
 
         # Check if any file events were found
-        if detected_process_file_events is None and len(context_processes_file_events) == 0 and len(detection_report.context_file_events) == 0:
+        if detected_process_file_events is None and len(context_processes_file_events) == 0 and len(detection_report.context_files) == 0:
             detection_report.update_audit(current_action.set_warning(warning_message=f"Found no file events for detection."), logger=mlog)
             note_title += " (empty)"
 
         body = f"<br><br><h2>File Event Context:</h2><br><br>"
-        body += f"<h3>File Events of detected Process '{detection.process.process_name}' ({detection.process.process_id}):</h3><br><br>"
+        if detection.process:
+            body += f"<h3>File Events of detected Process '{detection.process.process_name}' ({detection.process.process_id}):</h3><br><br>"
+        else:
+            body += f"<h3>File Events of detected Process <N/A>:</h3><br><br>"
         body += format_results(detected_process_file_events, "html", group_by="timestamp")
 
         body += f"<br><br><h3>List of all reported files: </h3><br><br>"
@@ -385,14 +417,16 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
             mlog.info(f"Successfully created note for file events in detection: '{detection.name}' ({detection.uuid}) with note id: {note_id}")
             detection_report.update_audit(current_action.set_successful(message=f"Successfully created note for file events in detection with note id: {note_id}", ticket_number=ticket_number), logger=mlog)
     except Exception as e:
-        mlog.error(f"Failed to create note for file events in detection: '{detection.name}' ({detection.uuid}). Exception: {e}")
+        mlog.error(f"Failed to create note for file events in detection: '{detection.name}' ({detection.uuid}). Exception: {traceback.format_exc()}")
         detection_report.update_audit(current_action.set_error(message=f"Failed to create note for file events in detection (catched).", exception=e), logger=mlog)
 
     # Gatther registry events from detected process
+    detected_process_registry_events = None
     try:
         current_action = AuditLog(PB_NAME, 13, "Registry Events - Detected Process", "Gathering registry events of detected process from BB.")
         detection_report.update_audit(current_action, logger=mlog)
-        detected_process_registry_events, thrown = bb_get_process_registry_events(detection_report, detection.process)
+        if detection.process:
+            detected_process_registry_events, thrown = bb_get_process_registry_events(detection_report, detection.process)
         if detected_process_registry_events is None:
             mlog.warning(f"Got no registry events from detected process.")
             detection_report.update_audit(current_action.set_warning(warning_message=f"Found no registry events for detected process."), logger=mlog)
@@ -403,7 +437,7 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
             detection_report.update_audit(current_action.set_successful(message=f"Found {len(detected_process_registry_events)} registry events for detected process.", data=registry_keys), logger=mlog)
 
     except Exception as e:
-        mlog.error(f"Failed to get registry events for detection: '{detection.name}' ({detection.uuid}). Exception: {e}")
+        mlog.error(f"Failed to get registry events for detection: '{detection.name}' ({detection.uuid}). Exception: {traceback.format_exc()}")
         detection_report.update_audit(current_action.set_error(message=f"Failed to get registry events for detection.", exception=e), logger=mlog)
 
     # Gatther registry events from other processes
@@ -426,7 +460,7 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
             detection_report.update_audit(current_action.set_successful(message=f"Found {len(context_processes_registry_events)} registry events for other processes of detection.", data=registry_keys), logger=mlog)
 
     except Exception as e:
-        mlog.error(f"Failed to get registry events for detection: '{detection.name}' ({detection.uuid}). Exception: {e}")
+        mlog.error(f"Failed to get registry events for detection: '{detection.name}' ({detection.uuid}). Exception: {traceback.format_exc()}")
         detection_report.update_audit(current_action.set_error(message=f"Failed to get registry events for detection.", exception=e), logger=mlog)
 
     # Create a note for Registry Events
@@ -436,13 +470,16 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
         note_title = "Context: Registry Events"
 
         # Check if any registry events were found
-        if detected_process_registry_events is None and len(context_processes_registry_events) == 0 and len(detection_report.context_registry_events) == 0:
+        if detected_process_registry_events is None and len(context_processes_registry_events) == 0 and len(detection_report.context_registries) == 0:
             mlog.warning(f"Found no registry events for detection.")
             detection_report.update_audit(current_action.set_warning(warning_message=f"Found no registry events for detection."), logger=mlog)
             note_title += " (empty)"
 
         body = f"<br><br><h2>Registry Event Context:</h2><br><br>"
-        body += f"<h3>Registry Events of detected Process '{detection.process.process_name}' ({detection.process.process_id}):</h3><br><br>"
+        if detection.process:
+            body += f"<h3>Registry Events of detected Process '{detection.process.process_name}' ({detection.process.process_id}):</h3><br><br>"
+        else:
+            body += f"<h3>Registry Events of detected Process <N/A>:</h3><br><br>"
         body += format_results(detected_process_registry_events, "html", group_by="timestamp")
         body += f"<br><br><h3>Registry Events of other Processes (grouped by process):</h3><br><br>"
         body += format_results(context_processes_registry_events, "html", group_by="process_id")
@@ -459,12 +496,17 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
             detection_report.update_audit(current_action.set_successful(message=f"Successfully created note for registry events in detection with note id: {note_id}", ticket_number=ticket_number), logger=mlog)
 
     except Exception as e:
-        mlog.error(f"Failed to create note for registry events in detection: '{detection.name}' ({detection.uuid}). Exception: {e}")
+        mlog.error(f"Failed to create note for registry events in detection: '{detection.name}' ({detection.uuid}). Exception: {traceback.format_exc()}")
         detection_report.update_audit(current_action.set_error(message=f"Failed to create note for registry events in detection (catched).", exception=e), logger=mlog)
     
+    return detection_report
 
 # TODO:
-# - Threat Intel context
+# - Cache new detection and check if it similar events already in the cache
+# - Empty cache if too big
+# - Worker: Kill Playbook if stuck
 # - Host / Server context
 # - Historical context
 # - Analysis (manual / automated)
+# - Audit log respecting timeline order
+# - Audit log to Ticket

@@ -5,7 +5,7 @@ cache:
     max_size_mb: 10
     path: lib/cache.json
 daemon:
-  enabled: true
+  enabled: false
   interval: 1
   interval_min: 1
 integrations:
@@ -14,10 +14,10 @@ integrations:
     elastic_url: https://10.20.1.6:9200
     elastic_user: zsoar
     elastic_verify_certs: false
-    enabled: false
+    enabled: true
     logging:
-      log_level_file: debug
-      log_level_stdout: debug
+      log_level_file: info
+      log_level_stdout: warning
       log_level_syslog: error
   ibm_qradar:
     enabled: false
@@ -25,8 +25,8 @@ integrations:
     api_key: $ZS_INT_VIRUSTOTAL_API_KEY
     enabled: true
     logging:
-      log_level_file: debug
-      log_level_stdout: debug
+      log_level_file: info
+      log_level_stdout: warning
       log_level_syslog: error
     verify_certs: false
   znuny_otrs:
@@ -38,8 +38,8 @@ integrations:
       source_queue: T1
     enabled: true
     logging:
-      log_level_file: debug
-      log_level_stdout: debug
+      log_level_file: info
+      log_level_stdout: warning
       log_level_syslog: error
     password: $ZS_INT_ZNUNY_PW
     ticketing:
@@ -59,16 +59,17 @@ logging:
   log_file_split: false
   log_file_split_module: false
   log_file_split_start: true
-  log_level_file: debug
-  log_level_stdout: info
+  log_level_file: info
+  log_level_stdout: warning
   log_level_syslog: none
   split_file_on_startup: true
   split_file_on_worker_iteration: false
   split_files_by_module: false
 playbooks:
-  010_Generic_Elastic_Alerts:
+  PB_010_Generic_Elastic_Alerts:
     enabled: true
-    name: 010_Generic_Elastic_Alerts
+  PB_110_Generic_VirusTotal:
+    enabled: true
 setup:
   load_enviroment_variables: true
   setup_step: 2

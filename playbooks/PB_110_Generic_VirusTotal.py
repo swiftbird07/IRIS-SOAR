@@ -124,15 +124,27 @@ def zs_handle_detection(detection_report: DetectionReport, TEST=False) -> Detect
                     continue
 
                 try:
-                    network_contexts.append(zs_provide_context_for_detections(integration_config, detection_report, required_type=ContextThreatIntel, TEST=TEST, search_type=type(ip), search_value=ip, maxContext=1, wait_if_api_quota_exceeded=True))
+                    nw_new = zs_provide_context_for_detections(integration_config, detection_report, required_type=ContextThreatIntel, TEST=TEST, search_type=type(ip), search_value=ip, maxContext=1, wait_if_api_quota_exceeded=True)
+                    if nw_new:
+                        network_contexts.append(nw_new)
                 except Exception as e:
                     mlog.error(f"Error while getting context for IP '{ip}': {e}")
-                    detection_report.update_audit(current_action.set_warning(warning_message=f"Error while getting context for IP '{ip}': {e}", data=e), mlog)
+                    detection_report.update_audit(current_action.set_error(warning_message=f"Error while getting context for IP '{ip}': {e}", data=e), mlog)
 
             if len(network_contexts) != 0:
                 detection_report.update_audit(current_action.set_successful(message=f"Got threat intel for {str(len(network_contexts))} out of {str(len(ips))} IPs", data=ips), mlog)
             else:
-                detection_report.update_audit(current_action.set_error(message=f"Could not get threat intel for any of the {str(len(ips))} IPs", data=ips), mlog)
+                # Check if all IPs were private
+                had_public_ips = False
+                for ip in ips:
+                    ip = cast_to_ipaddress(ip)
+                    if ip.is_global:
+                        had_public_ips = True
+                        break
+                if had_public_ips:
+                    detection_report.update_audit(current_action.set_warning(message=f"Could not get threat intel for any of the {str(len(ips))} IPs", data=ips), mlog)
+                else:
+                    detection_report.update_audit(current_action.set_successful(message=f"All {str(len(ips))} IPs were private. No threat intel search possible for them.", data=ips), mlog)
         
         if len(domains) > 0:
             mlog.debug(f"Found domains: {domains}. Handling them.")
@@ -143,15 +155,17 @@ def zs_handle_detection(detection_report: DetectionReport, TEST=False) -> Detect
                     if is_local_tld(domain):
                         mlog.debug(f"Domain '{domain}' is a local domain. Skipping it.")
                         continue
-                    network_contexts.append(zs_provide_context_for_detections(integration_config, detection_report, required_type=ContextThreatIntel, TEST=TEST, search_type=DNSQuery, search_value=domain, maxContext=1, wait_if_api_quota_exceeded=True))
+                    domain_new = zs_provide_context_for_detections(integration_config, detection_report, required_type=ContextThreatIntel, TEST=TEST, search_type=DNSQuery, search_value=domain, maxContext=1, wait_if_api_quota_exceeded=True)
+                    if domain_new:
+                        network_contexts.append(domain_new)
                 except Exception as e:
                     mlog.error(f"Error while getting context for domain '{domain}': {e}")
-                    detection_report.update_audit(current_action.set_warning(warning_message=f"Error while getting context for domain '{domain}': {e}", data=e), mlog)
+                    detection_report.update_audit(current_action.set_error(warning_message=f"Error while getting context for domain '{domain}': {e}", data=e), mlog)
 
             if len(network_contexts) != 0:
                 detection_report.update_audit(current_action.set_successful(message=f"Got threat intel for {str(len(network_contexts))} out of {str(len(domains))} domains", data=domains), mlog)
             else:
-                detection_report.update_audit(current_action.set_error(message=f"Could not get threat intel for any of the {str(len(domains))} domains", data=domains), mlog)
+                detection_report.update_audit(current_action.set_warning(message=f"Could not get threat intel for any of the {str(len(domains))} domains", data=domains), mlog)
         
         if len(urls) > 0:
             mlog.debug(f"Found URLs: {urls}. Handling them.")
@@ -162,15 +176,17 @@ def zs_handle_detection(detection_report: DetectionReport, TEST=False) -> Detect
                     if is_local_tld(url.split("/")[2]):
                         mlog.debug(f"URL '{url}' is a local domain. Skipping it.")
                         continue
-                    network_contexts.append(zs_provide_context_for_detections(integration_config, detection_report, required_type=ContextThreatIntel, TEST=TEST, search_type=HTTP, search_value=url, maxContext=1, wait_if_api_quota_exceeded=True))
+                    url_new = zs_provide_context_for_detections(integration_config, detection_report, required_type=ContextThreatIntel, TEST=TEST, search_type=HTTP, search_value=url, maxContext=1, wait_if_api_quota_exceeded=True)
+                    if url_new:
+                        network_contexts.append(url_new)
                 except Exception as e:
                     mlog.error(f"Error while getting context for URL '{url}': {e}")
-                    detection_report.update_audit(current_action.set_warning(warning_message=f"Error while getting context for URL '{url}': {e}", data=e), mlog)
+                    detection_report.update_audit(current_action.set_error(warning_message=f"Error while getting context for URL '{url}': {e}", data=e), mlog)
 
             if len(network_contexts) != 0:
                 detection_report.update_audit(current_action.set_successful(message=f"Got threat intel for {str(len(network_contexts))} out of {str(len(urls))} URLs", data=urls), mlog)
             else:
-                detection_report.update_audit(current_action.set_error(message=f"Could not get threat intel for any of the {str(len(urls))} URLs", data=urls), mlog)
+                detection_report.update_audit(current_action.set_warning(message=f"Could not get threat intel for any of the {str(len(urls))} URLs", data=urls), mlog)
 
         if len(hashes) > 0:
             mlog.debug(f"Found hashes: {hashes}. Handling them.")
@@ -178,15 +194,17 @@ def zs_handle_detection(detection_report: DetectionReport, TEST=False) -> Detect
             detection_report.update_audit(current_action, mlog)
             for hash in hashes:
                 try:
-                    process_contexts.append(zs_provide_context_for_detections(integration_config, detection_report, required_type=ContextThreatIntel, TEST=TEST, search_type=ContextProcess, search_value=hash, maxContext=1, wait_if_api_quota_exceeded=True))
+                    pc_new = zs_provide_context_for_detections(integration_config, detection_report, required_type=ContextThreatIntel, TEST=TEST, search_type=ContextProcess, search_value=hash, maxContext=1, wait_if_api_quota_exceeded=True)
+                    if pc_new:
+                        process_contexts.append(pc_new)
                 except Exception as e:
                     mlog.error(f"Error while getting context for hash '{hash}': {e}")
-                    detection_report.update_audit(current_action.set_warning(warning_message=f"Error while getting context for hash '{hash}': {e}", data=e), mlog)
+                    detection_report.update_audit(current_action.set_error(warning_message=f"Error while getting context for hash '{hash}': {e}", data=e), mlog)
 
             if len(process_contexts) != 0:
                 detection_report.update_audit(current_action.set_successful(message=f"Got threat intel for {str(len(process_contexts))} out of {str(len(hashes))} hashes", data=hashes), mlog)
             else:
-                detection_report.update_audit(current_action.set_error(message=f"Could not get threat intel for any of the {str(len(hashes))} hashes", data=hashes), mlog)
+                detection_report.update_audit(current_action.set_warning(message=f"Could not get threat intel for any of the {str(len(hashes))} hashes", data=hashes), mlog)
 
         if len(ips) == 0 and len(domains) == 0 and len(urls) == 0 and len(hashes) == 0:
             mlog.info("No indicators found in this detection.")
@@ -240,16 +258,16 @@ def zs_handle_detection(detection_report: DetectionReport, TEST=False) -> Detect
             note_body = "<h2>Highlights (Hits)</h2>"
             note_body += f"Found {str(len(hits_sus))} suspicious and {str(len(hits_mal))} malicious hit(s).<br><br>"
             note_body += f"<h3>Suspicious hits:</h3><br><br>"
-            note_body += format_results(hits_sus, "html", "indicator")
+            note_body += format_results(hits_sus, "html", "")
             note_body += f"<h3>Malicious hits:</h3><br><br>"
-            note_body += format_results(hits_mal, "html", "indicator")
+            note_body += format_results(hits_mal, "html", "")
             note_body += "<br><br><br><br>"
             note_body += "<h2>Complete Context</h2>"
             note_body += f"Found {str(len(network_contexts))} network threat intel and {str(len(process_contexts))} process threat intel from VirusTotal for this {detection_str}.<br><br>"
             note_body += f"<h3>Process threat intel:</h3><br><br>"
-            note_body += format_results(process_contexts, "html", "indicator")
+            note_body += format_results(process_contexts, "html", "")
             note_body += f"<h3>Network threat intel:</h3><br><br>"
-            note_body += format_results(network_contexts, "html", "indicator")
+            note_body += format_results(network_contexts, "html", "")
             note_body += "<br><br><br><br>"
 
             zs_add_note_to_ticket(ticket_number, "raw", TEST, note_title, note_body, "text/html")
@@ -260,4 +278,5 @@ def zs_handle_detection(detection_report: DetectionReport, TEST=False) -> Detect
             detection_report.update_audit(current_action.set_error(message=f"Error while adding note to ticket: {e}", data=e), mlog)
     else:
         mlog.info(f"No threat intel found for this {detection_str}. Not adding note to ticket.")
-        return detection_report
+    
+    return detection_report

@@ -17,6 +17,7 @@ import lib.logging_helper as logging_helper
 from lib.generic_helper import del_none_from_dict, handle_percentage, cast_to_ipaddress, add_to_timeline, remove_duplicates_from_dict
 
 DEFAULT_IP = ipaddress.ip_address("127.0.0.1")  # When no IP address is provided, this is used
+THRESHOLD_PROCESS_IO_BYTES = 100000  # Threshold for the process IO bytes (100 KB)
 
 # TODO: Implement all functions used by zsoar_worker.py and its modules
 
@@ -539,6 +540,7 @@ class ContextDevice:
         os_version (str): The version of the operating system of the device
         os_family (str): The family of the operating system of the device
         os_last_update (datetime): The last update of the operating system of the device
+        kernel (str): The kernel of the device
         in_scope (bool): Whether the device is in scope or not
         tags (List[str]): A list of tags assigned to the device
         created_at (datetime): The date and time when the device was created
@@ -592,6 +594,7 @@ class ContextDevice:
         os_version: str = None,
         os_family: str = None,
         os_last_update: datetime = None,
+        kernel: str = None,
         in_scope: bool = True,
         tags: List[str] = None,
         created_at: datetime = None,
@@ -630,8 +633,8 @@ class ContextDevice:
         mlog = logging_helper.Log("lib.class_helper")
 
         self.name = name
-        self.local_ip = cast_to_ipaddress(local_ip)
-        self.global_ip = cast_to_ipaddress(global_ip)
+        self.local_ip = cast_to_ipaddress(local_ip, strict=False)
+        self.global_ip = cast_to_ipaddress(global_ip, strict=False)
 
         if ips is None:
             self.ips = []
@@ -644,6 +647,7 @@ class ContextDevice:
         self.os_version = os_version
         self.os_family = os_family
         self.os_last_update = os_last_update
+        self.kernel = kernel
         self.in_scope = in_scope
         self.tags = tags
         self.created_at = created_at
@@ -727,6 +731,7 @@ class ContextDevice:
             "os_version": self.os_version,
             "os_family": self.os_family,
             "os_last_update": self.os_last_update,
+            "kernel": self.kernel,
             "in_scope": self.in_scope,
             "tags": self.tags,
             "created_at": str(self.created_at),
@@ -777,12 +782,15 @@ class Rule:
         id (str): The ID of the rule
         name (str): The name of the rule
         description (str): The description of the rule
-        severity (int): The severity of the rule
+        severity (str): The severity of the rule
+        risk_score (int): The risk score of the rule
         tags (List[str]): The tags of the rule
         raw (str): The raw rule
         created_at (datetime): The creation date of the rule
         updated_at (datetime): The last update date of the rule
-
+        query (str): The query of the rule
+        mitre_references (List[str]): The MITRE references of the rule
+        known_false_positives (str): The known false positives of the rule
 
     Methods:
         __init__(self, id: str, name: str, severity: int, description: str = None, tags: List[str] = None, raw: str = None, created_at: datetime = None, updated_at: datetime = None)
@@ -793,17 +801,21 @@ class Rule:
         self,
         id: str,
         name: str,
-        severity: int,
+        severity: str = None,
+        risk_score: int = None,
         description: str = None,
         tags: List[str] = None,
         raw: str = None,
         created_at: datetime.datetime = None,
         updated_at: datetime.datetime = None,
+        query: str = None,
+        mitre_references: List[str] = None,
+        known_false_positives: str = None,
     ):
         mlog = logging_helper.Log("lib.class_helper")
 
         if type(id) is not str:
-            mlog.warning("The ID of the rule is not a string: " + str(id) + ". Converting to string.")
+            #mlog.warning("The ID of the rule is not a string: " + str(id) + ". Converting to string.")
             id = str(id)
 
         # TODO: (for all classes) Add type checks for strings as well
@@ -812,10 +824,14 @@ class Rule:
         self.name = name
         self.description = description
         self.severity = severity
+        self.risk_score = risk_score
         self.tags = tags
         self.raw = raw
         self.created_at = created_at
         self.updated_at = updated_at
+        self.query = query
+        self.mitre_references = mitre_references
+        self.known_false_positives = known_false_positives
 
     def __dict__(self):
         """Returns the dictionary representation of the object."""
@@ -824,6 +840,10 @@ class Rule:
             "name": self.name,
             "description": self.description,
             "severity": self.severity,
+            "risk_score": self.risk_score,
+            "query": self.query,
+            "mitre_references": self.mitre_references,
+            "known_false_positives": self.known_false_positives,
             "tags": self.tags,
             "raw": self.raw,
             "created_at": str(self.created_at),
@@ -1621,6 +1641,8 @@ class ContextProcess:
         process_parent_arguments (List[]): The arguments of the parent process
         process_modules (List[]): The modules of the process
         process_thread (str): The threads of the process
+        process_io_text (str): The IO text of the process
+        process_io_bytes (str): The IO of the process
         is_complete (bool): Set to True if all available information has been collected, False (default) if not
         detection_relevance (int): The relevance of the process in the detection (0-100)
 
@@ -1691,6 +1713,8 @@ class ContextProcess:
         created_registry_keys: List[str] = [],
         deleted_registry_keys: List[str] = [],
         modified_registry_keys: List[str] = [],
+        process_io_bytes: int = 0,
+        process_io_text: str = "",
         is_complete: bool = False,
         detection_relevance: int = 50,
     ):
@@ -1805,11 +1829,22 @@ class ContextProcess:
             mlog.warning("Process Object __init__: process_path should not be None if is_complete is True")
         if is_complete and process_md5 == None and process_sha256 == None:
             mlog.warning("Process Object __init__: process_md5 or process_sha256 should not be None if is_complete is True")
-        if is_complete and process_command_line == None:
+        if is_complete and process_command_line == None and False: # deactivated, as this happens often, even if the rest is complete
             mlog.warning("Process Object __init__: process_command_line should not be None if is_complete is True")
         self.is_complete = is_complete
 
         self.detection_relevance = handle_percentage(detection_relevance)
+
+        if process_io_text and len(process_io_text) > 0 and process_io_bytes > 0:
+            process_io_bytes = len(process_io_text.encode("utf-8"))
+        
+        if process_io_bytes and process_io_bytes > THRESHOLD_PROCESS_IO_BYTES:
+            mlog.warning("Process Object __init__: process_io_bytes is above threshold of " + str(THRESHOLD_PROCESS_IO_BYTES) + " bytes. Got: " + str(process_io_bytes))
+            process_io_bytes = THRESHOLD_PROCESS_IO_BYTES
+            process_io_text = process_io_text[:THRESHOLD_PROCESS_IO_BYTES]
+
+        self.process_io_bytes = process_io_bytes
+        self.process_io_text = process_io_text
 
     def __dict__(self):
         _dict = {
@@ -2544,7 +2579,8 @@ class Detection:
         description (str): The description of the detection
         tags (List[str]): The tags of the detection
         raw (str): The raw detection
-        source (str): The source of the detection
+        host_name (str): The source host of the detection
+        host_ip (ipaddress.IPV4Address): The IP of the host of the detection
         severity (int): The severity of the detection
         log (ContextLog): The log object of the detection if applicable
         process (Process): The process related to the detection
@@ -2575,7 +2611,8 @@ class Detection:
         description: str = None,
         tags: List[str] = None,
         raw: str = None,
-        source: str = None,
+        host_name: str = None,
+        host_ip: ipaddress.IPv4Address = None,
         severity: int = None,
         # Context for every type of context
         log: ContextLog = None,
@@ -2593,12 +2630,19 @@ class Detection:
         self.name = name
         self.description = description
         self.timestamp = timestamp
-        self.source = source
+        self.source = host_name
+
         self.severity = severity
         self.tags = tags
         self.raw = raw
         self.rules = rules
-        self.indicators = {"ip": [], "domain": [], "url": [], "hash": [], "email": [], "countries": [], "other": []}
+        self.indicators = {"ip": [], "domain": [], "url": [], "hash": [], "email": [], "countries": [], "registry": [], "other": []}
+
+        if host_ip != None:
+            if not isinstance(host_ip, ipaddress.IPv4Address):
+                raise TypeError("source_ip must be a valid IPv4 address.")
+            self.indicators["ip"].append(host_ip)
+        self.host_ip = host_ip
 
         # Context for every type of context with checks
         if log != None:
@@ -2741,7 +2785,8 @@ class Detection:
             "name": self.name,
             "description": self.description,
             "timestamp": self.timestamp,
-            "source": self.source,
+            "host_name": self.source,
+            "host_ip": self.host_ip,
             "severity": self.severity,
             "tags": self.tags,
             "raw": self.raw,
@@ -3029,6 +3074,9 @@ class DetectionReport:
 
     def __init__(self, detections: list, uuid: uuid.UUID = uuid.uuid4()):
         self.detections = detections
+        if type(detections) != list:
+            self.detections = [detections]
+
         self.action = None
         self.action_result = None
         self.action_result_message = None
@@ -3367,6 +3415,9 @@ class DetectionReport:
     def get_ticket_number(self):
         """Returns the ticket number of the report."""
         if self.ticket is not None:
-            return self.ticket["TicketNumber"]
+            try:
+                return self.ticket["TicketNumber"]
+            except:
+                return self.ticket.field_get("TicketNumber")
         else:
             raise ValueError("The detection_report has no ticket.")

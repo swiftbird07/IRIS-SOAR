@@ -44,7 +44,7 @@ def test_zs_provide_context_for_detections():
     ), "DetectionReport class could not be initialized"  # Sanity check - should be already tested by test_zsoar_lib.py -> test_class_helper()
 
     # Test the function
-    flows = zs_provide_context_for_detections(integration_config, detection_report, ContextFlow, TEST=True, UUID=86677)
+    flows = zs_provide_context_for_detections(integration_config, detection_report, ContextFlow, TEST=True, search_value=86677)
     assert type(flows[0]) == ContextFlow, "zs_provide_context_for_detections() should return a ContextFlow object"
 
     processes = zs_provide_context_for_detections(integration_config, detection_report, ContextProcess, TEST=True)
@@ -125,7 +125,7 @@ def test_online_context_for_detections():
     ), "DetectionReport class could not be initialized"  # Sanity check - should be already tested by test_zsoar_lib.py -> test_class_helper()
 
 
-    flows = zs_provide_context_for_detections(integration_config, detection_report, ContextFlow, TEST=False, UUID=ENTITY_ID)
+    flows = zs_provide_context_for_detections(integration_config, detection_report, ContextFlow, TEST=False, search_value=ENTITY_ID)
     assert type(flows[0]) == ContextFlow, "zs_provide_context_for_detections() should return a ContextFlow object"
 
 

@@ -362,7 +362,7 @@ def zs_create_ticket(detection_report: DetectionReport, DRY_RUN=False, detection
     if priority is None:
         priority = config["integrations"]["znuny_otrs"]["ticketing"]["default_priority"]
     
-    ticket_title = PRE_TAG + " " + detection_title + " | Offender: " + offender
+    ticket_title = PRE_TAG + " " + detection_title + " | Offender: " + str(offender)
     znuny_username = config["integrations"]["znuny_otrs"]["username"] 
 
     ticket_obj = pyotrs.Ticket.create_basic(ticket_title, Queue=queue_name, Type=type_, State="new", Priority=priority, CustomerUser=znuny_username)
@@ -378,7 +378,7 @@ def zs_create_ticket(detection_report: DetectionReport, DRY_RUN=False, detection
     if init_note_body is None:
         init_note_body = description # TODO: Make this more sophisticated
     else:
-        init_note_body = init_note_body + "\n\n" + str(description) 
+        init_note_body = init_note_body
 
 
     note_title = PRE_TAG + " " + detection_title

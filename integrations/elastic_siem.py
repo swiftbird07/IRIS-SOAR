@@ -27,7 +27,7 @@ import string
 import lib.logging_helper as logging_helper
 
 # For new detections:
-from lib.class_helper import Rule, Detection, ContextProcess, ContextFlow
+from lib.class_helper import Rule, Detection, ContextProcess, ContextFlow, ContextDevice
 
 # For context for detections:
 from lib.class_helper import DetectionReport, ContextFlow, ContextLog, ContextProcess, cast_to_ipaddress, Location, DNSQuery, ContextFile, Certificate, ContextRegistry
@@ -37,6 +37,7 @@ from lib.generic_helper import dict_get, get_from_cache, add_to_cache
 ELASTIC_MAX_RESULTS = 50  # Maximum number of results to return from Elastic-SIEM for a Context in one query
 VERBOSE_DEBUG = False  # If set to True, the script will print additional debug information to stdout, including the full Elastic-SIEM response
 MAX_SIZE_ELASTICSEARCH_SEARCH = 10000  # Maximum number of results to return from Elastic-SIEM in one query
+MAX_CACHE_ENTITY_SIZE = 100000 # Max size (in chars) an entity can have to be cached
 LOOKBACK_DAYS = 7  # Number of days to look back for search results
 
 def main():
@@ -131,7 +132,7 @@ def init_logging(config):
     return mlog
 
 
-def create_flow_from_doc(mlog, doc_id, doc_dict, detection_id):
+def create_flow_from_doc(mlog, doc_dict, detection_id):
     """Creates a ContextFlow object from an Elastic-SIEM document.
        Will also add DNS or HTTP objects to flow if available.
 
@@ -333,6 +334,8 @@ def create_process_from_doc(mlog, doc_dict, detectionOnly=True):
         deleted_files=deleted_files,
         modified_files=modified_files,
         process_uuid=dict_get(doc_dict, "process.entity_id"),
+        process_io_bytes=dict_get(doc_dict, "process.io.total_bytes_captured"),
+        process_io_text=dict_get(doc_dict, "process.io.text"),
         is_complete=True,
     )
 
@@ -606,7 +609,12 @@ def search_entity_by_id(mlog, config, entity_id, entity_type="process", security
         entity = search_response["hits"]["hits"]
 
 
-
+    # Before adding the entity to the cache, check the length of the entity. If it is too long, it will not be added to the cache
+    entity_str = json.dumps(entity)
+    if len(entity_str) > MAX_CACHE_ENTITY_SIZE:
+        mlog.warning(f"search_entity_by_id() - Entity for entity_id '{entity_id}' and entity_type '{entity_type}' is too big to be added to the cache. Size (chars): {len(entity_str)}")
+        return entity
+    
     # Save entity to cache
     if entity_type == "process": # Other entity types are not cached as it is unlikely that they will be searched for again for another detection
         add_to_cache("elastic_siem", "entities", entity_id, entity)
@@ -769,52 +777,95 @@ def zs_provide_new_detections(config, TEST="") -> List[Detection]:
         doc_dict = doc["_source"]
         rule_list.append(
             Rule(
-                dict_get(doc_dict, "kibana.alert.rule.uuid"),
-                dict_get(doc_dict, "kibana.alert.rule.name"),
-                dict_get(doc_dict, "kibana.alert.rule.severity"),
-                description=dict_get(doc_dict, "kibana.alert.rule.description"),
-                tags=dict_get(doc_dict, "kibana.alert.rule.tags"),
+                doc_dict["kibana.alert.rule.uuid"],
+                doc_dict["kibana.alert.rule.name"],
+                doc_dict["kibana.alert.severity"],
+                description=doc_dict["kibana.alert.rule.description"],
+                tags=doc_dict["kibana.alert.rule.tags"],
+                known_false_positives=doc_dict["kibana.alert.rule.false_positives"],
+                query=dict_get(doc_dict, "kibana.alert.rule.parameters.query"),
+                mitre_references=dict_get(doc_dict, "kibana.alert.rule.parameters.threat.technique.referencee"),
+                risk_score=doc_dict["kibana.alert.risk_score"],
             )
         )
         mlog.debug("Created rules: " + str(rule_list))
 
         # Get the most relevant IP address of the host
         host_ip = None
-        for ip in doc_dict["host"]["ip"]:
-            ip_casted = cast_to_ipaddress(ip)
-            if ip_casted is not None and ip_casted.is_private:
-                if ip.startswith("10."):
-                    host_ip = ip_casted
-                    break
-                elif ip.startswith("192.168."):
-                    host_ip = ip_casted
+        global_ip = None
+
+        if dict_get(doc_dict, "host.ip") is not None:
+            for ip in doc_dict["host"]["ip"]:
+                ip_casted = cast_to_ipaddress(ip)
+                if ip_casted is not None and ip_casted.is_private:
+                    if ip.startswith("10."): 
+                        host_ip = ip_casted
+                        break # This is prefered, therefore break here
+                    elif ip.startswith("192.168."):
+                        host_ip = ip_casted # Continue loop to maybe find a 10.* IP
+                elif ip_casted.is_global:
+                    global_ip = ip_casted
+
         mlog.debug("Decided host IP: " + str(host_ip))
+        detection_id = doc_dict["kibana.alert.uuid"]
 
         # Most EDR detections are process related so check if a ContextProcess context can be created
         process = None
         if dict_get(doc_dict, "process.entity_id") is not None:
             process = create_process_from_doc(mlog, doc_dict)
 
+        flow = None
+        if dict_get(doc_dict, "source.ip") is not None and dict_get(doc_dict, "destination.ip") is not None:
+            flow = create_flow_from_doc(mlog, doc_dict, detection_id)
+
+        file = None
+        if dict_get(doc_dict, "file.path") is not None:
+            file = create_file_from_doc(mlog, doc_dict, detection_id)
+
+        registry = None
+        if dict_get(doc_dict, "registry.path") is not None:
+            registry = create_registry_from_doc(mlog, doc_dict, detection_id)
+
+        device = None
+        if dict_get(doc_dict, "host.hostname") is not None:
+            device = ContextDevice(
+                name=dict_get(doc_dict, "host.hostname"),
+                local_ip=host_ip, global_ip=global_ip, 
+                ips=dict_get(doc_dict, "host.ip"), 
+                mac=dict_get(doc_dict, "host.mac"), 
+                os_family=dict_get(doc_dict, "ost.os.Ext.variant"), 
+                os=dict_get(doc_dict, "host.os.name"), 
+                kernel=dict_get(doc_dict, "host.os.kernel"),
+                os_version=dict_get(doc_dict, "host.os.version"),
+                in_scope=True
+            )
+
         # Create the detection object
         detection = Detection(
-            doc_dict["kibana.alert.uuid"],
+            "elastic_siem",
             doc_dict["kibana.alert.rule.name"],
             rule_list,
             doc_dict["@timestamp"],
             description=doc_dict["kibana.alert.rule.description"],
             tags=doc_dict["kibana.alert.rule.tags"],
-            source=dict_get(doc_dict, "host.hostname"),
+            host_name=dict_get(doc_dict, "host.hostname"),
+            host_ip=ip_casted,
             process=process,
+            flow=flow,
+            file=file,
+            registry=registry,
+            uuid=detection_id,
+            device=device,
         )
         mlog.info("Created detection: " + str(detection))
         detections.append(detection)
         # Done with this detection
 
-    try:
-        index = doc["_index"]
-        acknowledge_alert(mlog, config, detection.vendor_id, index)
-    except Exception as e:
-        mlog.error("Failed to acknowledge alert with id: " + detection.vendor_id + ". Error: " + str(e))
+        try:
+            index = doc["_index"]
+            acknowledge_alert(mlog, config, detection.uuid, index)
+        except Exception as e:
+            mlog.error("Failed to acknowledge alert with id: " + detection.vendor_id + ". Error: " + str(e))
 
     # ...
     # ...
@@ -830,7 +881,7 @@ def zs_provide_new_detections(config, TEST="") -> List[Detection]:
 
 
 def zs_provide_context_for_detections(
-    config, detection_report: DetectionReport, required_type: type, TEST=False, UUID=None, UUID_is_parent=False,  maxContext=50
+    config, detection_report: DetectionReport, required_type: type, TEST=False, search_value=None, UUID_is_parent=False,  maxContext=50
 ) -> Union[ContextFlow, ContextLog, ContextProcess]:
     """Returns a DetectionReport object with context for the detections from the Elasic integration.
 
@@ -850,8 +901,8 @@ def zs_provide_context_for_detections(
     mlog = init_logging(config)
     detection_report_str = "'" + detection_report.get_title() + "' (" + str(detection_report.uuid) + ")"
     uuid_str = ""
-    if UUID is not None:
-        uuid_str = " with UUID: " + str(UUID)
+    if search_value is not None:
+        uuid_str = " with UUID: " + str(search_value)
     mlog.info(f"zs_provide_context_for_detections() called for detection report: {detection_report_str} and required_type: {required_type}" + uuid_str)
 
     return_objects = []
@@ -889,18 +940,18 @@ def zs_provide_context_for_detections(
     # ...
     if not TEST:
         if required_type == ContextProcess:
-            if UUID is None:
+            if search_value is None:
                 mlog.info(
                     "No UUID provided. This implies that the detection is not from Elastic SIEM itself. Will return relevant processes if found."
                 )
                 # ... TODO: Get all processes related to the detection
             else:
                 if UUID_is_parent:
-                    mlog.info("Process Parent UUID provided. Will return all processes with parent UUID: " + UUID + " (meaning all children processes)")
-                    docs = search_entity_by_id(mlog, config, UUID, entity_type="parent_process")
+                    mlog.info("Process Parent UUID provided. Will return all processes with parent UUID: " + search_value + " (meaning all children processes)")
+                    docs = search_entity_by_id(mlog, config, search_value, entity_type="parent_process")
 
                     if docs == None or len(docs) == 0:
-                        mlog.info("No processes found which have a parent with UUID: " + UUID + " (meaning no child processes found)")
+                        mlog.info("No processes found which have a parent with UUID: " + search_value + " (meaning no child processes found)")
                         return None
                     else:
                         counter = 0
@@ -916,8 +967,8 @@ def zs_provide_context_for_detections(
                             return_objects.append(process)
                             counter += 1
                 else:
-                    mlog.info("UUID provided. Will return the single process with UUID: " + UUID)
-                    doc = search_entity_by_id(mlog, config, UUID, entity_type="process")
+                    mlog.info("UUID provided. Will return the single process with UUID: " + search_value)
+                    doc = search_entity_by_id(mlog, config, search_value, entity_type="process")
                     if doc is not None:
                         process = create_process_from_doc(mlog, doc)
                         return_objects.append(process)
@@ -925,31 +976,31 @@ def zs_provide_context_for_detections(
         elif required_type == ContextFlow:
             # TODO: Implement seach in Suricata Indices as well
 
-            if len(UUID) > 69: # TODO: Implement searching flow by Process / File Entity ID
-                mlog.info("Process Entity ID provided. Will return all flows for process with Entity ID: " + UUID)
-                flow_docs = search_entity_by_id(mlog, config, UUID, entity_type="network", security_only=True)
+            if len(search_value) > 69: # TODO: Implement searching flow by Process / File Entity ID
+                mlog.info("Process Entity ID provided. Will return all flows for process with Entity ID: " + search_value)
+                flow_docs = search_entity_by_id(mlog, config, search_value, entity_type="network", security_only=True)
 
                 if flow_docs == None or len(flow_docs) == 0:
-                    mlog.info("No flows found for process with Entity ID: " + UUID)
+                    mlog.info("No flows found for process with Entity ID: " + search_value)
                     return None
                 
                 for doc in flow_docs:
-                    return_objects.append(create_flow_from_doc(mlog, doc["_id"], doc["_source"], detection_id))
+                    return_objects.append(create_flow_from_doc(mlog, doc["_source"], detection_id))
             else:
                 mlog.error("UUID does not match either a valid Elastic Entity ID")
                 return None
                 
         elif required_type == ContextFile:
-            if UUID is None: # UUID in this context means process ID, SHA256 or EntityID
+            if search_value is None: # UUID in this context means process ID, SHA256 or EntityID
                 # Need a process ID for now
                 return NotImplementedError
             else:
-                if len(UUID) > 69: # TODO: Implement searching file by Process / File Entity ID
-                    mlog.info("Process Entity ID provided. Will return file with Entity ID: " + UUID)
-                    file_docs = search_entity_by_id(mlog, config, UUID, entity_type="file", security_only=True)
+                if len(search_value) > 69: # TODO: Implement searching file by Process / File Entity ID
+                    mlog.info("Process Entity ID provided. Will return file with Entity ID: " + search_value)
+                    file_docs = search_entity_by_id(mlog, config, search_value, entity_type="file", security_only=True)
 
                     if file_docs == None or len(file_docs) == 0:
-                        mlog.info("No files found with Entity ID: " + UUID)
+                        mlog.info("No files found with Entity ID: " + search_value)
                         return None
                     
                     for doc in file_docs:
@@ -960,16 +1011,16 @@ def zs_provide_context_for_detections(
                     return None
                 
         elif required_type == ContextRegistry:
-            if UUID is None:
+            if search_value is None:
                 # Need a process ID for now
                 return NotImplementedError
             else:
-                if len(UUID) > 69:
-                    mlog.info("Process Entity ID provided. Will return registry with Entity ID: " + UUID)
-                    registry_docs = search_entity_by_id(mlog, config, UUID, entity_type="registry", security_only=True)
+                if len(search_value) > 69:
+                    mlog.info("Process Entity ID provided. Will return registry with Entity ID: " + search_value)
+                    registry_docs = search_entity_by_id(mlog, config, search_value, entity_type="registry", security_only=True)
 
                     if registry_docs == None or len(registry_docs) == 0:
-                        mlog.info("No registry entries found with Entity ID: " + UUID)
+                        mlog.info("No registry entries found with Entity ID: " + search_value)
                         return None
                     
                     for doc in registry_docs:

@@ -45,6 +45,10 @@ def handle_response(response, cache, search_value, search_type, detection_id, ml
 
         intel = []
 
+        if dict_get(response_json, "response_code") == 0:
+            mlog.info(f"VirusTotal API call for {str(search_type)} '{search_value}' returned no data.")
+            return None
+
          # For file/process related Threat Intel
         if "scans" in response_json:
 

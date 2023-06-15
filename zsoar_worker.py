@@ -11,16 +11,14 @@
 # (Playbooks decide if a detection is a false positive or not and what action should be taken. A playbook can and should make use of the libraries and integrations provided by Z-SOAR.)
 # - If no playbook is able to handle the detection, it will be logged and the next detection will be checked
 
-import os
-import sys
-import time
+import traceback
 
 import lib.config_helper as config_helper
 import lib.logging_helper as logging_helper
 import lib.class_helper as class_helper  # TODO: Implement class_helper.py
 
 
-def check_module_exists(module_name):
+def check_module_exists(module_name, playbook=False):
     """Checks if a module exists.
 
     Args:
@@ -30,7 +28,10 @@ def check_module_exists(module_name):
         bool: True if the module exists, False if not
     """
     try:
-        __import__("integrations." + module_name)
+        if not playbook:
+            __import__("integrations." + module_name)
+        else:
+             __import__("playbooks." + module_name)
         return True
     except ModuleNotFoundError:
         return False
@@ -83,8 +84,8 @@ def main(config, fromDaemon=False, debug=False):
 
     mlog.info("Started Z-SOAR worker script")
     mlog.info("Checking for new detections...")
-    DetectionArray = []
-    DetectionReportArray = []
+    DetectionList = []
+    DetectionReportList = []
 
     for integration in integrations:
         module_name = integration
@@ -93,6 +94,10 @@ def main(config, fromDaemon=False, debug=False):
         # Check if the module is enabled
         if not integration["enabled"]:
             mlog.warning("The module " + module_name + " is disabled. Skipping.")
+            continue
+
+        if module_name == "znuny_otrs" and integration["detection_provider"]["enabled"] == False:
+            mlog.warning("The module " + module_name + " has disabled the detection provider. Skipping.")
             continue
 
         # Check if the module exists
@@ -117,7 +122,7 @@ def main(config, fromDaemon=False, debug=False):
                 "The module "
                 + module_name
                 + " had an unhandled error when trying to provide new detections. Error: "
-                + str(e)
+                + traceback.format_exc()
                 + ". Skipping Integration."
             )
             continue
@@ -138,33 +143,37 @@ def main(config, fromDaemon=False, debug=False):
             if not isinstance(detection, class_helper.Detection):
                 mlog.warning("The module " + module_name + " provided an invalid detection. Skipping.")
             else:
-                mlog.inf("Adding new detection " + detection.get_title() + " (" + detection.get_id() + ") to the detection array.")
-                DetectionArray.append(detection)
+                mlog.info("Adding new detection " + detection.name + " (" + detection.uuid + ") to the detection array.")
+
+                # For now every 'Detection' equals exactly one 'DetectionReport' (this may change in the future to reduce duplicates, etc..) 
+                detection_report_tmp = class_helper.DetectionReport(detection) # TODO: make this more advanced
+
+                DetectionList.append(detection_report_tmp)
+
 
     # Loop through each detection
-    for detection_report in DetectionArray:
+    for detection_report in DetectionList:
         detection_title = detection_report.get_title()
         detection_id = detection_report.uuid
         detectionHandled = False
 
         # Check every playbook if it can handle the detection
-        for playbook in config["playbooks"]:
-            playbook_name = playbook["name"]
+        for playbook_name in config["playbooks"]:
 
             # Check if the playbook is enabled
-            if not playbook["enabled"]:
+            if not config["playbooks"][playbook_name]["enabled"]:
                 mlog.warning("The playbook " + playbook_name + " is disabled. Skipping.")
                 continue
 
             # Check if the playbook exists
-            if check_module_exists(playbook_name):
+            if not check_module_exists(playbook_name, playbook=True):
                 mlog.error("The playbook " + playbook_name + " does not exist. Skipping.")
                 continue
 
             # Ask the playbook if it can handle the detection
             try:
-                mlog.info(f"Calling playbook {playbook_name} to check if it can handle current detection '{detection_title}' ({detection_id})")
-                module_import = __import__("integrations." + playbook_name)
+                mlog.info(f"Calling playbook {playbook_name} to check if it can handle current detection '{detection_title}' ({str(detection_id)})")
+                module_import = __import__("playbooks." + playbook_name)
                 playbook_import = getattr(module_import, playbook_name)
                 can_handle = playbook_import.zs_can_handle_detection(detection_report)
             except Exception as e:
@@ -174,14 +183,14 @@ def main(config, fromDaemon=False, debug=False):
             # Let the playbook handle the detection
             if can_handle:
                 try:
-                    mlog.info(f"Playbook can handle the detection. Calling it to handle: '{detection_title}' ({detection_id})")
-                    detection_report = playbook_import.zs_handle_detection(detection_report)
+                    mlog.info(f"Playbook can handle the detection. Calling it to handle: '{detection_title}' ({str(detection_id)})")
+                    detection_report_new = playbook_import.zs_handle_detection(detection_report)
                 except Exception as e:
                     mlog.warning("The playbook " + playbook_name + " failed to handle the detection. Error: " + str(e))
                     continue
 
                 # Check if the playbook handled the detection correctly
-                if not isinstance(detection_report, class_helper.DetectionReport):
+                if not isinstance(detection_report_new, class_helper.DetectionReport):
                     mlog.error("The playbook " + playbook_name + " did not return a valid detection report. Skipping.")
                     continue
                 else:
@@ -189,12 +198,12 @@ def main(config, fromDaemon=False, debug=False):
                     detectionHandled = True
 
                 # Add the detection report to the detectior report array
-                mlog.info(f"Adding detection report for detection {detection_title} ({detection_id}) to the detection report array.")
-                DetectionReportArray.append(detection_report)
+                mlog.info(f"Adding detection report for detection {detection_title} ({str(detection_id)}) to the detection report array.")
+                DetectionReportList.append(detection_report_new)
 
         # If no playbook was able to handle the detection, log it
         if not detectionHandled:
-            mlog.warning("No playbook was able to handle the detection " + detection_title + " (" + detection_id + ").")
+            mlog.warning("No playbook was able to handle the detection " + detection_title + " (" + str(detection_id) + ").")
 
     mlog.info("Finished worker script.")
 

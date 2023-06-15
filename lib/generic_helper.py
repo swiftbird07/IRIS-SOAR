@@ -335,7 +335,7 @@ def get_unique(data):
 
 # [internal note] Copied the following from class_helper to this file, to better separate classes and generic functions
 
-def cast_to_ipaddress(ip) -> Union[ipaddress.IPv4Address, ipaddress.IPv6Address]:
+def cast_to_ipaddress(ip, strict=True) -> Union[ipaddress.IPv4Address, ipaddress.IPv6Address]:
     """Tries to cast a string to an IP address.
 
     Args:
@@ -351,7 +351,10 @@ def cast_to_ipaddress(ip) -> Union[ipaddress.IPv4Address, ipaddress.IPv6Address]
         try:
             ip = ipaddress.ip_address(ip)
         except ValueError:
-            raise ValueError("invalid ip address: " + str(ip))
+            if strict:
+                raise ValueError("invalid ip address: " + str(ip))
+            else:
+                return None
     return ip
 
 
