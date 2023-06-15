@@ -435,3 +435,8 @@ def is_local_tld(domain):
     domain = domain.lower()  # Convert to lower case
     local_tlds = ['.local', '.localdomain', '.domain', '.lan', '.home', '.host', '.corp']
     return any(domain.endswith(tld) for tld in local_tlds)
+
+def default(obj):
+    if isinstance(obj, datetime.datetime):
+        return obj.isoformat()
+    raise TypeError

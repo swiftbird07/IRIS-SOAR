@@ -3,7 +3,7 @@
 # This module is used to integrate Z-SOAR with VirusTotal Threat Intelligence.
 #
 # This module is capable of:
-# [ ] Providing context for detections of type [ContextThreatIntel]
+# [X] Providing context for detections of type [ContextThreatIntel]
 # [ ] User interactive setup.
 #
 # Integration Version: 0.0.1

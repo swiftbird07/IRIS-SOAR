@@ -21,6 +21,13 @@ integrations:
       log_level_syslog: error
   ibm_qradar:
     enabled: false
+    logging:
+      log_level_file: debug
+      log_level_stdout: debug
+      log_level_syslog: error
+    qradar_api_key: $ZS_INT_QRADAR_API_KEY
+    qradar_url: https://10.20.1.1
+    qradar_verify_certs: false
   virus_total:
     api_key: $ZS_INT_VIRUSTOTAL_API_KEY
     enabled: true
