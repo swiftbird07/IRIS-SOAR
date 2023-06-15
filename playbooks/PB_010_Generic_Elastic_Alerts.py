@@ -505,8 +505,6 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
 # - Cache new detection and check if it similar events already in the cache
 # - Empty cache if too big
 # - Worker: Kill Playbook if stuck
-# - Host / Server context
-# - Historical context
-# - Analysis (manual / automated)
 # - Audit log respecting timeline order
 # - Audit log to Ticket
+# - Log / Audit Log to Syslog
