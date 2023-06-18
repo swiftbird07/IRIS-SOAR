@@ -30,15 +30,27 @@ import lib.logging_helper as logging_helper
 from lib.class_helper import Rule, Detection, ContextProcess, ContextFlow, ContextDevice
 
 # For context for detections:
-from lib.class_helper import DetectionReport, ContextFlow, ContextLog, ContextProcess, cast_to_ipaddress, Location, DNSQuery, ContextFile, Certificate, ContextRegistry
+from lib.class_helper import (
+    DetectionReport,
+    ContextFlow,
+    ContextLog,
+    ContextProcess,
+    cast_to_ipaddress,
+    Location,
+    DNSQuery,
+    ContextFile,
+    Certificate,
+    ContextRegistry,
+)
 from lib.generic_helper import dict_get, get_from_cache, add_to_cache
 
 
 ELASTIC_MAX_RESULTS = 50  # Maximum number of results to return from Elastic-SIEM for a Context in one query
 VERBOSE_DEBUG = False  # If set to True, the script will print additional debug information to stdout, including the full Elastic-SIEM response
 MAX_SIZE_ELASTICSEARCH_SEARCH = 10000  # Maximum number of results to return from Elastic-SIEM in one query
-MAX_CACHE_ENTITY_SIZE = 100000 # Max size (in chars) an entity can have to be cached
+MAX_CACHE_ENTITY_SIZE = 100000  # Max size (in chars) an entity can have to be cached
 LOOKBACK_DAYS = 7  # Number of days to look back for search results
+
 
 def main():
     # Check if argumemnt 'setup' was passed to the script
@@ -62,7 +74,9 @@ def zs_integration_setup():
     print("Please enter the required information below.")
     print("")
 
-    set_int(intgr, "elastic_url", "url", "Enter the Elastic-SIEM URL", additional_info="Example: https://elastic-siem.example.com")
+    set_int(
+        intgr, "elastic_url", "url", "Enter the Elastic-SIEM URL", additional_info="Example: https://elastic-siem.example.com"
+    )
 
     set_int(
         intgr,
@@ -120,7 +134,9 @@ def init_logging(config):
     Returns:
         logging_helper.Log: The logging object
     """
-    log_level_file = config["logging"]["log_level_file"]  # be aware that only configs from this integration are available not the general config
+    log_level_file = config["logging"][
+        "log_level_file"
+    ]  # be aware that only configs from this integration are available not the general config
     log_level_stdout = config["logging"]["log_level_stdout"]
     log_level_syslog = config["logging"]["log_level_syslog"]
 
@@ -141,7 +157,7 @@ def create_flow_from_doc(mlog, doc_dict, detection_id):
         doc_id (str): The Elastic-SIEM document ID
         doc_dict (dict): The Elastic-SIEM document as a dictionary
         detection_id (str): The detection ID
-    
+
     Returns:
         ContextFlow: The ContextFlow object
     """
@@ -156,13 +172,21 @@ def create_flow_from_doc(mlog, doc_dict, detection_id):
         if "geo" in doc_dict["source"]:
             try:
                 long_lat = doc_dict["source"]["geo"]["location"]
-                src_location = Location(dict_get(doc_dict, "source.geo.country_name"), dict_get(doc_dict, "source.geo.city_name"), long_lat["lat"], long_lat["lon"], asn=dict_get(doc_dict, "source.as.number"), org=dict_get(doc_dict, "source.as.organization.name"), certainty=80)
+                src_location = Location(
+                    dict_get(doc_dict, "source.geo.country_name"),
+                    dict_get(doc_dict, "source.geo.city_name"),
+                    long_lat["lat"],
+                    long_lat["lon"],
+                    asn=dict_get(doc_dict, "source.as.number"),
+                    org=dict_get(doc_dict, "source.as.organization.name"),
+                    certainty=80,
+                )
             except Exception as e:
                 mlog.warning("create_flow_from_doc - Could not parse source flow location from Elastic-SIEM document: " + str(e))
     else:
         src_ip = cast_to_ipaddress(dict_get(doc_dict, "host.ip")[0])
         mlog.warning("create_flow_from_doc - No source IP found in Elastic-SIEM document. Using host's IP: " + str(src_ip))
-    
+
     if "destination" in doc_dict and "address" in doc_dict["destination"]:
         dst_ip = cast_to_ipaddress(dict_get(doc_dict, "destination.address"))
 
@@ -170,18 +194,27 @@ def create_flow_from_doc(mlog, doc_dict, detection_id):
         if "geo" in doc_dict["destination"]:
             try:
                 long_lat = doc_dict["destination"]["geo"]["location"]
-                dst_location = Location(dict_get(doc_dict, "destination.geo.country_name"), dict_get(doc_dict, "destination.geo.city_name"), long_lat["lat"], long_lat["lon"], asn=dict_get(doc_dict, "destination.as.number"), org=dict_get(doc_dict, "destination.as.organization.name"), certainty=80)
+                dst_location = Location(
+                    dict_get(doc_dict, "destination.geo.country_name"),
+                    dict_get(doc_dict, "destination.geo.city_name"),
+                    long_lat["lat"],
+                    long_lat["lon"],
+                    asn=dict_get(doc_dict, "destination.as.number"),
+                    org=dict_get(doc_dict, "destination.as.organization.name"),
+                    certainty=80,
+                )
             except Exception as e:
-                mlog.warning("create_flow_from_doc - Could not parse destination flow location from Elastic-SIEM document: " + str(e))
+                mlog.warning(
+                    "create_flow_from_doc - Could not parse destination flow location from Elastic-SIEM document: " + str(e)
+                )
     else:
         dst_ip = cast_to_ipaddress(dict_get(doc_dict, "host.ip")[0])
         mlog.warning("create_flow_from_doc - No destination IP found in Elastic-SIEM document. Using host's IP: " + str(src_ip))
 
-
     # Get http object if applicable
     http = None
     if "http" in doc_dict:
-        pass # TODO: Implement HTTP from Elastic-SIEM flow
+        pass  # TODO: Implement HTTP from Elastic-SIEM flow
 
     # Get dns object if applicable
     dns = None
@@ -190,10 +223,13 @@ def create_flow_from_doc(mlog, doc_dict, detection_id):
             msg = doc_dict["message"]
             resolved_ip = None
             has_resp = False
-            dns_type = "A" # Default type if unknown is A
+            dns_type = "A"  # Default type if unknown is A
 
             # Get the resolved IP Address from the message string using regex:
-            resolved_ips = re.findall(r"(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)", msg)
+            resolved_ips = re.findall(
+                r"(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)",
+                msg,
+            )
             resolved_ip = resolved_ips[0] if len(resolved_ips) > 0 else None
             resolved_ip = ".".join(resolved_ip) if resolved_ip is not None else None
             if resolved_ip is None:
@@ -201,7 +237,6 @@ def create_flow_from_doc(mlog, doc_dict, detection_id):
                 resolved_ips = re.findall("([0-9a-fA-F]{1,4}(?::[0-9a-fA-F]{1,4}){7})", msg)
                 resolved_ip = resolved_ips[0] if len(resolved_ips) > 0 else None
 
-            
             if resolved_ip is not None:
                 try:
                     resolved_ip = cast_to_ipaddress(resolved_ip)
@@ -211,14 +246,20 @@ def create_flow_from_doc(mlog, doc_dict, detection_id):
                     resolved_ip = None
             else:
                 resolved_ip = None
-            
+
             # Get type of DNS query
             if has_resp and type(resolved_ip) == ipaddress.IPv4Address:
                 dns_type = "A"
             elif has_resp and dns_type(resolved_ip) is ipaddress.IPv6Address:
                 dns_type = "AAAA"
-                
-            dns = DNSQuery(detection_id, type=dns_type, query=dict_get(doc_dict, "dns.question.name"), has_response=has_resp, query_response=resolved_ip)
+
+            dns = DNSQuery(
+                detection_id,
+                type=dns_type,
+                query=dict_get(doc_dict, "dns.question.name"),
+                has_response=has_resp,
+                query_response=resolved_ip,
+            )
 
         except Exception as e:
             mlog.warning("create_flow_from_doc - Could not parse flow's DNS from Elastic-SIEM document: " + str(e))
@@ -251,7 +292,7 @@ def create_flow_from_doc(mlog, doc_dict, detection_id):
         destination_location=dst_location,
         http=http,
         dns_query=dns,
-        detection_relevance=50
+        detection_relevance=50,
     )
 
     mlog.debug("Created flow: " + str(flow))
@@ -260,9 +301,7 @@ def create_flow_from_doc(mlog, doc_dict, detection_id):
 
 def create_process_from_doc(mlog, doc_dict, detectionOnly=True):
     """Creates a ContextProcess object from a Elastic-SIEM document."""
-    mlog.debug(
-        "Creating ContextProcess object from Elastic-SIEM document."
-    )
+    mlog.debug("Creating ContextProcess object from Elastic-SIEM document.")
 
     dns_requests = None  # TODO: Implement create_dns_from_doc
     files = None  # TODO: Implement create_file_from_doc
@@ -283,7 +322,7 @@ def create_process_from_doc(mlog, doc_dict, detectionOnly=True):
             parent = None
 
     children = []
-    start_time = dict_get(doc_dict, "process.start"),
+    start_time = dict_get(doc_dict, "process.start")
     if not start_time:
         mlog.warning("No explicit start time found for process. Using @timestamp of event.")
         start_time = dict_get(doc_dict, "@timestamp")
@@ -296,13 +335,15 @@ def create_process_from_doc(mlog, doc_dict, detectionOnly=True):
             sign_raw = sign_raw[0]
 
         signer = dict_get(sign_raw, "subject_name")
-        signature = Certificate(dict_get(doc_dict, "kibana.alert.uuid"), is_trusted=bool(dict_get(sign_raw, "trusted")), issuer=signer, subject=signer)
+        signature = Certificate(
+            dict_get(doc_dict, "kibana.alert.uuid"), is_trusted=bool(dict_get(sign_raw, "trusted")), issuer=signer, subject=signer
+        )
 
     sha256 = dict_get(doc_dict, "process.hash.sha256")
     if sha256 is None:
         mlog.warning("No SHA256 hash found for process. Using random hash instead.")
         # Create 64 random hex characters
-        sha256 = ''.join(random.choice(string.hexdigits) for _ in range(64))
+        sha256 = "".join(random.choice(string.hexdigits) for _ in range(64))
 
     # Create the process object
     process = ContextProcess(
@@ -342,11 +383,10 @@ def create_process_from_doc(mlog, doc_dict, detectionOnly=True):
     mlog.debug("Created process: " + str(process.process_name) + " with UUID: " + str(process.process_uuid))
     return process
 
+
 def create_file_from_doc(mlog, doc_dict, detection_id):
     """Creates a ContextFile object from a Elastic-SIEM document."""
-    mlog.debug(
-        "Creating ContextFile object from Elastic-SIEM document."
-    )
+    mlog.debug("Creating ContextFile object from Elastic-SIEM document.")
 
     # Parse entropy as float if possible
     entropy = None
@@ -376,11 +416,10 @@ def create_file_from_doc(mlog, doc_dict, detection_id):
     mlog.debug("Created file: " + str(file.file_name))
     return file
 
+
 def create_registry_from_doc(mlog, doc_dict, detection_id):
     """Creates a ContextRegistry object from a Elastic-SIEM document."""
-    mlog.debug(
-        "Creating ContextRegistry object from Elastic-SIEM document."
-    )
+    mlog.debug("Creating ContextRegistry object from Elastic-SIEM document.")
 
     # Create the registry object
     registry = ContextRegistry(
@@ -477,9 +516,11 @@ def search_entity_by_id(mlog, config, entity_id, entity_type="process", security
         raise NotImplementedError(f"search_entity_by_id() - entity_type '{entity_type}' not implemented")
 
     # Now, check if the enity is in the cache (except for parent_process)
-    if entity_type != "parent_process": # Except for entity_type 'process' this will in the best case return 'empty' (literally) to indicate that the entity was not found previously and does not need to be searched. If it was found previously, it is not saved to the cache because of the size of the data.
+    if (
+        entity_type != "parent_process"
+    ):  # Except for entity_type 'process' this will in the best case return 'empty' (literally) to indicate that the entity was not found previously and does not need to be searched. If it was found previously, it is not saved to the cache because of the size of the data.
         if entity_type == "network":
-            cache_result = get_from_cache("elastic_siem", "flow_entities", entity_id)   
+            cache_result = get_from_cache("elastic_siem", "flow_entities", entity_id)
         elif entity_type == "file":
             cache_result = get_from_cache("elastic_siem", "file_entities", entity_id)
         elif entity_type == "registry":
@@ -504,7 +545,6 @@ def search_entity_by_id(mlog, config, entity_id, entity_type="process", security
     # If the entity_type is 'parent_process', print the appropriate debug message
     elif entity_type == "parent_process":
         mlog.debug("search_entity_by_id() - entity type is parent_process. Can't check cache.")
-
 
     elastic_host = config["elastic_url"]
     elastic_user = config["elastic_user"]
@@ -532,26 +572,73 @@ def search_entity_by_id(mlog, config, entity_id, entity_type="process", security
         indices = indices_all
 
     success = False
-    mlog.debug(f"search_entity_by_id() - Searching for entity with ID {entity_id} in indices: " + str(indices)+ ". This may take a while...")
+    mlog.debug(
+        f"search_entity_by_id() - Searching for entity with ID {entity_id} in indices: "
+        + str(indices)
+        + ". This may take a while..."
+    )
 
     for index in indices:
         url = f"{elastic_host}/{index}/_search?size=" + str(MAX_SIZE_ELASTICSEARCH_SEARCH)
 
         # Define Elasticsearch search query
         if entity_type == "process":
-            search_query = {"query": {"bool": {"must": [{"match": {"process.entity_id": entity_id}}, {"range": {"@timestamp": {"gte": lookback_time}}}]}}}
+            search_query = {
+                "query": {
+                    "bool": {
+                        "must": [{"match": {"process.entity_id": entity_id}}, {"range": {"@timestamp": {"gte": lookback_time}}}]
+                    }
+                }
+            }
         elif entity_type == "parent_process":
-            search_query = {"query": {"bool": {"must": [{"match": {"process.parent.entity_id": entity_id}}, {"range": {"@timestamp": {"gte": lookback_time}}}]}}}
+            search_query = {
+                "query": {
+                    "bool": {
+                        "must": [
+                            {"match": {"process.parent.entity_id": entity_id}},
+                            {"range": {"@timestamp": {"gte": lookback_time}}},
+                        ]
+                    }
+                }
+            }
         elif entity_type == "file":
-            search_query = {"query": {"bool": {"must": [{"match": {"process.entity_id": entity_id}}, {"match": {"event.category": "file"}}, {"range": {"@timestamp": {"gte": lookback_time}}}]}}}
+            search_query = {
+                "query": {
+                    "bool": {
+                        "must": [
+                            {"match": {"process.entity_id": entity_id}},
+                            {"match": {"event.category": "file"}},
+                            {"range": {"@timestamp": {"gte": lookback_time}}},
+                        ]
+                    }
+                }
+            }
         elif entity_type == "network":
-            search_query = {"query": {"bool": {"must": [{"match": {"process.entity_id": entity_id}}, {"match": {"event.category": "network"}}, {"range": {"@timestamp": {"gte": lookback_time}}}]}}}
+            search_query = {
+                "query": {
+                    "bool": {
+                        "must": [
+                            {"match": {"process.entity_id": entity_id}},
+                            {"match": {"event.category": "network"}},
+                            {"range": {"@timestamp": {"gte": lookback_time}}},
+                        ]
+                    }
+                }
+            }
         elif entity_type == "registry":
-            search_query = {"query": {"bool": {"must": [{"match": {"process.entity_id": entity_id}}, {"match": {"event.category": "registry"}}, {"range": {"@timestamp": {"gte": lookback_time}}}]}}}
+            search_query = {
+                "query": {
+                    "bool": {
+                        "must": [
+                            {"match": {"process.entity_id": entity_id}},
+                            {"match": {"event.category": "registry"}},
+                            {"range": {"@timestamp": {"gte": lookback_time}}},
+                        ]
+                    }
+                }
+            }
 
-
-        #mlog.debug(f"search_entity_by_id() - Searching index {index} for entity with URL: " + url + " and data: " + json.dumps(search_query)) | L2 DEBUG
-
+        # mlog.debug(f"search_entity_by_id() - Searching index {index} for entity with URL: " + url + " and data: " + json.dumps(search_query)) | L2 DEBUG
 
         # Send Elasticsearch search request
         response = requests.post(url, headers=headers, auth=(elastic_user, elastic_pw), json=search_query, verify=should_verify)
@@ -559,17 +646,17 @@ def search_entity_by_id(mlog, config, entity_id, entity_type="process", security
         # Check if Elasticsearch search was successful
         if response.status_code != 200:
             if response.status_code == 404:
-                #mlog.debug(f"search_entity_by_id() - Index {index}: Elasticsearch returned status code 404. Index does not exist.") | L2 DEBUG
+                # mlog.debug(f"search_entity_by_id() - Index {index}: Elasticsearch returned status code 404. Index does not exist.") | L2 DEBUG
                 continue
             mlog.error(f"search_entity_by_id() - Elasticsearch search failed with status code {response.status_code}")
             continue
 
-        #mlog.debug(f"search_entity_by_id() - Response text: {response.text}") | L2 DEBUG
+        # mlog.debug(f"search_entity_by_id() - Response text: {response.text}") | L2 DEBUG
 
         # Extract the entity from the Elasticsearch search response
         search_response = json.loads(response.text)
         if search_response["hits"]["total"]["value"] == 0:
-            #mlog.debug(f"search_entity_by_id() - Index {index}: No entity found for entity_id {entity_id} and entity_type {entity_type}") | L2 DEBUG
+            # mlog.debug(f"search_entity_by_id() - Index {index}: No entity found for entity_id {entity_id} and entity_type {entity_type}") | L2 DEBUG
             continue
         else:
             success = True
@@ -577,51 +664,64 @@ def search_entity_by_id(mlog, config, entity_id, entity_type="process", security
 
     if not success:
         if not entity_type == "parent_process":
-            mlog.warning(f"search_entity_by_id() - No entity found for entity_id '{entity_id}' and entity_type '{entity_type}'") # here a warning is logged because we expect to find at least one entity for a parent process
+            mlog.warning(
+                f"search_entity_by_id() - No entity found for entity_id '{entity_id}' and entity_type '{entity_type}'"
+            )  # here a warning is logged because we expect to find at least one entity for a parent process
         else:
-            mlog.debug(f"search_entity_by_id() - No entity found for entity_id '{entity_id}' and entity_type '{entity_type}'")   
+            mlog.debug(f"search_entity_by_id() - No entity found for entity_id '{entity_id}' and entity_type '{entity_type}'")
 
         # Add empty entity to cache so that we don't search for it again
         if entity_type == "network":
-            add_to_cache("elastic_siem", "flow_entities", str(entity_id), "empty")  
+            add_to_cache("elastic_siem", "flow_entities", str(entity_id), "empty")
 
         elif entity_type == "file":
-            add_to_cache("elastic_siem", "file_entities", str(entity_id), "empty") 
-        
+            add_to_cache("elastic_siem", "file_entities", str(entity_id), "empty")
+
         elif entity_type == "registry":
             add_to_cache("elastic_siem", "registry_entities", str(entity_id), "empty")
 
         else:
             add_to_cache("elastic_siem", "entities", entity_id, "empty")
         return None
-    
+
     if search_response["hits"]["total"]["value"] > 1 and entity_type == "process":
-        mlog.warning(f"search_entity_by_id() - Found more than one entity for entity_id '{entity_id}' and entity_type '{entity_type}'") # finding more than one process for a process id is not expected
+        mlog.warning(
+            f"search_entity_by_id() - Found more than one entity for entity_id '{entity_id}' and entity_type '{entity_type}'"
+        )  # finding more than one process for a process id is not expected
 
     if entity_type == "process":
         entity = search_response["hits"]["hits"][0]["_source"]
-        mlog.debug(f"search_entity_by_id() - Entity found for entity_id '{entity_id}' and entity_type '{entity_type}': {json.dumps(entity)}")
+        mlog.debug(
+            f"search_entity_by_id() - Entity found for entity_id '{entity_id}' and entity_type '{entity_type}': {json.dumps(entity)}"
+        )
         if len(entity) > 1:
-            mlog.warning(f"search_entity_by_id() - Found more than one entity for entity_id '{entity_id}' and entity_type '{entity_type}'")
+            mlog.warning(
+                f"search_entity_by_id() - Found more than one entity for entity_id '{entity_id}' and entity_type '{entity_type}'"
+            )
 
     else:
-        mlog.debug(f"search_entity_by_id() - Found {search_response['hits']['total']['value']} entities for entity_id '{entity_id}' and entity_type '{entity_type}'")
+        mlog.debug(
+            f"search_entity_by_id() - Found {search_response['hits']['total']['value']} entities for entity_id '{entity_id}' and entity_type '{entity_type}'"
+        )
         entity = search_response["hits"]["hits"]
-
 
     # Before adding the entity to the cache, check the length of the entity. If it is too long, it will not be added to the cache
     entity_str = json.dumps(entity)
     if len(entity_str) > MAX_CACHE_ENTITY_SIZE:
-        mlog.warning(f"search_entity_by_id() - Entity for entity_id '{entity_id}' and entity_type '{entity_type}' is too big to be added to the cache. Size (chars): {len(entity_str)}")
+        mlog.warning(
+            f"search_entity_by_id() - Entity for entity_id '{entity_id}' and entity_type '{entity_type}' is too big to be added to the cache. Size (chars): {len(entity_str)}"
+        )
         return entity
-    
+
     # Save entity to cache
-    if entity_type == "process": # Other entity types are not cached as it is unlikely that they will be searched for again for another detection
+    if (
+        entity_type == "process"
+    ):  # Other entity types are not cached as it is unlikely that they will be searched for again for another detection
         add_to_cache("elastic_siem", "entities", entity_id, entity)
 
     # Save index name to cache
     add_to_cache("elastic_siem", "successful_indices", "LIST", index)
-    
+
     return entity
 
 
@@ -670,7 +770,12 @@ def acknowledge_alert(mlog, config, alert_id, index):
             return True
     else:
         mlog.warning(
-            "Failed to acknowledge alert with id: " + alert_id + ". Got status code: " + str(response.status_code) + " and response: " + response.text
+            "Failed to acknowledge alert with id: "
+            + alert_id
+            + ". Got status code: "
+            + str(response.status_code)
+            + " and response: "
+            + response.text
         )
         return False
 
@@ -745,7 +850,9 @@ def zs_provide_new_detections(config, TEST="") -> List[Detection]:
 
     # Call the client's search() method, and have it return results
     try:
-        result = elastic_client.search(index=".internal.alerts-security.alerts-default-*", body=query_body, size=ELASTIC_MAX_RESULTS)
+        result = elastic_client.search(
+            index=".internal.alerts-security.alerts-default-*", body=query_body, size=ELASTIC_MAX_RESULTS
+        )
     except AuthenticationException:
         mlog.critical("Elasticsearch authentication with user '" + elastic_user + "' failed. Check your config. Aborting.")
         return detections
@@ -798,11 +905,11 @@ def zs_provide_new_detections(config, TEST="") -> List[Detection]:
             for ip in doc_dict["host"]["ip"]:
                 ip_casted = cast_to_ipaddress(ip)
                 if ip_casted is not None and ip_casted.is_private:
-                    if ip.startswith("10."): 
+                    if ip.startswith("10."):
                         host_ip = ip_casted
-                        break # This is prefered, therefore break here
+                        break  # This is prefered, therefore break here
                     elif ip.startswith("192.168."):
-                        host_ip = ip_casted # Continue loop to maybe find a 10.* IP
+                        host_ip = ip_casted  # Continue loop to maybe find a 10.* IP
                 elif ip_casted.is_global:
                     global_ip = ip_casted
 
@@ -830,14 +937,15 @@ def zs_provide_new_detections(config, TEST="") -> List[Detection]:
         if dict_get(doc_dict, "host.hostname") is not None:
             device = ContextDevice(
                 name=dict_get(doc_dict, "host.hostname"),
-                local_ip=host_ip, global_ip=global_ip, 
-                ips=dict_get(doc_dict, "host.ip"), 
-                mac=dict_get(doc_dict, "host.mac"), 
-                os_family=dict_get(doc_dict, "ost.os.Ext.variant"), 
-                os=dict_get(doc_dict, "host.os.name"), 
+                local_ip=host_ip,
+                global_ip=global_ip,
+                ips=dict_get(doc_dict, "host.ip"),
+                mac=dict_get(doc_dict, "host.mac"),
+                os_family=dict_get(doc_dict, "ost.os.Ext.variant"),
+                os=dict_get(doc_dict, "host.os.name"),
                 kernel=dict_get(doc_dict, "host.os.kernel"),
                 os_version=dict_get(doc_dict, "host.os.version"),
-                in_scope=True
+                in_scope=True,
             )
 
         # Create the detection object
@@ -849,7 +957,7 @@ def zs_provide_new_detections(config, TEST="") -> List[Detection]:
             description=doc_dict["kibana.alert.rule.description"],
             tags=doc_dict["kibana.alert.rule.tags"],
             host_name=dict_get(doc_dict, "host.hostname"),
-            host_ip=ip_casted,
+            host_ip=host_ip,
             process=process,
             flow=flow,
             file=file,
@@ -881,7 +989,13 @@ def zs_provide_new_detections(config, TEST="") -> List[Detection]:
 
 
 def zs_provide_context_for_detections(
-    config, detection_report: DetectionReport, required_type: type, TEST=False, search_value=None, UUID_is_parent=False,  maxContext=50
+    config,
+    detection_report: DetectionReport,
+    required_type: type,
+    TEST=False,
+    search_value=None,
+    UUID_is_parent=False,
+    maxContext=50,
 ) -> Union[ContextFlow, ContextLog, ContextProcess]:
     """Returns a DetectionReport object with context for the detections from the Elasic integration.
 
@@ -903,7 +1017,10 @@ def zs_provide_context_for_detections(
     uuid_str = ""
     if search_value is not None:
         uuid_str = " with UUID: " + str(search_value)
-    mlog.info(f"zs_provide_context_for_detections() called for detection report: {detection_report_str} and required_type: {required_type}" + uuid_str)
+    mlog.info(
+        f"zs_provide_context_for_detections() called for detection report: {detection_report_str} and required_type: {required_type}"
+        + uuid_str
+    )
 
     return_objects = []
     provided_types = []
@@ -917,7 +1034,9 @@ def zs_provide_context_for_detections(
     detection_id = detection_report.detections[0].uuid
 
     if required_type not in provided_types:
-        mlog.error("The required type is not provided by this integration. '" + str(required_type) + "' is not in " + str(provided_types))
+        mlog.error(
+            "The required type is not provided by this integration. '" + str(required_type) + "' is not in " + str(provided_types)
+        )
         raise TypeError("The required type is not provided by this integration.")
 
     if TEST:  # When called from unit tests, return dummy data. Can be removed in production.
@@ -928,10 +1047,17 @@ def zs_provide_context_for_detections(
             )
         elif required_type == ContextProcess:
             context_object = ContextProcess(
-                uuid.uuid4(), datetime.datetime.now(), detection_report.uuid, "test.exe", 123, process_start_time=datetime.datetime.now()
+                uuid.uuid4(),
+                datetime.datetime.now(),
+                detection_report.uuid,
+                "test.exe",
+                123,
+                process_start_time=datetime.datetime.now(),
             )
         elif required_type == ContextLog:
-            context_object = ContextLog(detection_report.uuid, datetime.datetime.now(), "Some log message", "Elastic-SIEM", log_source_ip="10.0.0.3")
+            context_object = ContextLog(
+                detection_report.uuid, datetime.datetime.now(), "Some log message", "Elastic-SIEM", log_source_ip="10.0.0.3"
+            )
         return_objects.append(context_object)
         detection_example = detection_report.detections[0]
         detection_id = detection_example.vendor_id
@@ -947,11 +1073,19 @@ def zs_provide_context_for_detections(
                 # ... TODO: Get all processes related to the detection
             else:
                 if UUID_is_parent:
-                    mlog.info("Process Parent UUID provided. Will return all processes with parent UUID: " + search_value + " (meaning all children processes)")
+                    mlog.info(
+                        "Process Parent UUID provided. Will return all processes with parent UUID: "
+                        + search_value
+                        + " (meaning all children processes)"
+                    )
                     docs = search_entity_by_id(mlog, config, search_value, entity_type="parent_process")
 
                     if docs == None or len(docs) == 0:
-                        mlog.info("No processes found which have a parent with UUID: " + search_value + " (meaning no child processes found)")
+                        mlog.info(
+                            "No processes found which have a parent with UUID: "
+                            + search_value
+                            + " (meaning no child processes found)"
+                        )
                         return None
                     else:
                         counter = 0
@@ -961,7 +1095,9 @@ def zs_provide_context_for_detections(
                                 mlog.info("Skipping adding event with category: " + event_category)
                                 continue
                             if maxContext != -1 and counter >= maxContext:
-                                mlog.info("Reached given maxContext limit (" + str(maxContext) + "). Will not return more context.")
+                                mlog.info(
+                                    "Reached given maxContext limit (" + str(maxContext) + "). Will not return more context."
+                                )
                                 break
                             process = create_process_from_doc(mlog, doc["_source"])
                             return_objects.append(process)
@@ -976,40 +1112,40 @@ def zs_provide_context_for_detections(
         elif required_type == ContextFlow:
             # TODO: Implement seach in Suricata Indices as well
 
-            if len(search_value) > 69: # TODO: Implement searching flow by Process / File Entity ID
+            if len(search_value) > 69:  # TODO: Implement searching flow by Process / File Entity ID
                 mlog.info("Process Entity ID provided. Will return all flows for process with Entity ID: " + search_value)
                 flow_docs = search_entity_by_id(mlog, config, search_value, entity_type="network", security_only=True)
 
                 if flow_docs == None or len(flow_docs) == 0:
                     mlog.info("No flows found for process with Entity ID: " + search_value)
                     return None
-                
+
                 for doc in flow_docs:
                     return_objects.append(create_flow_from_doc(mlog, doc["_source"], detection_id))
             else:
                 mlog.error("UUID does not match either a valid Elastic Entity ID")
                 return None
-                
+
         elif required_type == ContextFile:
-            if search_value is None: # UUID in this context means process ID, SHA256 or EntityID
+            if search_value is None:  # UUID in this context means process ID, SHA256 or EntityID
                 # Need a process ID for now
                 return NotImplementedError
             else:
-                if len(search_value) > 69: # TODO: Implement searching file by Process / File Entity ID
+                if len(search_value) > 69:  # TODO: Implement searching file by Process / File Entity ID
                     mlog.info("Process Entity ID provided. Will return file with Entity ID: " + search_value)
                     file_docs = search_entity_by_id(mlog, config, search_value, entity_type="file", security_only=True)
 
                     if file_docs == None or len(file_docs) == 0:
                         mlog.info("No files found with Entity ID: " + search_value)
                         return None
-                    
+
                     for doc in file_docs:
                         file_obj = create_file_from_doc(mlog, doc["_source"], detection_id)
                         return_objects.append(file_obj)
                 else:
                     mlog.error("UUID does not match either a valid Elastic Entity ID")
                     return None
-                
+
         elif required_type == ContextRegistry:
             if search_value is None:
                 # Need a process ID for now
@@ -1022,7 +1158,7 @@ def zs_provide_context_for_detections(
                     if registry_docs == None or len(registry_docs) == 0:
                         mlog.info("No registry entries found with Entity ID: " + search_value)
                         return None
-                    
+
                     for doc in registry_docs:
                         registry_obj = create_registry_from_doc(mlog, doc["_source"], detection_id)
                         return_objects.append(registry_obj)
@@ -1030,7 +1166,10 @@ def zs_provide_context_for_detections(
     # ...
     if len(return_objects) == 0:
         mlog.info(
-            "zs_provide_context_for_detections() found no context for detection '" + detection_name + "' and required_type: " + str(required_type)
+            "zs_provide_context_for_detections() found no context for detection '"
+            + detection_name
+            + "' and required_type: "
+            + str(required_type)
         )
         return None
 
@@ -1051,7 +1190,10 @@ def zs_provide_context_for_detections(
                 )
         else:
             mlog.info(
-                "zs_provide_context_for_detections() found no context for detection: '" + detection_name + "' and required_type: " + str(required_type)
+                "zs_provide_context_for_detections() found no context for detection: '"
+                + detection_name
+                + "' and required_type: "
+                + str(required_type)
             )
     return return_objects
 

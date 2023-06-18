@@ -55,7 +55,7 @@ class Log:
                 if log_level_stdout == "none" and log_level == "none":
                     log_level_stdout = settings["logging"]["log_level_stdout"]
 
-            if (self.logger.hasHandlers()): # Remove duplicate handlers
+            if self.logger.hasHandlers():  # Remove duplicate handlers
                 self.logger.handlers.clear()
 
             if "none" not in log_level_file:
@@ -63,7 +63,9 @@ class Log:
                     path = "logs/" + module_name + ".log"
                 else:
                     path = "logs/zsoar.log"
-                os.makedirs(os.path.dirname(path), exist_ok=True)  # According to documentation of logger, this is not needed, but that is not true
+                os.makedirs(
+                    os.path.dirname(path), exist_ok=True
+                )  # According to documentation of logger, this is not needed, but that is not true
                 handlerFile = logging.FileHandler(path)
                 handlerFile.setLevel(log_level_file.upper())
                 handlerFile.setFormatter(formatter)
@@ -151,16 +153,17 @@ class Log:
 def update_audit_log(detection_uuid, new_action, logger=None):
     """Updates the audit log file with the given audit_log.
        If an audit log with the same playbook and stage already exists, it will be overwritten.
-       
+
     Args:
         detection_uuid (str): The detection uuid
         audit_log (dict): The audit log
         logger (Log): The logger object (optional) Set if the audit shall be logged to the normal log file as well
-        
+
     Returns:
         None
     """
     import json
+
     path = "logs/audit.log"
     mlog = Log("logging_helper")
 
@@ -183,14 +186,16 @@ def update_audit_log(detection_uuid, new_action, logger=None):
     except KeyError:
         mlog.info(f"Could not find audit log for detection_uuid {detection_uuid}. Creating a new one.")
         al_detection = []
-    
+
     # Update the audit log but check if playbook and stage already exists
     is_update = False
     if al_detection != []:
         for element in al_detection:
             element_dict = json.loads(element)
             if element_dict["playbook"] == new_action.playbook and element_dict["stage"] == new_action.stage:
-                mlog.debug(f"Found existing audit log for playbook {new_action.playbook} and stage {new_action.stage}. Overwriting it.")
+                mlog.debug(
+                    f"Found existing audit log for playbook {new_action.playbook} and stage {new_action.stage}. Overwriting it."
+                )
                 is_update = True
                 al_detection.remove(element)
                 break
@@ -215,7 +220,9 @@ def update_audit_log(detection_uuid, new_action, logger=None):
                 elif new_action.result_had_errors:
                     logger.error(f"[AUDIT_UPDATE] DetectionReport '{detection_uuid}' : {str_new_action}")
                 else:
-                    logger.info(f"[AUDIT_UPDATE] DetectionReport '{detection_uuid}' : {str_new_action}") # TODO: Fix this not working
+                    logger.info(
+                        f"[AUDIT_UPDATE] DetectionReport '{detection_uuid}' : {str_new_action}"
+                    )  # TODO: Fix this not working
             else:
                 logger.info(f"[AUDIT] DetectionReport '{detection_uuid}' : {str_new_action}")
         else:
@@ -223,7 +230,7 @@ def update_audit_log(detection_uuid, new_action, logger=None):
     else:
         mlog.debug(f"No logger object given. Not logging to logger.")
     return
-    
+
 
 if __name__ == "__main__":
     pass

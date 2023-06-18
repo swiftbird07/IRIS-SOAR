@@ -53,18 +53,20 @@ def main(TEST_CALL):
             mlog.info("zsoar_worker.py finished. Waiting for next run.")
         except Exception as e:
             mlog.error(
-                "zsoar_worker.py failed. See the zsoar_worker logs for more information. Error: "
-                + str(e),
+                "zsoar_worker.py failed. See the zsoar_worker logs for more information. Error: " + str(e),
             )
 
         # Reload config in case it was changed
         try:
+            cfg_old = cfg
             configObj = config_helper.Config()
             cfg = configObj.cfg
+
+            if cfg != cfg_old:
+                mlog.info("Config reloaded.")
         except TypeError as e:
             mlog.warning(
-                "Could not reload new config. Check the config_helper logs. Will use old working config. Error: "
-                + str(e)
+                "Could not reload new config. Check the config_helper logs. Will use old working config. Error: " + str(e)
             )
 
         if TEST_CALL:

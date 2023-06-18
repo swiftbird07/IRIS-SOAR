@@ -12,7 +12,14 @@ import json
 import lib.logging_helper as logging_helper
 from lib.class_helper import DetectionReport, Detection, Rule, ContextProcess, ContextFlow
 from lib.config_helper import Config
-from playbooks.bb_elastic_process_context import bb_get_all_processes_by_uuid, bb_get_all_children, bb_get_all_parents, bb_make_process_tree_visualisation, bb_get_process_network_flows
+from playbooks.bb_elastic_process_context import (
+    bb_get_all_processes_by_uuid,
+    bb_get_all_children,
+    bb_get_all_parents,
+    bb_make_process_tree_visualisation,
+    bb_get_process_network_flows,
+)
+
 # Prepare the config
 cfg = Config().cfg
 integration_config = cfg["integrations"]["elastic_siem"]
@@ -23,7 +30,7 @@ mlog = logging_helper.Log("test_bb_elastic_process_context")
 # Prepare a DetectionReport object
 rule = Rule("123", "Some Rule", 0)
 
-TEST_PROCESS_UID = "ODkzYjNkNDAtYTdiNy00MjdjLWJhYjItM2U4NGEzZjMzNWMxLTkwMjAtMTY4NDUxMjc4Mi44MTkzMTM2MDA="
+TEST_PROCESS_UID = "N2E5MmQ4NDctM2QxMS00ZDE3LThkZDAtNDRlMTJkYzA3ZmQ4LTE0NDQzOTEtMTY4NzA5MjQ1Ng=="
 
 ruleList = []
 ruleList.append(rule)
@@ -37,7 +44,6 @@ assert (
 ), "DetectionReport class could not be initialized"  # Sanity check - should be already tested by test_zsoar_lib.py -> test_class_helper()
 
 
-
 def test_bb_get_complete_process_by_uuid():
     # Test the function
     global process
@@ -47,6 +53,7 @@ def test_bb_get_complete_process_by_uuid():
     # Print the results
     mlog.info("Process context:")
     mlog.info(process)
+
 
 def test_bb_get_all_parents():
     global parents
@@ -60,13 +67,16 @@ def test_bb_get_all_parents():
         assert type(parent) == ContextProcess, "get_all_parents() should return a list of ContextProcess objects"
         # Ensure no duplicates
         if parent.process_uuid in uuids:
-            #assert False, "get_all_parents() should not return duplicate entries"
+            # assert False, "get_all_parents() should not return duplicate entries"
             pass
         # Ensure parent is really a parent
         if uuids != [] and parent.process_children != []:
-            assert parent.process_children in uuids, "get_all_parents() one of the children of a parent should be in the list of past parents"
+            assert (
+                parent.process_children in uuids
+            ), "get_all_parents() one of the children of a parent should be in the list of past parents"
         uuids.append(parent.process_uuid)
         mlog.info(str(parent))
+
 
 def test_bb_get_all_children():
     global children
@@ -80,14 +90,15 @@ def test_bb_get_all_children():
         assert type(child) == ContextProcess, "get_all_children() should return a list of ContextProcess objects"
         # Ensure no duplicates
         if child.process_uuid in uuids:
-            #assert False, "get_all_children() should not return duplicate entries"
+            # assert False, "get_all_children() should not return duplicate entries"
             pass
         # Ensure child is really a child
         if uuids != [] and child.process_children != []:
-            #assert child.process_children in uuids, "get_all_children() one of the children of a child should be in the list of past children"
+            # assert child.process_children in uuids, "get_all_children() one of the children of a child should be in the list of past children"
             pass
         uuids.append(child.process_uuid)
         mlog.info(str(child))
+
 
 def test_bb_make_process_tree_visualisation():
     # Test the function
@@ -97,6 +108,7 @@ def test_bb_make_process_tree_visualisation():
     # Print the results
     mlog.info("Process tree:")
     mlog.info(res)
+
 
 def test_bb_get_process_network_flows():
     # Test the function
@@ -108,8 +120,9 @@ def test_bb_get_process_network_flows():
     # Print the results
     mlog.info("Process network flows:")
     mlog.info(res)
-    
-# 
+
+
+#
 # o
 # ZTM0MWJhZTMtMmI0YS00ODY2LTk3MjItYjE0ZmNkY2RiNWYzLTEwOTMyLTEzMzI3MTExMjQ2LjE5NDk4MTMwMA==
 # ZTM0MWJhZTMtMmI0YS00ODY2LTk3MjItYjE0ZmNkY2RiNWYzLTEwNjEyLTEzMzI3MTExMjQ2LjgwMzE2NzAw

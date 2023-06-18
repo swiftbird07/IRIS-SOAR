@@ -16,7 +16,7 @@ integrations:
     elastic_verify_certs: false
     enabled: true
     logging:
-      log_level_file: info
+      log_level_file: debug
       log_level_stdout: warning
       log_level_syslog: error
   ibm_qradar:

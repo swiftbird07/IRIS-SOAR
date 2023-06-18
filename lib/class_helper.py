@@ -14,12 +14,19 @@ import pyotrs
 
 import lib.config_helper as config_helper
 import lib.logging_helper as logging_helper
-from lib.generic_helper import del_none_from_dict, handle_percentage, cast_to_ipaddress, add_to_timeline, remove_duplicates_from_dict
+from lib.generic_helper import (
+    del_none_from_dict,
+    handle_percentage,
+    cast_to_ipaddress,
+    add_to_timeline,
+    remove_duplicates_from_dict,
+)
 
 DEFAULT_IP = ipaddress.ip_address("127.0.0.1")  # When no IP address is provided, this is used
 THRESHOLD_PROCESS_IO_BYTES = 100000  # Threshold for the process IO bytes (100 KB)
 
 # TODO: Implement all functions used by zsoar_worker.py and its modules
+
 
 class Location:
     """Location class. This class is used for storing location information.
@@ -815,7 +822,7 @@ class Rule:
         mlog = logging_helper.Log("lib.class_helper")
 
         if type(id) is not str:
-            #mlog.warning("The ID of the rule is not a string: " + str(id) + ". Converting to string.")
+            # mlog.warning("The ID of the rule is not a string: " + str(id) + ". Converting to string.")
             id = str(id)
 
         # TODO: (for all classes) Add type checks for strings as well
@@ -1080,7 +1087,9 @@ class ContextFile:
 
         self.file_type = file_type
 
-        if file_extension != "" and file_extension[0] == ".":  # ContextFile extension should not start with a dot in the variable
+        if (
+            file_extension and file_extension != "" and file_extension[0] == "." and len(file_extension) > 1
+        ):  # ContextFile extension should not start with a dot in the variable
             file_extension = file_extension[1:]
         self.file_extension = file_extension
 
@@ -1222,7 +1231,7 @@ class HTTP:
     Attributes:
         related_detection_uuid (str): The UUID of the related detection
         method (str): The method of the HTTP request
-        type (str): The type of the HTTP request
+        type (str): The type of the HTTP request (HTTP or HTTPS)
         host (str): The host of the HTTP request
         status_code (int): The status code of the HTTP request
         path (str): The path of the HTTP request
@@ -1309,9 +1318,7 @@ class HTTP:
         self.user_agent = user_agent
         self.referer = referer
 
-        self.status_message = (
-            status_message  # TODO: Maybe enrich, when empty, with dict values from https://gist.github.com/bl4de/3086cf26081110383631
-        )
+        self.status_message = status_message  # TODO: Maybe enrich, when empty, with dict values from https://gist.github.com/bl4de/3086cf26081110383631
 
         self.request_body = request_body
         self.response_body = response_body
@@ -1328,7 +1335,9 @@ class HTTP:
                 raise ValueError("certificate must be None if type is not HTTPS")
             if host not in certificate.subject and host not in certificate.subject_alternative_names:
                 mlog = logging_helper.Log("lib.class_helper")
-                mlog.warning("HTTP __init__: Certificate: HTTP.host does not match certificate subject nor subject_alternative_names")
+                mlog.warning(
+                    "HTTP __init__: Certificate: HTTP.host does not match certificate subject nor subject_alternative_names"
+                )
         self.certificate = certificate
 
         self.file = file
@@ -1405,6 +1414,9 @@ class ContextFlow:
         destination_location (Location): The destination location of the flow
         http (HTTP): The HTTP context of the flow
         dns_query (DNSQuery): The DNS query context of the flow
+        device (ContextDevice): The device that is responsible for the flow
+        firewall_action (str): The firewall action of the flow
+        firewall_rule_id (int): The firewall rule of the flow
         uuid (uuid.UUID): The UUID of the flow
         detection_relevance (int): The relevance of the flow to the detection (0-100)
 
@@ -1446,6 +1458,9 @@ class ContextFlow:
         application: str = None,
         http: HTTP = None,
         dns_query: DNSQuery = None,
+        device: ContextDevice = None,
+        firewall_action: str = "Unknown",
+        firewall_rule_id: int = None,
         uuid: uuid.UUID = uuid.uuid4(),
         detection_relevance: int = 50,
     ):
@@ -1467,7 +1482,7 @@ class ContextFlow:
         if bytes_received is not None and (type(bytes_received) != int or bytes_received < 0):
             raise ValueError("bytes_received must be an integer greater than 0")
         self.bytes_received = bytes_received
-        
+
         self.integration = integration
 
         self.source_ip = source_ip
@@ -1540,6 +1555,20 @@ class ContextFlow:
                 raise TypeError("dns_query must be of type DNSQuery")
         self.dns_query = dns_query
 
+        # Check if ContextDevice object is valid if given
+        if device:
+            if not isinstance(device, ContextDevice):
+                raise TypeError("device must be of type ContextDevice")
+        self.device = device
+
+        self.firewall_action = firewall_action
+        if firewall_action not in ["Permit", "Deny", "Reject", "Unknown"]:
+            raise ValueError("firewall_action must be either Permit, Deny, Reject or Unknown")
+
+        self.firewall_rule_id = firewall_rule_id
+        if firewall_rule_id is not None and (type(firewall_rule_id) != int or firewall_rule_id < 0):
+            raise ValueError("firewall_rule_id must be an integer greater than 0")
+
         self.uuid = uuid
         self.detection_relevance = handle_percentage(detection_relevance)
 
@@ -1552,6 +1581,7 @@ class ContextFlow:
             "timestamp": str(self.timestamp),
             "data": self.data,
             "integration": self.integration,
+            "firewall_action": self.firewall_action if self.firewall_action != "Unknown" else None,
             "source_ip": str(self.source_ip),
             "source_location": str(self.source_location),
             "source_port": self.source_port,
@@ -1577,6 +1607,8 @@ class ContextFlow:
             "application": self.application,
             "http": str(self.http),
             "dns_query": str(self.dns_query),
+            "device": str(self.device),
+            "firewall_rule_id": self.firewall_rule_id,
             "uuid": str(self.uuid),
         }
 
@@ -1718,9 +1750,8 @@ class ContextProcess:
         is_complete: bool = False,
         detection_relevance: int = 50,
     ):
-        
         mlog = logging_helper.Log("lib.class_helper")
-        
+
         self.process_uuid = str(process_uuid)
         if process_uuid == None or process_uuid == "":
             raise ValueError("uuid cannot be empty")
@@ -1829,7 +1860,9 @@ class ContextProcess:
             mlog.warning("Process Object __init__: process_path should not be None if is_complete is True")
         if is_complete and process_md5 == None and process_sha256 == None:
             mlog.warning("Process Object __init__: process_md5 or process_sha256 should not be None if is_complete is True")
-        if is_complete and process_command_line == None and False: # deactivated, as this happens often, even if the rest is complete
+        if (
+            is_complete and process_command_line == None and False
+        ):  # deactivated, as this happens often, even if the rest is complete
             mlog.warning("Process Object __init__: process_command_line should not be None if is_complete is True")
         self.is_complete = is_complete
 
@@ -1837,9 +1870,14 @@ class ContextProcess:
 
         if process_io_text and len(process_io_text) > 0 and process_io_bytes > 0:
             process_io_bytes = len(process_io_text.encode("utf-8"))
-        
+
         if process_io_bytes and process_io_bytes > THRESHOLD_PROCESS_IO_BYTES:
-            mlog.warning("Process Object __init__: process_io_bytes is above threshold of " + str(THRESHOLD_PROCESS_IO_BYTES) + " bytes. Got: " + str(process_io_bytes))
+            mlog.warning(
+                "Process Object __init__: process_io_bytes is above threshold of "
+                + str(THRESHOLD_PROCESS_IO_BYTES)
+                + " bytes. Got: "
+                + str(process_io_bytes)
+            )
             process_io_bytes = THRESHOLD_PROCESS_IO_BYTES
             process_io_text = process_io_text[:THRESHOLD_PROCESS_IO_BYTES]
 
@@ -1901,7 +1939,7 @@ class ContextProcess:
             "deleted_registry_keys": self.deleted_registry_keys,
             "modified_registry_keys": self.modified_registry_keys,
             "is_complete": self.is_complete,
-            "uuid": self.process_uuid
+            "uuid": self.process_uuid,
         }
         return _dict
 
@@ -1912,7 +1950,7 @@ class ContextProcess:
 
 class ContextLog:
     """The ContextLog class. The most basic context class. Used for storing genric log data like syslog from a SIEM.
-       ! Only use this context if no other context is applicable. !
+       ! Only use this context if no other context is applicable !
        Be aware that either log_source_ip or log_source_device must be set.
 
     Attrbutes:
@@ -1922,7 +1960,7 @@ class ContextLog:
         log_source_name (str): The source of the log (e.g. Syslog @ Linux Server)
         log_source_ip (ipaddress.IPv4Address or ipaddress.IPv6Address): The IP address of the source of the log
         log_source_device (Device): The device object related to the log
-        log_flow (ContextFlow): The flow object related to the log
+        log_flow (ContextFlow): DEPRECATED Use ContextFlow instead
         log_protocol (str): The protocol of the log
         log_type (str): The type of the log
         log_severity (str): The severity of the log
@@ -2008,6 +2046,7 @@ class ContextLog:
         """Returns the string representation of the object."""
         return json.dumps(del_none_from_dict(self.__dict__()), indent=4, sort_keys=False, default=str)
 
+
 class ContextRegistry:
     """The ContextRegistry class. Used for storing registry data.
 
@@ -2020,6 +2059,7 @@ class ContextRegistry:
         registry_hive (str): The registry hive
         registry_path (str): The registry path
     """
+
     def __init__(
         self,
         related_detection_uuid: uuid.UUID,
@@ -2068,7 +2108,7 @@ class ContextRegistry:
     def __str__(self):
         """Returns the string representation of the object."""
         return json.dumps(del_none_from_dict(self.__dict__()), indent=4, sort_keys=False, default=str)
-    
+
 
 class ThreatIntel:
     """Detection by an idividual threat intel engine (e.g. Kaspersky, Avast, Microsoft, etc.).
@@ -2158,10 +2198,11 @@ class ThreatIntel:
         """Returns the string representation of the object."""
         return json.dumps(del_none_from_dict(self.__dict__()), indent=4, sort_keys=False, default=str)
 
+
 class Whois:
     """Whois information of a domain.
     ! This class is not a stand-alone context. Use it in ContextThreatIntel context to store the whois information.
-    
+
     Attributes:
         Domain_Name:
         Registry_Domain_ID:
@@ -2221,20 +2262,64 @@ class Whois:
         Tech_Email:
         Name_Server:
         Name_Server:
-        DNSSEC:
-"""
-    def __init__(self, domain_name, registry_domain_id, registrar_whois_server, registrar_url, 
-                 updated_date, creation_date, registry_expiry_date, registrar, 
-                 registrar_abuse_contact_email, registrar_abuse_contact_phone, domain_status, 
-                 registry_registrant_id, registrant_name, registrant_organization, registrant_street,
-                 registrant_city, registrant_state_province, registrant_postal_code, registrant_country, 
-                 registrant_phone, registrant_phone_ext, registrant_fax, registrant_fax_ext, registrant_email, 
-                 registry_admin_id, admin_name, admin_organization, admin_street, admin_city, 
-                 admin_state_province, admin_postal_code, admin_country, admin_phone, admin_phone_ext, 
-                 admin_fax, admin_fax_ext, admin_email, registry_tech_id, tech_name, tech_organization, 
-                 tech_street, tech_city, tech_state_province, tech_postal_code, tech_country, 
-                 tech_phone, tech_phone_ext, tech_fax, tech_fax_ext, tech_email, name_server1, name_server2, dnssec):
-        
+        DNSSEC:"""
+
+    def __init__(
+        self,
+        domain_name,
+        registry_domain_id,
+        registrar_whois_server,
+        registrar_url,
+        updated_date,
+        creation_date,
+        registry_expiry_date,
+        registrar,
+        registrar_abuse_contact_email,
+        registrar_abuse_contact_phone,
+        domain_status,
+        registry_registrant_id,
+        registrant_name,
+        registrant_organization,
+        registrant_street,
+        registrant_city,
+        registrant_state_province,
+        registrant_postal_code,
+        registrant_country,
+        registrant_phone,
+        registrant_phone_ext,
+        registrant_fax,
+        registrant_fax_ext,
+        registrant_email,
+        registry_admin_id,
+        admin_name,
+        admin_organization,
+        admin_street,
+        admin_city,
+        admin_state_province,
+        admin_postal_code,
+        admin_country,
+        admin_phone,
+        admin_phone_ext,
+        admin_fax,
+        admin_fax_ext,
+        admin_email,
+        registry_tech_id,
+        tech_name,
+        tech_organization,
+        tech_street,
+        tech_city,
+        tech_state_province,
+        tech_postal_code,
+        tech_country,
+        tech_phone,
+        tech_phone_ext,
+        tech_fax,
+        tech_fax_ext,
+        tech_email,
+        name_server1,
+        name_server2,
+        dnssec,
+    ):
         self.domain_name = domain_name
         self.registry_domain_id = registry_domain_id
         self.registrar_whois_server = registrar_whois_server
@@ -2292,65 +2377,65 @@ class Whois:
     def __dict__(self):
         """Returns the object as a dictionary."""
         return {
-            'domain_name': self.domain_name,
-            'registry_domain_id': self.registry_domain_id,
-            'registrar_whois_server': self.registrar_whois_server,
-            'registrar_url': self.registrar_url,
-            'updated_date': self.updated_date,
-            'creation_date': self.creation_date,
-            'registry_expiry_date': self.registry_expiry_date,
-            'registrar': self.registrar,
-            'registrar_abuse_contact_email': self.registrar_abuse_contact_email,
-            'registrar_abuse_contact_phone': self.registrar_abuse_contact_phone,
-            'domain_status': self.domain_status,
-            'registry_registrant_id': self.registry_registrant_id,
-            'registrant_name': self.registrant_name,
-            'registrant_organization': self.registrant_organization,
-            'registrant_street': self.registrant_street,
-            'registrant_city': self.registrant_city,
-            'registrant_state_province': self.registrant_state_province,
-            'registrant_postal_code': self.registrant_postal_code,
-            'registrant_country': self.registrant_country,
-            'registrant_phone': self.registrant_phone,
-            'registrant_phone_ext': self.registrant_phone_ext,
-            'registrant_fax': self.registrant_fax,
-            'registrant_fax_ext': self.registrant_fax_ext,
-            'registrant_email': self.registrant_email,
-            'registry_admin_id': self.registry_admin_id,
-            'admin_name': self.admin_name,
-            'admin_organization': self.admin_organization,
-            'admin_street': self.admin_street,
-            'admin_city': self.admin_city,
-            'admin_state_province': self.admin_state_province,
-            'admin_postal_code': self.admin_postal_code,
-            'admin_country': self.admin_country,
-            'admin_phone': self.admin_phone,
-            'admin_phone_ext': self.admin_phone_ext,
-            'admin_fax': self.admin_fax,
-            'admin_fax_ext': self.admin_fax_ext,
-            'admin_email': self.admin_email,
-            'registry_tech_id': self.registry_tech_id,
-            'tech_name': self.tech_name,
-            'tech_organization': self.tech_organization,
-            'tech_street': self.tech_street,
-            'tech_city': self.tech_city,
-            'tech_state_province': self.tech_state_province,
-            'tech_postal_code': self.tech_postal_code,
-            'tech_country': self.tech_country,
-            'tech_phone': self.tech_phone,
-            'tech_phone_ext': self.tech_phone_ext,
-            'tech_fax': self.tech_fax,
-            'tech_fax_ext': self.tech_fax_ext,
-            'tech_email': self.tech_email,
-            'name_server1': self.name_server1,
-            'name_server2': self.name_server2,
-            'dnssec': self.dnssec,
+            "domain_name": self.domain_name,
+            "registry_domain_id": self.registry_domain_id,
+            "registrar_whois_server": self.registrar_whois_server,
+            "registrar_url": self.registrar_url,
+            "updated_date": self.updated_date,
+            "creation_date": self.creation_date,
+            "registry_expiry_date": self.registry_expiry_date,
+            "registrar": self.registrar,
+            "registrar_abuse_contact_email": self.registrar_abuse_contact_email,
+            "registrar_abuse_contact_phone": self.registrar_abuse_contact_phone,
+            "domain_status": self.domain_status,
+            "registry_registrant_id": self.registry_registrant_id,
+            "registrant_name": self.registrant_name,
+            "registrant_organization": self.registrant_organization,
+            "registrant_street": self.registrant_street,
+            "registrant_city": self.registrant_city,
+            "registrant_state_province": self.registrant_state_province,
+            "registrant_postal_code": self.registrant_postal_code,
+            "registrant_country": self.registrant_country,
+            "registrant_phone": self.registrant_phone,
+            "registrant_phone_ext": self.registrant_phone_ext,
+            "registrant_fax": self.registrant_fax,
+            "registrant_fax_ext": self.registrant_fax_ext,
+            "registrant_email": self.registrant_email,
+            "registry_admin_id": self.registry_admin_id,
+            "admin_name": self.admin_name,
+            "admin_organization": self.admin_organization,
+            "admin_street": self.admin_street,
+            "admin_city": self.admin_city,
+            "admin_state_province": self.admin_state_province,
+            "admin_postal_code": self.admin_postal_code,
+            "admin_country": self.admin_country,
+            "admin_phone": self.admin_phone,
+            "admin_phone_ext": self.admin_phone_ext,
+            "admin_fax": self.admin_fax,
+            "admin_fax_ext": self.admin_fax_ext,
+            "admin_email": self.admin_email,
+            "registry_tech_id": self.registry_tech_id,
+            "tech_name": self.tech_name,
+            "tech_organization": self.tech_organization,
+            "tech_street": self.tech_street,
+            "tech_city": self.tech_city,
+            "tech_state_province": self.tech_state_province,
+            "tech_postal_code": self.tech_postal_code,
+            "tech_country": self.tech_country,
+            "tech_phone": self.tech_phone,
+            "tech_phone_ext": self.tech_phone_ext,
+            "tech_fax": self.tech_fax,
+            "tech_fax_ext": self.tech_fax_ext,
+            "tech_email": self.tech_email,
+            "name_server1": self.name_server1,
+            "name_server2": self.name_server2,
+            "dnssec": self.dnssec,
         }
+
 
 def __str__(self):
     """Returns the string representation of the object."""
     return json.dumps(del_none_from_dict(self.__dict__()), indent=4, sort_keys=False, default=str)
-
 
 
 class ContextThreatIntel:
@@ -2424,7 +2509,7 @@ class ContextThreatIntel:
             raise ValueError("type must be one of IPv4Address, IPv6Address, HTTP, DNSQuery, ContextFile or ContextProcess")
         self.type = type
 
-        #if not isinstance(indicator, type):
+        # if not isinstance(indicator, type):
         #    raise ValueError("indicator must be of the given 'type'")
 
         self.indicator = indicator
@@ -2528,7 +2613,7 @@ class ContextThreatIntel:
                 self.categories = categories
             else:
                 raise ValueError("categories must be a list of two elements (engine and category)")
-            
+
         self.links = links
 
     def __dict__(self):
@@ -2594,6 +2679,8 @@ class Detection:
         dns_request (DNS): A DNS request related to the detection
         certificate (Certificate): A certificate related to the detection
         registry (Registry): A registry related to the detection
+        log_source (str): The source of the log (e.g. Windows Event Log, Sysmon, etc.)
+        url (str): The URL of the detection
         uuid (str): The universal unique ID of the detection (UUID v4 - random if not set)
 
     Methods:
@@ -2624,6 +2711,8 @@ class Detection:
         user: Person = None,
         file: ContextFile = None,
         registry: ContextRegistry = None,
+        log_source: str = None,
+        url: str = None,
         uuid: uuid.UUID = uuid.uuid4(),
     ):
         self.vendor_id = vendor_id
@@ -2636,11 +2725,19 @@ class Detection:
         self.tags = tags
         self.raw = raw
         self.rules = rules
-        self.indicators = {"ip": [], "domain": [], "url": [], "hash": [], "email": [], "countries": [], "registry": [], "other": []}
+        self.indicators = {
+            "ip": [],
+            "domain": [],
+            "url": [],
+            "hash": [],
+            "email": [],
+            "countries": [],
+            "registry": [],
+            "other": [],
+        }
 
         if host_ip != None:
-            if not isinstance(host_ip, ipaddress.IPv4Address):
-                raise TypeError("source_ip must be a valid IPv4 address.")
+            host_ip = cast_to_ipaddress(host_ip)
             self.indicators["ip"].append(host_ip)
         self.host_ip = host_ip
 
@@ -2763,6 +2860,8 @@ class Detection:
                 raise TypeError("registry must be of type ContextRegistry")
             self.indicators["registry"].append(registry.registry_key)
         self.registry = registry
+        self.log_source = log_source
+        self.url = url
 
         self.uuid = uuid
         self.ticket: pyotrs.Ticket = None
@@ -2800,6 +2899,8 @@ class Detection:
             "user": str(self.user),
             "file": str(self.file),
             "registry": str(self.registry),
+            "log_source": self.log_source,
+            "url": self.url,
             "uuid": self.uuid,
         }
 
@@ -2854,66 +2955,68 @@ class Detection:
             bool: True if the report is whitelisted, False otherwise
         """
         from lib.generic_helper import get_from_cache
+
         mlog = logging_helper.Log("lib.class_helper")
         detection = self
 
         wl_ips = get_from_cache("global_whitelist_ips", "LIST")
         wl_ips = wl_ips if wl_ips is not None else []
-        wl_ips = list(set(wl_ips)) # Remove duplicates
-        wl_ips = [ip for ip in wl_ips if ip != ""] # Remove empty entries
+        wl_ips = list(set(wl_ips))  # Remove duplicates
+        wl_ips = [ip for ip in wl_ips if ip != ""]  # Remove empty entries
         mlog.debug(f"Found {len(wl_ips)} IPs in global whitelist.")
-        
+
         for ip in detection.indicators["ip"]:
             if ip in wl_ips:
                 mlog.info(f"IP '{ip}' is whitelisted.")
                 return True
-            
+
         wl_domains = get_from_cache("global_whitelist_domains", "LIST")
         wl_domains = wl_domains if wl_domains is not None else []
-        wl_domains = list(set(wl_domains)) # Remove duplicates
-        wl_domains = [domain for domain in wl_domains if domain != ""] # Remove empty entries
+        wl_domains = list(set(wl_domains))  # Remove duplicates
+        wl_domains = [domain for domain in wl_domains if domain != ""]  # Remove empty entries
         mlog.debug(f"Found {len(wl_domains)} domains in global whitelist.")
 
         for domain in detection.indicators["domain"]:
             if domain in wl_domains:
                 mlog.info(f"Domain '{domain}' is whitelisted.")
                 return True
-            
+
         wl_hashes = get_from_cache("global_whitelist_hashes", "LIST")
         wl_hashes = wl_hashes if wl_hashes is not None else []
-        wl_hashes = list(set(wl_hashes)) # Remove duplicates
-        wl_hashes = [hash_ for hash_ in wl_hashes if hash_ != ""] # Remove empty entries
+        wl_hashes = list(set(wl_hashes))  # Remove duplicates
+        wl_hashes = [hash_ for hash_ in wl_hashes if hash_ != ""]  # Remove empty entries
         mlog.debug(f"Found {len(wl_hashes)} hashes in global whitelist.")
 
         for hash_ in detection.indicators["hash"]:
             if hash_ in wl_hashes:
                 mlog.info(f"Hash '{hash_}' is whitelisted.")
                 return True
-        
+
         wl_urls = get_from_cache("global_whitelist_urls", "LIST")
         wl_urls = wl_urls if wl_urls is not None else []
-        wl_urls = list(set(wl_urls)) # Remove duplicates
-        wl_urls = [url for url in wl_urls if url != ""] # Remove empty entries
+        wl_urls = list(set(wl_urls))  # Remove duplicates
+        wl_urls = [url for url in wl_urls if url != ""]  # Remove empty entries
         mlog.debug(f"Found {len(wl_urls)} URLs in global whitelist.")
 
         for url in detection.indicators["url"]:
             if url in wl_urls:
                 mlog.info(f"URL '{url}' is whitelisted.")
                 return True
-        
+
         wl_emails = get_from_cache("global_whitelist_emails", "LIST")
         wl_emails = wl_emails if wl_emails is not None else []
-        wl_emails = list(set(wl_emails)) # Remove duplicates
-        wl_emails = [email for email in wl_emails if email != ""] # Remove empty entries
+        wl_emails = list(set(wl_emails))  # Remove duplicates
+        wl_emails = [email for email in wl_emails if email != ""]  # Remove empty entries
         mlog.debug(f"Found {len(wl_emails)} emails in global whitelist.")
 
         for email in detection.indicators["email"]:
             if email in wl_emails:
                 mlog.info(f"Email '{email}' is whitelisted.")
                 return True
-        
+
         mlog.debug("Detection is not whitelisted in the global whitelist.")
         return False
+
 
 class AuditLog:
     """The "AuditLog" class serves as a centralized mechanism to capture and document the actions performed by ZSOAR, particularly by its "Playbooks," that impact the detection reports.
@@ -2938,7 +3041,26 @@ class AuditLog:
         playbook_done (bool, optional): Indicates whether the playbook has been completed. Defaults to False.
 
     """
-    def __init__(self, playbook: str, stage: int, title: str, description: str = "", start_time: datetime = datetime.datetime.now(), is_ticket_related: bool = False, result_had_warnings: bool = False, result_had_errors: bool = False, result_request_retry: bool = False, result_message: str = "", result_data: dict = {}, result_in_ticket: bool = False, result_time: datetime = None, playbook_done: bool = False, result_exception=None, result_was_successful=False):
+
+    def __init__(
+        self,
+        playbook: str,
+        stage: int,
+        title: str,
+        description: str = "",
+        start_time: datetime = datetime.datetime.now(),
+        is_ticket_related: bool = False,
+        result_had_warnings: bool = False,
+        result_had_errors: bool = False,
+        result_request_retry: bool = False,
+        result_message: str = "",
+        result_data: dict = {},
+        result_in_ticket: bool = False,
+        result_time: datetime = None,
+        playbook_done: bool = False,
+        result_exception=None,
+        result_was_successful=False,
+    ):
         self.playbook = playbook
         self.stage: int = stage
         self.title = title
@@ -2958,7 +3080,7 @@ class AuditLog:
         self.stage_done: bool = False
         self.playbook_done: bool = playbook_done
 
-    def set_successful(self, message: str = "The action taken was successful.", data: dict = None, ticket_number = None) -> bool:
+    def set_successful(self, message: str = "The action taken was successful.", data: dict = None, ticket_number=None) -> bool:
         """Sets the audit log element as successful. If a ticket number is given, "result_in_ticket" is automatically set to True."""
         self.result_was_successful = True
         self.result_had_warnings = False
@@ -2972,8 +3094,10 @@ class AuditLog:
             self.related_ticket_number = ticket_number
         self.stage_done = True
         return self
-    
-    def set_warning(self, in_ticket: bool = False, warning_message: str = "The action taken had warnings, but succeeded", data: dict = None) -> bool:
+
+    def set_warning(
+        self, in_ticket: bool = False, warning_message: str = "The action taken had warnings, but succeeded", data: dict = None
+    ) -> bool:
         """Sets the audit log element as successful, but with warnings (no retry)."""
         self.result_had_warnings = True
         self.result_had_errors = False
@@ -2984,8 +3108,14 @@ class AuditLog:
         self.result_time = datetime.datetime.now()
         self.stage_done = True
         return self
-    
-    def set_error(self, in_ticket: bool = False, message: str = "The action taken had errors and failed. Requested retry.", data: dict = None, exception=None) -> bool:
+
+    def set_error(
+        self,
+        in_ticket: bool = False,
+        message: str = "The action taken had errors and failed. Requested retry.",
+        data: dict = None,
+        exception=None,
+    ) -> bool:
         """Sets the audit log element as failed with errors (with retry request)."""
         self.result_had_errors = True
         self.result_request_retry = True
@@ -2996,10 +3126,10 @@ class AuditLog:
         self.result_exception = str(exception)
         self.stage_done = True
         return self
-    
+
     def __dict__(self):
         """Returns the dictionary representation of the object.
-           It will only return the result_* attributes if the stage is done to enhance readability.
+        It will only return the result_* attributes if the stage is done to enhance readability.
         """
         if self.stage_done:
             dict_ = {
@@ -3020,8 +3150,7 @@ class AuditLog:
                 "result_in_ticket": self.result_in_ticket,
                 "result_time": str(self.result_time),
                 "playbook_done": self.playbook_done,
-                "stage_done": self.stage_done
-
+                "stage_done": self.stage_done,
             }
         else:
             dict_ = {
@@ -3032,7 +3161,7 @@ class AuditLog:
                 "start_time": str(self.start_time),
                 "related_ticket_number": self.related_ticket_number,
                 "playbook_done": self.playbook_done,
-                "stage_done": self.stage_done
+                "stage_done": self.stage_done,
             }
 
         return dict_
@@ -3040,7 +3169,8 @@ class AuditLog:
     def __str__(self):
         """Returns the string representation of the object."""
         return json.dumps(del_none_from_dict(self.__dict__()), indent=4, sort_keys=False, default=str)
-    
+
+
 class DetectionReport:
     """DetectionReport class. This class is used for storing detection reports.
 
@@ -3081,7 +3211,16 @@ class DetectionReport:
         self.action_result = None
         self.action_result_message = None
         self.action_result_data = None
-        self.audit_trail: List[AuditLog] = [AuditLog(playbook="None/Initial", stage=0, title="Initializing DetectionReport", description="Initializing the DetectionReport onject", start_time=datetime.datetime.now(), is_ticket_related=False)]
+        self.audit_trail: List[AuditLog] = [
+            AuditLog(
+                playbook="None/Initial",
+                stage=0,
+                title="Initializing DetectionReport",
+                description="Initializing the DetectionReport onject",
+                start_time=datetime.datetime.now(),
+                is_ticket_related=False,
+            )
+        ]
         self.handled_by_playbooks: List[str] = []
         self.playbooks_to_retry: List[str] = []
         self.ticket: pyotrs.Ticket = None
@@ -3098,7 +3237,16 @@ class DetectionReport:
         self.context_registries: List[ContextRegistry] = []
 
         self.uuid = uuid
-        self.indicators = {"ip": [], "domain": [], "url": [], "hash": [], "email": [], "countries": [], "registry": [], "other": []}
+        self.indicators = {
+            "ip": [],
+            "domain": [],
+            "url": [],
+            "hash": [],
+            "email": [],
+            "countries": [],
+            "registry": [],
+            "other": [],
+        }
 
         self.audit_trail[0].result_had_warnings = False
         self.audit_trail[0].result_had_errors = False
@@ -3106,7 +3254,6 @@ class DetectionReport:
         self.audit_trail[0].result_in_ticket = False
         self.audit_trail[0].result_message = "Initializing DetectionReport was successful."
         self.audit_trail[0].result_data = "DetectionReport was initialized successfully."
-
 
     def __dict__(self):
         """Returns the object as a dictionary."""
@@ -3129,7 +3276,7 @@ class DetectionReport:
             "context_registries": str(self.context_registries),
             "uuid": self.uuid,
             "indicators": self.indicators,
-            "audit_trail": self.audit_trail
+            "audit_trail": self.audit_trail,
         }
         return dict_
 
@@ -3139,7 +3286,24 @@ class DetectionReport:
 
     # Getter and setter;
 
-    def add_context(self, context: Union[ContextLog, ContextProcess, ContextFlow, ContextThreatIntel, Location, ContextDevice, Person, ContextFile, ContextRegistry, HTTP, DNSQuery, Certificate, dict]):
+    def add_context(
+        self,
+        context: Union[
+            ContextLog,
+            ContextProcess,
+            ContextFlow,
+            ContextThreatIntel,
+            Location,
+            ContextDevice,
+            Person,
+            ContextFile,
+            ContextRegistry,
+            HTTP,
+            DNSQuery,
+            Certificate,
+            dict,
+        ],
+    ):
         """Adds a context to the detection report, respecting the timeline
 
         Args:
@@ -3153,7 +3317,7 @@ class DetectionReport:
             mlog = logging_helper.Log(__name__)
             mlog.warning("DetectionReport: add_context() - Context is None, skipping.")
             return
-        
+
         if not isinstance(context, dict) and not isinstance(context, pyotrs.Ticket):
             try:
                 timestamp = context.timestamp
@@ -3208,7 +3372,10 @@ class DetectionReport:
 
             if context.http and context.http.certificate:
                 self.indicators["domain"].append(context.http.certificate.subject)
-                if context.http.certificate.subject_alternative_names is not None and len(context.http.certificate.subject_alternative_names) > 0:
+                if (
+                    context.http.certificate.subject_alternative_names is not None
+                    and len(context.http.certificate.subject_alternative_names) > 0
+                ):
                     for san in context.http.certificate.subject_alternative_names:
                         self.indicators["domain"].append(san)
 
@@ -3226,7 +3393,6 @@ class DetectionReport:
                 self.indicators["ip"].append(context.local_ip)
             if context.global_ip:
                 self.indicators["ip"].append(context.global_ip)
-            
 
         elif isinstance(context, Person):
             add_to_timeline(self.context_persons, context, timestamp)
@@ -3235,7 +3401,6 @@ class DetectionReport:
             add_to_timeline(self.context_registries, context, timestamp)
             registry_indicator = context.registry_key.lower() + "->" + context.registry_value.lower()
             self.indicators["registry"].append(registry_indicator)
-
 
         elif isinstance(context, ContextFile):
             add_to_timeline(self.context_files, context, timestamp)
@@ -3252,7 +3417,6 @@ class DetectionReport:
                 self.ticket = context
             else:
                 raise TypeError("Given dict was no valid ticket object.")
-        
 
         else:
             raise TypeError("Unknown context type.")
@@ -3320,14 +3484,14 @@ class DetectionReport:
             for context in self.context_files:
                 if context.uuid == uuid:
                     return context
-        
+
         if filterType == pyotrs.Ticket or filterType is None:
             for context in self.context_tickets:
                 if context.tid == uuid:
                     return context
-                
+
         return None
-    
+
     def get_audit_by_playbook(self, playbook: str) -> List[AuditLog]:
         """Returns the audit of the given playbook
 
@@ -3342,7 +3506,7 @@ class DetectionReport:
             if h.playbook == playbook:
                 audit.append(h)
         return audit
-    
+
     def get_audit_by_playbook_stage(self, playbook: str, stage: int) -> List[AuditLog]:
         """Returns the audit of the given playbook and stage
 
@@ -3358,7 +3522,7 @@ class DetectionReport:
             if h.playbook == playbook and h.stage == stage:
                 audit.append(h)
         return audit
-    
+
     def get_tries_by_playbook(self, playbook: str) -> int:
         """Returns the number of tries for the given playbook
 
@@ -3373,7 +3537,6 @@ class DetectionReport:
         for h in self.audit_trail:
             if h.playbook == playbook and h.stage == 0:
                 tries += 1
-    
 
     def update_audit(self, audit: AuditLog, logger=None):
         """Adds or updates the given audit element to the audit_trail of the report.
@@ -3389,15 +3552,17 @@ class DetectionReport:
         """
         if type(audit) is not AuditLog:
             raise TypeError("audit must be of type AuditElement")
-        
+
         if audit.playbook_done:
             self.handled_by_playbooks.append(audit.playbook)
         if audit.result_request_retry:
             self.playbooks_to_retry.append(audit.playbook)
-        
+
         if audit.result_data is None:
             audit.result_data = {}
-        audit.result_data["detection_name"] = self.detections[0].name # Add detection name to result data for better overview in log entries
+        audit.result_data["detection_name"] = self.detections[
+            0
+        ].name  # Add detection name to result data for better overview in log entries
 
         for h in self.audit_trail:
             if h.playbook == audit.playbook and h.stage == audit.stage:
@@ -3407,7 +3572,7 @@ class DetectionReport:
 
         # Add to audit.log
         logging_helper.update_audit_log(self.uuid, audit, logger)
-    
+
     def get_title(self):
         """Returns the title of the report."""
         return self.detections[0].name  # TODO: Make this more sophisticated

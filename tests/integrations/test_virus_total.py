@@ -4,12 +4,25 @@
 
 import pytest
 
-from lib.class_helper import Detection, DetectionReport, Rule, ContextProcess, ContextLog, ContextFlow, ContextFile, ContextThreatIntel, ThreatIntel, HTTP, DNSQuery
+from lib.class_helper import (
+    Detection,
+    DetectionReport,
+    Rule,
+    ContextProcess,
+    ContextLog,
+    ContextFlow,
+    ContextFile,
+    ContextThreatIntel,
+    ThreatIntel,
+    HTTP,
+    DNSQuery,
+)
 from integrations.virus_total import zs_provide_context_for_detections
 import lib.logging_helper as logging_helper
 import lib.config_helper as config_helper
 import datetime
 import ipaddress
+
 
 def test_zs_provide_context_for_detections():
     mlog = logging_helper.Log("test_elastic_siem")
@@ -32,19 +45,45 @@ def test_zs_provide_context_for_detections():
     ), "DetectionReport class could not be initialized"  # Sanity check - should be already tested by test_zsoar_lib.py -> test_class_helper()
 
     # Test IP search
-    result1 = zs_provide_context_for_detections(integration_config, detection_report, ContextThreatIntel, TEST=True, search_type=ipaddress.IPv4Address, search_value=ipaddress.ip_address("136.243.123.201"))
+    result1 = zs_provide_context_for_detections(
+        integration_config,
+        detection_report,
+        ContextThreatIntel,
+        TEST=True,
+        search_type=ipaddress.IPv4Address,
+        search_value=ipaddress.ip_address("136.243.123.201"),
+        wait_if_api_quota_exceeded=True,
+    )
     assert type(result1) == ContextThreatIntel, "zs_provide_context_for_detections() should return a ContextThreatIntel object"
 
     # Test domain search
-    result2 = zs_provide_context_for_detections(integration_config, detection_report, ContextThreatIntel, TEST=True, search_type=DNSQuery, search_value="www.google.com")
+    result2 = zs_provide_context_for_detections(
+        integration_config, detection_report, ContextThreatIntel, TEST=True, search_type=DNSQuery, search_value="www.google.com"
+    )
     assert type(result2) == ContextThreatIntel, "zs_provide_context_for_detections() should return a ContextThreatIntel object"
 
     # Test process search
-    result3 = zs_provide_context_for_detections(integration_config, detection_report, ContextThreatIntel, TEST=True, search_type=ContextProcess, search_value="ccdef4b25564f424772317356e27e6aa51976d2805594024b30f7b852f1ccf34")
+    result3 = zs_provide_context_for_detections(
+        integration_config,
+        detection_report,
+        ContextThreatIntel,
+        TEST=True,
+        search_type=ContextProcess,
+        search_value="ccdef4b25564f424772317356e27e6aa51976d2805594024b30f7b852f1ccf34",
+        wait_if_api_quota_exceeded=True,
+    )
     assert type(result3) == ContextThreatIntel, "zs_provide_context_for_detections() should return a ContextThreatIntel object"
 
     # Test URL search
-    result4 = zs_provide_context_for_detections(integration_config, detection_report, ContextThreatIntel, TEST=True, search_type=HTTP, search_value="https://www.google.com")
+    result4 = zs_provide_context_for_detections(
+        integration_config,
+        detection_report,
+        ContextThreatIntel,
+        TEST=True,
+        search_type=HTTP,
+        search_value="https://www.google.co.uk",
+        wait_if_api_quota_exceeded=True,
+    )
     assert type(result4) == ContextThreatIntel, "zs_provide_context_for_detections() should return a ContextThreatIntel object"
 
     # Print the results
