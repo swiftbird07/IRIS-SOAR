@@ -32,7 +32,7 @@ import collections
 import lib.logging_helper as logging_helper
 
 # For new detections:
-from lib.class_helper import Rule, Detection, ContextFlow, ContextDevice, ContextLog, HTTP, ContextFile, ContextDevice
+from lib.class_helper import Rule, Detection, ContextFlow, ContextDevice, ContextLog, HTTP, ContextFile, ContextDevice, DNSQuery
 from lib.config_helper import Config
 from lib.generic_helper import cast_to_ipaddress
 
@@ -479,6 +479,7 @@ def create_flow_from_events(mlog, offense_id, all_events):
 
             file = None
             http = None
+            dns = None
             device = None
 
             if dict_get(event, "File Hash") != None:
@@ -503,6 +504,17 @@ def create_flow_from_events(mlog, offense_id, all_events):
                     response_headers=event["HTTP - Response Headers"],
                     file=file,
                     timestamp=event["Log Source Time"],
+                )
+
+            if dict_get(event, "DNS - Query") != None:
+                mlog.debug("Creating DNS context for event: " + repr(event))
+                dns = DNSQuery(
+                    offense_id,
+                    type=event["DNS - Type"],
+                    query=event["DNS - Query"],
+                    response=event["DNS - Query Response"],
+                    timestamp=event["Log Source Time"],
+                    has_response=event["DNS - Query Response"] != None,
                 )
 
             protocol = "Undefined"
@@ -588,6 +600,9 @@ def create_flow_from_events(mlog, offense_id, all_events):
                 sub_category=event["Low Level Category"],
                 firewall_action=firewall_action,
                 firewall_rule_id=rule_id,
+                http=http,
+                dns=dns,
+                file=file,
             )
 
             mlog.debug("Flow context created: " + str(flow))
