@@ -1284,7 +1284,7 @@ class HTTP:
         self.timestamp = timestamp
         mlog = logging_helper.Log("lib.class_helper")
 
-        if method not in ["GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS", "PATCH"]:
+        if method not in ["GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS", "PATCH", "Unknown (Encrypted)"]:
             raise ValueError("method must be one of GET, POST, PUT, DELETE, HEAD, OPTIONS, PATCH")
         self.method = method
 
@@ -1296,7 +1296,7 @@ class HTTP:
             raise ValueError("host must not be empty")
         self.host = host
 
-        if status_code < 0 or status_code > 999:
+        if status_code < 0 or status_code > 999 and method != "Unknown (Encrypted)":
             raise ValueError("status_code must be between 0 and 999")
         self.status_code = status_code
 

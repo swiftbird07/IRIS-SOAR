@@ -144,6 +144,7 @@ QUERIES = {
 # Define what Log Sources are for what purpose of context:
 FLOW_LOG_SOURCES = ["Firewall", "Suricata"]
 LOG_LOG_SOURCES = ["FALLBACK"]
+FILE_LOG_SOURCES = ["Suricata"]
 
 
 if __name__ == "__main__":
@@ -482,9 +483,6 @@ def create_flow_from_events(mlog, offense_id, all_events):
             dns = None
             device = None
 
-            if dict_get(event, "File Hash") != None:
-                file = ContextFile(offense_id, event["Log Source Time"], "File Transfer", event["Filename"], event["File Hash"])
-
             if dict_get(event, "HTTP - Method") != None:
                 mlog.debug("Creating HTTP context for event: " + repr(event))
                 http = HTTP(
@@ -505,6 +503,9 @@ def create_flow_from_events(mlog, offense_id, all_events):
                     file=file,
                     timestamp=event["Log Source Time"],
                 )
+            elif dict_get(event, "Server Name Indication") != None:
+                mlog.debug("Creating HTTPS context for event: " + repr(event))
+                http = HTTP(offense_id, "Unknown (Encrypted)", "HTTPS", event["Server Name Indication"], None)
 
             if dict_get(event, "DNS - Query") != None:
                 mlog.debug("Creating DNS context for event: " + repr(event))
@@ -601,8 +602,7 @@ def create_flow_from_events(mlog, offense_id, all_events):
                 firewall_action=firewall_action,
                 firewall_rule_id=rule_id,
                 http=http,
-                dns=dns,
-                file=file,
+                dns_query=dns,
             )
 
             mlog.debug("Flow context created: " + str(flow))
@@ -707,6 +707,38 @@ def create_logs_from_events(mlog, offense_id, all_events):
             continue
 
     return log_list
+
+
+def create_files_from_events(mlog, offense_id, all_events):
+    """Creates ContextFile objects from a list of events.
+
+    Args:
+        mlog (logging.Logger): Logger to use.
+        offense_id (int): Offense ID.
+        all_events (list): List of events.
+
+    Returns:
+        list: File objects.
+    """
+
+    mlog.debug("Creating files from events...")
+    file_list = []
+
+    for event in all_events:
+        mlog.debug("Creating file from event: " + str(event))
+
+        try:
+            file = None
+
+            if dict_get(event, "File Hash") != None:
+                file = ContextFile(offense_id, event["Log Source Time"], "File Transfer", event["Filename"], event["File Hash"])
+                mlog.debug("File context created: " + str(file))
+                file_list.append(file)
+        except KeyError as e:
+            mlog.warning("Missing key in event: " + str(event) + " - " + str(e) + ". Skipping event.")
+            continue
+
+    return file_list
 
 
 def zs_provide_new_detections(config, TEST=False) -> List[Detection]:
@@ -839,7 +871,7 @@ def zs_provide_context_for_detections(
     socket.setdefaulttimeout = CONNECTION_TIMEOUT
     search_type = search_type.lower()
 
-    if required_type not in [ContextFlow, ContextLog, any]:
+    if required_type not in [ContextFlow, ContextLog, ContextFile, any]:
         mlog.error("Invalid required_type: " + str(required_type))
         raise ValueError("Invalid required_type: " + str(required_type))
 
@@ -847,6 +879,9 @@ def zs_provide_context_for_detections(
         mlog.error("Invalid search_type: " + str(search_type))
         raise ValueError("Invalid search_type: " + str(search_type))
 
+    if not search_value:
+        mlog.error("No search_value provided.")
+        raise ValueError("No search_value provided.")
     try:
         qradar_url = config["qradar_url"]
         qradar_api_key = config["qradar_api_key"]
@@ -873,121 +908,156 @@ def zs_provide_context_for_detections(
         session.headers["SEC"] = qradar_api_key
         session.verify = False
 
-        if search_value:
-            mlog.info("Getting further offense context for offense ID " + str(search_value))
+        mlog.info("Getting further offense context for offense ID " + str(search_value))
 
-            # GET /api/siem/offenses/{offense_id}
-            fields = [
-                "description",
-                "last_updated_time",
-                "start_time",
-                "rules",
-            ]
-            params = {
-                "fields": ",".join(fields),
-            }
-            try:
-                response = session.get(
-                    "{:s}/api/siem/offenses/{:d}".format(
-                        qradar_url,
-                        search_value,
-                    ),
-                    timeout=CONNECTION_TIMEOUT,
-                    params=params,
-                )
+        # GET /api/siem/offenses/{offense_id}
+        fields = [
+            "description",
+            "last_updated_time",
+            "start_time",
+            "rules",
+        ]
+        params = {
+            "fields": ",".join(fields),
+        }
+        try:
+            response = session.get(
+                "{:s}/api/siem/offenses/{:d}".format(
+                    qradar_url,
+                    search_value,
+                ),
+                timeout=CONNECTION_TIMEOUT,
+                params=params,
+            )
 
-                if response.status_code != 200:
-                    mlog.error(f"Got response code {str(response.status_code)} in zs_provide_context(): " + response.text)
-                    return None
-
-            except Exception as e:
-                mlog.error("Error establishing connection to QRadar in zs_provide_context(): " + str(e))
+            if response.status_code != 200:
+                mlog.error(f"Got response code {str(response.status_code)} in zs_provide_context(): " + response.text)
                 return None
 
-            body = response.json()
+        except Exception as e:
+            mlog.error("Error establishing connection to QRadar in zs_provide_context(): " + str(e))
+            return None
 
-            mlog.info("Updating detection's description: " + repr(body["description"]))
-            detection: Detection = detection_report.detections[0]
-            detection.rules[0].description = body["description"]
+        body = response.json()
 
-            ## CONTEXT FLOW ##
-            if required_type == ContextFlow or required_type == any:
-                start = body["start_time"]
-                stop = body["last_updated_time"]
+        mlog.info("Updating detection's description: " + repr(body["description"]))
+        detection: Detection = detection_report.detections[0]
+        detection.rules[0].description = body["description"]
 
-                mlog.info(
-                    f"Querying QRadar SIEM for offense ID {search_value} and flow log sources to get further context for the offense..."
-                )
+        ## CONTEXT FLOW ##
+        if required_type == ContextFlow or required_type == any:
+            start = body["start_time"]
+            stop = body["last_updated_time"]
 
-                all_events = []
-                for log_source in FLOW_LOG_SOURCES:
-                    if not log_source in QUERIES[qradar_url]:
-                        mlog.warning("No query for flow conteext log source " + str(log_source) + " defined. Using fallback.")
-                        log_source = "FALLBACK"
+            mlog.info(
+                f"Querying QRadar SIEM for offense ID {search_value} and flow log sources to get further context for the offense..."
+            )
 
-                    aql = format_aql(QUERIES[qradar_url][log_source], search_value, start, stop)
-                    events = qradar.search(aql)
+            all_events = []
+            for log_source in FLOW_LOG_SOURCES:
+                if not log_source in QUERIES[qradar_url]:
+                    mlog.warning("No query for flow conteext log source " + str(log_source) + " defined. Using fallback.")
+                    log_source = "FALLBACK"
 
-                    if events is None:
-                        mlog.warning("Got no results for log source " + str(log_source) + ".")
-                        continue
+                aql = format_aql(QUERIES[qradar_url][log_source], search_value, start, stop)
+                events = qradar.search(aql)
 
-                    mlog.debug("Got {:d} results for log source {:s}.".format(len(events), log_source))
-                    all_events += events
+                if events is None:
+                    mlog.warning("Got no results for log source " + str(log_source) + ".")
+                    continue
 
-                if not all_events or len(all_events) == 0:
-                    mlog.warning("Got no results for offense ID " + str(search_value) + ".")
-                    return None
+                mlog.debug("Got {:d} results for log source {:s}.".format(len(events), log_source))
+                all_events += events
 
-                mlog.info("Collected {:d} events for offense ID {:d}.".format(len(all_events), search_value))
+            if not all_events or len(all_events) == 0:
+                mlog.warning("Got no results for offense ID " + str(search_value) + ".")
+                return None
 
-                flows = create_flow_from_events(mlog, search_value, all_events)
-                if flows and len(flows) > 0:
-                    mlog.info("Created {:d} flow(s) related to offense ID {:d}.".format(len(flows), search_value))
-                else:
-                    mlog.warning("No flow created for offense ID " + str(search_value) + ".")
-                contexts += flows
+            mlog.info("Collected {:d} events for offense ID {:d}.".format(len(all_events), search_value))
 
-            ## CONTEXT LOG ##
-            if required_type == ContextLog or required_type == any:
-                start = body["start_time"]
-                stop = body["last_updated_time"]
+            flows = create_flow_from_events(mlog, search_value, all_events)
+            if flows and len(flows) > 0:
+                mlog.info("Created {:d} flow(s) related to offense ID {:d}.".format(len(flows), search_value))
+            else:
+                mlog.warning("No flow created for offense ID " + str(search_value) + ".")
+            contexts += flows
 
-                mlog.info(
-                    f"Querying QRadar SIEM for offense ID {search_value} and log log sources to get further context for the offense..."
-                )
+        ## CONTEXT LOG ##
+        if required_type == ContextLog or required_type == any:
+            start = body["start_time"]
+            stop = body["last_updated_time"]
 
-                all_events = []
-                for log_source in LOG_LOG_SOURCES:
-                    if not log_source in QUERIES[qradar_url]:
-                        mlog.warning("No query for log context log source " + str(log_source) + " defined. Using fallback.")
-                        log_source = "FALLBACK"
+            mlog.info(
+                f"Querying QRadar SIEM for offense ID {search_value} and log log sources to get further context for the offense..."
+            )
 
-                    aql = format_aql(QUERIES[qradar_url][log_source], search_value, start, stop)
-                    events = qradar.search(aql)
+            all_events = []
+            for log_source in LOG_LOG_SOURCES:
+                if not log_source in QUERIES[qradar_url]:
+                    mlog.warning("No query for log context log source " + str(log_source) + " defined. Using fallback.")
+                    log_source = "FALLBACK"
 
-                    if events is None:
-                        mlog.warning("Got no results for log source " + str(log_source) + ".")
-                        continue
+                aql = format_aql(QUERIES[qradar_url][log_source], search_value, start, stop)
+                events = qradar.search(aql)
 
-                    mlog.debug("Got {:d} results for log source {:s}.".format(len(events), log_source))
-                    all_events += events
+                if events is None:
+                    mlog.warning("Got no results for log source " + str(log_source) + ".")
+                    continue
 
-                if not all_events or len(all_events) == 0:
-                    mlog.warning("Got no results for offense ID " + str(search_value) + ".")
-                    return None
+                mlog.debug("Got {:d} results for log source {:s}.".format(len(events), log_source))
+                all_events += events
 
-                mlog.info("Collected {:d} events for offense ID {:d}.".format(len(all_events), search_value))
+            if not all_events or len(all_events) == 0:
+                mlog.warning("Got no results for offense ID " + str(search_value) + ".")
+                return None
 
-                logs = create_logs_from_events(mlog, search_value, all_events)
-                if logs and len(logs) > 0:
-                    mlog.info("Created {:d} log(s) related to offense ID {:d}.".format(len(logs), search_value))
-                else:
-                    mlog.warning("No log created for offense ID " + str(search_value) + ".")
-                contexts += logs
+            mlog.info("Collected {:d} events for offense ID {:d}.".format(len(all_events), search_value))
 
-            mlog.info("Returning {:d} context(s) for offense ID {:d}.".format(len(contexts), search_value))
-            return contexts
+            logs = create_logs_from_events(mlog, search_value, all_events)
+            if logs and len(logs) > 0:
+                mlog.info("Created {:d} log(s) related to offense ID {:d}.".format(len(logs), search_value))
+            else:
+                mlog.warning("No log created for offense ID " + str(search_value) + ".")
+            contexts += logs
 
-            ##
+        ## CONTEXT FILE ##
+        if required_type == ContextFile or required_type == any:
+            start = body["start_time"]
+            stop = body["last_updated_time"]
+
+            mlog.info(
+                f"Querying QRadar SIEM for offense ID {search_value} and file log sources to get further context for the offense..."
+            )
+
+            all_events = []
+            for log_source in FILE_LOG_SOURCES:
+                if not log_source in QUERIES[qradar_url]:
+                    mlog.warning("No query for file context log source " + str(log_source) + " defined. Using fallback.")
+                    log_source = "FALLBACK"
+
+                aql = format_aql(QUERIES[qradar_url][log_source], search_value, start, stop)
+                events = qradar.search(aql)
+
+                if events is None:
+                    mlog.warning("Got no results for log source " + str(log_source) + ".")
+                    continue
+
+                mlog.debug("Got {:d} results for log source {:s}.".format(len(events), log_source))
+                all_events += events
+
+            if not all_events or len(all_events) == 0:
+                mlog.warning("Got no results for offense ID " + str(search_value) + ".")
+                return None
+
+            mlog.info("Collected {:d} events for offense ID {:d}.".format(len(all_events), search_value))
+
+            files = create_files_from_events(mlog, search_value, all_events)
+            if files and len(files) > 0:
+                mlog.info("Created {:d} file(s) related to offense ID {:d}.".format(len(files), search_value))
+            else:
+                mlog.warning("No file created for offense ID " + str(search_value) + ".")
+            contexts += files
+
         session.close()
+        mlog.info("Returning {:d} context(s) for offense ID {:d}.".format(len(contexts), search_value))
+        return contexts

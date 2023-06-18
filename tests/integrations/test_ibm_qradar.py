@@ -2,14 +2,14 @@
 
 import pytest
 
-from lib.class_helper import Detection, DetectionReport, Rule, ContextProcess, ContextLog, ContextFlow
+from lib.class_helper import Detection, DetectionReport, Rule, ContextProcess, ContextLog, ContextFlow, ContextFile
 from integrations.ibm_qradar import zs_provide_new_detections, zs_provide_context_for_detections
 import lib.logging_helper as logging_helper
 import lib.config_helper as config_helper
 import datetime
 import uuid
 
-OFFENSE_ID = "1448"  # The ID of an offense that exists in the QRadar test environment
+OFFENSE_ID = "1438"  # The ID of an offense that exists in the QRadar test environment
 
 
 def test_zs_provide_new_detections():
@@ -61,3 +61,13 @@ def test_zs_provide_context_for_detections():
     assert len(detectionArray) > 0, "zs_provide_context_for_detections() should return a list of ContextLog objects"
     for detection in detectionArray:
         assert type(detection) == ContextLog, "zs_provide_context_for_detections() found an invalid ContextLog object in the list"
+
+    detectionArray = zs_provide_context_for_detections(
+        detection_report, ContextFile, TEST=True, search_type="offense", search_value=OFFENSE_ID
+    )
+    assert type(detectionArray) == list, "zs_provide_context_for_detections() should return a list of ContextFile objects"
+    assert len(detectionArray) > 0, "zs_provide_context_for_detections() should return a list of ContextFile objects"
+    for detection in detectionArray:
+        assert (
+            type(detection) == ContextFile
+        ), "zs_provide_context_for_detections() found an invalid ContextFile object in the list"

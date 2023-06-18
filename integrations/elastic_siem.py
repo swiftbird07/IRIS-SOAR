@@ -795,6 +795,9 @@ def zs_provide_new_detections(config, TEST="") -> List[Detection]:
     Returns:
         List[Detection]: A list of new detections
     """
+
+    # TODO: Search for kibana.alert.group.id if it exists, as some elastic signals by itself dont provide any context
+
     mlog = init_logging(config)
     mlog.info("zs_provide_new_detections() called.")
 
