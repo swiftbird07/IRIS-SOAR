@@ -180,6 +180,8 @@ def del_none_from_dict(d):
     # For Python 2, write `d.items()`; `d.iteritems()` won’t work
     if d is None:
         return None
+    if type(d) is int:
+        return d
     for key, value in list(d.items()):
         if value is None:
             del d[key]
@@ -251,7 +253,7 @@ def format_results(events, format, group_by="uuid", transform=False):
         if "related_detection_uuid" in event:
             del event["related_detection_uuid"]
 
-        if "process_id" in event:
+        if "process_id" in event and event["process_id"] is not None:
             if type(event["process_id"]) is not int:  # If a UUID == process_id, limit it to not be too long in the table
                 event["process_id"] = event["process_id"][:5]
 

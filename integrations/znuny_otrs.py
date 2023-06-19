@@ -514,7 +514,16 @@ def zs_add_note_to_ticket(
         mlog.info("Ticketing is disabled. Not adding note to ticket.")
         return True
 
-    if mode not in ["raw", "analysis", "context_process", "context_file", "context_network", "context_registry", "detection"]:
+    if mode not in [
+        "raw",
+        "analysis",
+        "context_process",
+        "context_file",
+        "context_network",
+        "context_registry",
+        "detection",
+        "context_log",
+    ]:
         mlog.critical(f"Invalid mode specified: '{str(mode)}'. Aborting note creation.")
         return ValueError("Invalid mode specified. Aborting note creation.")
 
@@ -668,16 +677,18 @@ def zs_add_note_to_ticket(
             if detection.process:
                 body += f"<h3>Network Flows of detected Process '{detection.process.process_name}' ({detection.process.process_id}):</h3><br><br>"
             else:
-                body += f"<h3>Network Flows of detected Process <N/A>:</h3><br><br>"
+                body += f"<h3>Network Flows of Detection:</h3><br><br>"
             body += format_results(detected_process_flows, "html", group_by="timestamp")
 
             body += f"<br><br><h3>List of all reported IPs and domains: </h3><br><br>"
             body += str(detection_report.indicators["ip"]) + "<br>" + str(detection_report.indicators["domain"]) + "<br><br>"
-            body += f"<br><br><h3>Network Flows of other Processes (grouped by process):</h3><br><br>"
-            body += format_results(context_process_flows, "html", group_by="process_id")
 
-            body += "<br><br><h3>Complete Network Timeline:</h3><br>"
-            body += "<br>" + format_results(detection_report.context_flows, "html", group_by="timestamp")
+            if context_process_flows and len(context_process_flows) > 0:
+                body += f"<br><br><h3>Network Flows of other Processes (grouped by process):</h3><br><br>"
+                body += format_results(context_process_flows, "html", group_by="process_id")
+
+                body += "<br><br><h3>Complete Network Timeline:</h3><br>"
+                body += "<br>" + format_results(detection_report.context_flows, "html", group_by="timestamp")
 
             note_id = zs_add_note_to_ticket(ticket_number, "raw", DRY_RUN, note_title, body, "text/html")
             if type(note_id) is not int:
@@ -740,16 +751,17 @@ def zs_add_note_to_ticket(
             if detection.process:
                 body += f"<h3>File Events of detected Process '{detection.process.process_name}' ({detection.process.process_id}):</h3><br><br>"
             else:
-                body += f"<h3>File Events of detected Process <N/A>:</h3><br><br>"
+                body += f"<h3>File Events of Detection:</h3><br><br>"
             body += format_results(detected_process_file_events, "html", group_by="timestamp")
 
-            body += f"<br><br><h3>List of all reported files: </h3><br><br>"
-            body += f"{get_unique(file_names)}"
-            body += f"<br><br><h3>File Events of other Processes (grouped by process):</h3><br><br>"
-            body += format_results(context_processes_file_events, "html", group_by="process_id")
+            if context_processes_file_events and len(context_processes_file_events) > 0:
+                body += f"<br><br><h3>List of all reported files: </h3><br><br>"
+                body += f"{get_unique(file_names)}"
+                body += f"<br><br><h3>File Events of other Processes (grouped by process):</h3><br><br>"
+                body += format_results(context_processes_file_events, "html", group_by="process_id")
 
-            body += "<br><br><h3>Complete File Event Timeline:</h3><br>"
-            body += "<br>" + format_results(detection_report.context_files, "html", group_by="timestamp")
+                body += "<br><br><h3>Complete File Event Timeline:</h3><br>"
+                body += "<br>" + format_results(detection_report.context_files, "html", group_by="timestamp")
 
             note_id = zs_add_note_to_ticket(ticket_number, "raw", DRY_RUN, note_title, body, "text/html")
             if type(note_id) is not int:
@@ -856,6 +868,81 @@ def zs_add_note_to_ticket(
             )
         return
 
+    elif mode == "context_log":
+        # Create a note for Log Events
+        try:
+            if not playbook_name or not detection_report or not detection:
+                raise ValueError("Missing arguments for context_process note creation.")
+
+            detected_process_log_events = detection_contexts
+            context_processes_log_events = other_contexts
+
+            current_action = AuditLog(
+                playbook_name,
+                playbook_step,
+                "Create Note - Log Events",
+                "Creating note for log events in the detection.",
+            )
+            detection_report.update_audit(current_action, logger=mlog)
+            note_title = "Context: Log Events"
+
+            # Check if any log events were found
+            if (
+                detected_process_log_events is None
+                and len(context_processes_log_events) == 0
+                and len(detection_report.context_logs) == 0
+            ):
+                mlog.warning(f"Found no log events for detection.")
+                detection_report.update_audit(
+                    current_action.set_warning(warning_message=f"Found no log events for detection."), logger=mlog
+                )
+                note_title += " (empty)"
+
+            body = f"<br><br><h2>Log Event Context:</h2><br><br>"
+            if detection.process:
+                body += f"<h3>Log Events of detected Process '{detection.process.process_name}' ({detection.process.process_id}):</h3><br><br>"
+            else:
+                body += f"<h3>Log Events of Detection:</h3><br><br>"
+            body += format_results(detected_process_log_events, "html", group_by="timestamp")
+
+            if context_processes_log_events and len(context_processes_log_events) > 0:
+                body += f"<br><br><h3>Log Events of other Processes (grouped by process):</h3><br><br>"
+                body += format_results(context_processes_log_events, "html", group_by="process_id")
+                body += f"<br><br><h3>Complete Log Event Timeline:</h3><br>"
+                body += "<br>" + format_results(detection_report.context_logs, "html", group_by="timestamp")
+
+            note_id = zs_add_note_to_ticket(ticket_number, "raw", DRY_RUN, note_title, body, "text/html")
+            if type(note_id) is not int:
+                mlog.warning(f"Failed to create note for log events in detection.")
+                detection_report.update_audit(
+                    current_action.set_error(
+                        warning_message=f"Failed to create note for log events in detection (returned).", exception=note_id
+                    ),
+                    logger=mlog,
+                )
+            else:
+                mlog.info(
+                    f"Successfully created note for log events in detection: '{detection.name}' ({detection.uuid}) with note id: {note_id}"
+                )
+                current_action.playbook_done = True
+                detection_report.update_audit(
+                    current_action.set_successful(
+                        message=f"Successfully created note for log events in detection with note id: {note_id}",
+                        ticket_number=ticket_number,
+                    ),
+                    logger=mlog,
+                )
+
+        except Exception as e:
+            mlog.error(
+                f"Failed to create note for log events in detection: '{detection.name}' ({detection.uuid}). Exception: {traceback.format_exc()}"
+            )
+            detection_report.update_audit(
+                current_action.set_error(message=f"Failed to create note for log events in detection (catched).", exception=e),
+                logger=mlog,
+            )
+        return
+
     elif mode == "analysis":
         return NotImplementedError("Analysis mode is not implemented yet.")
 
@@ -883,7 +970,7 @@ def zs_add_note_to_ticket(
             mlog.debug("Note: '" + note_title + "'\n\n" + note_body)
         else:
             mlog.debug("Note: '" + note_title)
-        return -1
+        return 123
     else:
         # Adding note to ticket
         result = client.ticket_update(ticket.tid, article)
@@ -893,7 +980,7 @@ def zs_add_note_to_ticket(
             return result["ArticleID"]
         except KeyError:
             mlog.critical("Note creation failed. Znuny did not return a note ID. Aborting note creation.")
-            return SystemError("Note creation failed. Znuny did not return a note ID. Aborting note creation.")
+            return Exception("Note creation failed. Znuny did not return a note ID. Aborting note creation.")
 
 
 if __name__ == "__main__":

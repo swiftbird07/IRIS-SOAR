@@ -1280,6 +1280,13 @@ class HTTP:
         self.referer = None
         self.status_message = None
         self.request_body = None
+        self.response_body = None
+        self.request_headers = None
+        self.response_headers = None
+        self.http_version = None
+        self.certificate = None
+        self.file = None
+        self.timestamp = None
 
         self.timestamp = timestamp
         mlog = logging_helper.Log("lib.class_helper")
@@ -1296,6 +1303,12 @@ class HTTP:
             raise ValueError("host must not be empty")
         self.host = host
 
+        try:
+            status_code = int(status_code)
+        except:
+            if method != "Unknown (Encrypted)":
+                raise ValueError("status_code must be an integer")
+
         if status_code < 0 or status_code > 999 and method != "Unknown (Encrypted)":
             raise ValueError("status_code must be between 0 and 999")
         self.status_code = status_code
@@ -1303,7 +1316,7 @@ class HTTP:
         self.path = None
         if path != None and "/" not in path:
             mlog.warning("HTTP Object __init__: path does not contain any '/'. Path: '" + str(path) + "' Object: " + str(self))
-        if path[0] != "/":
+        if path and path[0] != "/":
             self.path = "/" + path
         else:
             self.path = path
@@ -1325,8 +1338,8 @@ class HTTP:
         self.request_headers = request_headers
         self.response_headers = response_headers
 
-        if http_version != None and ["1.", "2.", "3."] not in http_version:
-            raise ValueError("http_version must be one of 1.x, 2.x, 3.x if not None")
+        if http_version != None and "." not in http_version:
+            raise ValueError("http_version must be a valid version number if not None")
         self.http_version = http_version
 
         # Check if certificate is valid
@@ -1339,7 +1352,6 @@ class HTTP:
                     "HTTP __init__: Certificate: HTTP.host does not match certificate subject nor subject_alternative_names"
                 )
         self.certificate = certificate
-
         self.file = file
 
     def __dict__(self):
@@ -1357,7 +1369,7 @@ class HTTP:
                 "referer": self.referer,
                 "status_message": self.status_message,
                 "request_body": self.request_body,
-                "response_body": self.response_body,
+                "response_body": self.response_body if self.response_body != None else "",
                 "request_headers": self.request_headers,
                 "response_headers": self.response_headers,
                 "http_version": self.http_version,

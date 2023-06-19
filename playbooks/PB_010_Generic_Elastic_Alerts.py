@@ -8,31 +8,25 @@
 #  - All elastic detections
 #
 # Gathered Context:
-# - None
+# - ContextProcess, ContextFile, ContextRegistry, ContextNetwork
 #
 # Actions:
 # - Create Ticket
 # - Add notes to related tickets
 #
 PB_NAME = "PB_010_Generic_Elastic_Alerts"
-PB_VERSION = "0.1.0"
+PB_VERSION = "0.2.0"
 PB_AUTHOR = "Martin Offermann"
 PB_LICENSE = "MIT"
 PB_ENABLED = True
 
 
 from typing import Union, List
-import json
-import traceback
-
 import lib.logging_helper as logging_helper
-from lib.class_helper import DetectionReport, ContextProcess, AuditLog, Detection
+from lib.class_helper import DetectionReport, AuditLog, Detection
 from lib.config_helper import Config
-from lib.generic_helper import format_results, get_unique, del_none_from_dict
 
-from integrations.elastic_siem import zs_provide_context_for_detections
 from integrations.znuny_otrs import zs_create_ticket, zs_add_note_to_ticket, zs_get_ticket_by_number
-
 from playbooks.bb_elastic_context_fetcher import (
     bb_get_context_process_children,
     bb_get_context_process_parents,
@@ -99,12 +93,11 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
         mlog.critical("Found no detections in detection report to handle.")
         return detection_report
 
-    detection: Detection = detections_to_handle[0]  # We only handle the first detection
+    detection: Detection = detections_to_handle[0]  #  We primarily handle the first detection
 
     # First check the global whitelist for whitelist entries
     mlog.info(f"Checking global whitelist for detection: '{detection.name}' ({detection.uuid})")
     if detection.check_against_whitelist():
-        mlog.info(f"Detection: '{detection.name}' ({detection.uuid}) is whitelisted, skipping.")
         detection_report.update_audit(current_action.set_successful(message="Detection is whitelisted, skipping."), logger=mlog)
         return detection_report
     detection_report.update_audit(current_action.set_successful(message="Detection is not whitelisted."), logger=mlog)

@@ -15,6 +15,7 @@ import lib.logging_helper as logging_helper
 import lib.config_helper as config_helper
 import datetime
 import uuid
+import pyotrs
 
 
 # Test get ticket by number
@@ -24,7 +25,9 @@ def test_zs_get_ticket_by_number():
 
     # Test the function
     ticket = zs_get_ticket_by_number("2023061977000295")
-    assert type(ticket) == dict, "zs_get_ticket_by_number() should return a dict with the ticket data"
+    assert (
+        type(ticket) == dict or type(ticket) == pyotrs.lib.Ticket
+    ), "zs_get_ticket_by_number() should return a dict with the ticket data"
 
     # Print the results
     mlog = logging_helper.Log("test_znuny_otrs")
@@ -34,7 +37,7 @@ def test_zs_get_ticket_by_number():
 
 # Test ticket creation
 def test_zs_create_ticket():
-    TEST_ONLINE = False  # Set to True to test the integration with changings to a real OTRS instance
+    TEST_ONLINE = True  # Set to True to test the integration with changings to a real OTRS instance
 
     # Prepare the config
     cfg = config_helper.Config().cfg
@@ -67,7 +70,7 @@ def test_zs_create_ticket():
 
 
 def test_add_note_to_ticket():
-    TEST_ONLINE = False  # Set to True to test the integration with changings to a real OTRS instance
+    TEST_ONLINE = True  # Set to True to test the integration with changings to a real OTRS instance
 
     # Test "raw" note creation
     result = zs_add_note_to_ticket("2023052177000051", "raw", not TEST_ONLINE, "Test Note Title", "Test Note Body")

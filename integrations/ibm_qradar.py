@@ -28,7 +28,6 @@ import dateutil.tz
 import requests
 import collections
 
-
 import lib.logging_helper as logging_helper
 
 # For new detections:
@@ -356,7 +355,7 @@ class QRadar:
         body = response.json()
         if response.status_code != 201:
             self.client.mlog.error("qradar.search(): Got response: " + body["message"])
-            return None
+            return Exception("qradar.search(): Got response: " + body["message"])
 
         # GET /api/ariel/searches/{search_id}
         self.client.mlog.debug("qradar.search(): GET /api/ariel/searches/" + body["search_id"] + ". Start polling.")
@@ -367,7 +366,9 @@ class QRadar:
                 self.client.mlog.error(
                     "qradar.search(): Canceled API request for search status check. Reason: Needed more than 6 Minutes for getting results."
                 )
-                return None
+                return Exception(
+                    "qradar.search(): Canceled API request for search status check. Reason: Needed more than 6 Minutes for getting results."
+                )
 
             time.sleep(SEARCH_POLLING_INTERVAL)
             i += 1
@@ -381,9 +382,8 @@ class QRadar:
             self.client.mlog.debug("qradar.search(): Progress: {:3d}%".format(body["progress"]))
 
         if body["status"] == "ERROR":
-            for error_message in body["error_messages"]:
-                self.client.mlog.error("qradar.search() Failed search: " + error_message["message"])
-            return None
+            self.client.mlog.error("qradar.search() Failed search: " + body["error_messages"])
+            return Exception("qradar.search() Failed search: " + body["error_messages"])
 
         # GET /api/ariel/searches/{search_id}/results
         url += "/results"
@@ -393,13 +393,13 @@ class QRadar:
         body = response.json(object_pairs_hook=collections.OrderedDict)
         if response.status_code != 200:
             self.client.mlog.error("qradar.search(): Got response: " + body["message"])
-            return None
+            return Exception("qradar.search(): Got response: " + body["message"])
 
         try:
             events = body["events"]
         except KeyError:
             self.client.mlog.error("qradar.search(): Failed to parse events from resposne.")
-            return None
+            return Exception("qradar.search(): Failed to parse events from resposne.")
 
         if events is None or len(events) == 0:
             self.client.mlog.debug("qradar.search(): Got no results.")
@@ -426,7 +426,7 @@ class QRadar:
         body = response.json()
         if response.status_code != 201:
             self.client.mlog.error("qradar.dns_lookup(): Got response: " + body["message"])
-            return None
+            return Exception("qradar.dns_lookup(): Got response: " + body["message"])
 
         # GET /api/services/dns_lookups/{dns_lookup_id}
         url += "/{:d}".format(body["id"])
@@ -445,9 +445,9 @@ class QRadar:
             self.client.mlog.debug("qradar.dns_lookup(): Progress: {:3d}%".format(body["progress"]))
 
         if body["status"] == "ERROR":
-            for error_message in body["error_messages"]:
-                self.client.mlog.error("qradar.dns_lookup(): Failed search: " + error_message["message"])
-            return None
+            self.client.mlog.error("qradar.dns_lookup(): Failed search: " + error_message["message"])
+            return Exception("qradar.dns_lookup(): Failed search: " + error_message["message"])
+
         message = json.loads(body["message"])
         return message[0]
 
@@ -489,10 +489,9 @@ def create_flow_from_events(mlog, offense_id, all_events):
                     offense_id,
                     event["HTTP - Method"],
                     "HTTPS" if event["HTTP - URL"].lower().startswith("https") else "HTTP",
-                    event["HTTP - Host"],
+                    event["HTTP - Hostname"],
                     event["HTTP - Status"],
-                    host=event["HTTP - Host"],
-                    full_url=event["HTTP - URL"],
+                    path=event["HTTP - URL"],
                     user_agent=event["HTTP - User Agent"],
                     referer=event["HTTP - Referer"],
                     request_body=event["HTTP - Request Body"],
@@ -853,7 +852,7 @@ def zs_provide_context_for_detections(
     This function is used to provide context to Z-SOAR.
     :param config: The configuration of the integration.
     :param TEST: If set to "TEST", the function will return a test context.
-    :return: A list of contexts.
+    :return: A list of contexts, an empty list if no context is available or an exception if an error occurred.
     """
     config = Config().cfg
     config = config["integrations"]["ibm_qradar"]
@@ -930,13 +929,16 @@ def zs_provide_context_for_detections(
                 params=params,
             )
 
+            if type(response) == Exception:
+                return response
+
             if response.status_code != 200:
                 mlog.error(f"Got response code {str(response.status_code)} in zs_provide_context(): " + response.text)
-                return None
+                return Exception("Got response code " + str(response.status_code) + " in zs_provide_context()")
 
         except Exception as e:
             mlog.error("Error establishing connection to QRadar in zs_provide_context(): " + str(e))
-            return None
+            return Exception("Error establishing connection to QRadar in zs_provide_context(): " + str(e))
 
         body = response.json()
 
@@ -962,6 +964,9 @@ def zs_provide_context_for_detections(
                 aql = format_aql(QUERIES[qradar_url][log_source], search_value, start, stop)
                 events = qradar.search(aql)
 
+                if type(events) == Exception:
+                    return events
+
                 if events is None:
                     mlog.warning("Got no results for log source " + str(log_source) + ".")
                     continue
@@ -971,7 +976,7 @@ def zs_provide_context_for_detections(
 
             if not all_events or len(all_events) == 0:
                 mlog.warning("Got no results for offense ID " + str(search_value) + ".")
-                return None
+                return []
 
             mlog.info("Collected {:d} events for offense ID {:d}.".format(len(all_events), search_value))
 
@@ -1000,6 +1005,9 @@ def zs_provide_context_for_detections(
                 aql = format_aql(QUERIES[qradar_url][log_source], search_value, start, stop)
                 events = qradar.search(aql)
 
+                if type(events) == Exception:
+                    return events
+
                 if events is None:
                     mlog.warning("Got no results for log source " + str(log_source) + ".")
                     continue
@@ -1009,7 +1017,7 @@ def zs_provide_context_for_detections(
 
             if not all_events or len(all_events) == 0:
                 mlog.warning("Got no results for offense ID " + str(search_value) + ".")
-                return None
+                return []
 
             mlog.info("Collected {:d} events for offense ID {:d}.".format(len(all_events), search_value))
 
@@ -1038,6 +1046,9 @@ def zs_provide_context_for_detections(
                 aql = format_aql(QUERIES[qradar_url][log_source], search_value, start, stop)
                 events = qradar.search(aql)
 
+                if type(events) == Exception:
+                    return events
+
                 if events is None:
                     mlog.warning("Got no results for log source " + str(log_source) + ".")
                     continue
@@ -1047,7 +1058,7 @@ def zs_provide_context_for_detections(
 
             if not all_events or len(all_events) == 0:
                 mlog.warning("Got no results for offense ID " + str(search_value) + ".")
-                return None
+                return []
 
             mlog.info("Collected {:d} events for offense ID {:d}.".format(len(all_events), search_value))
 
