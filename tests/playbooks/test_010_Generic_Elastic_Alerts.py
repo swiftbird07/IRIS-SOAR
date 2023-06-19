@@ -15,8 +15,8 @@ from lib.config_helper import Config
 from playbooks.PB_010_Generic_Elastic_Alerts import zs_can_handle_detection, zs_handle_detection
 from playbooks.bb_elastic_process_context import bb_get_all_processes_by_uuid
 
-TEST_ONLINE = True # Set this to True to make changes to Znuny while testing
-TEST_PROCESS_UID = "ODkzYjNkNDAtYTdiNy00MjdjLWJhYjItM2U4NGEzZjMzNWMxLTkwMjAtMTY4NDUxMjc4Mi44MTkzMTM2MDA="
+TEST_ONLINE = True  # Set this to True to make changes to Znuny while testing
+TEST_PROCESS_UID = "MmExOGIwZTQtZjNlYS00YmVmLWI2OTItYTk4NzUzNTY3ZjkxLTc3Njg3LTE2ODcwOTc2MTE="
 
 # Prepare the config
 cfg = Config().cfg
@@ -46,10 +46,12 @@ assert (
     detection_report != None
 ), "DetectionReport class could not be initialized"  # Sanity check - should be already tested by test_zsoar_lib.py -> test_class_helper()
 
+
 def test_zs_can_handle_detection():
     # Test the function
     can_handle = zs_can_handle_detection(detection_report)
     assert can_handle == True, "zs_can_handle_detection() should return True for this detection report"
+
 
 def test_zs_handle_detection():
     zs_handle_detection(detection_report, not TEST_ONLINE)

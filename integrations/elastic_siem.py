@@ -1115,7 +1115,7 @@ def zs_provide_context_for_detections(
         elif required_type == ContextFlow:
             # TODO: Implement seach in Suricata Indices as well
 
-            if len(search_value) > 69:  # TODO: Implement searching flow by Process / File Entity ID
+            if len(search_value) > 71:  # TODO: Implement searching flow by Process / File Entity ID
                 mlog.info("Process Entity ID provided. Will return all flows for process with Entity ID: " + search_value)
                 flow_docs = search_entity_by_id(mlog, config, search_value, entity_type="network", security_only=True)
 

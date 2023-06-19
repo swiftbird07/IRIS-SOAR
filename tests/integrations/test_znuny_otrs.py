@@ -3,16 +3,38 @@
 import pytest
 
 from lib.class_helper import Detection, DetectionReport, Rule, ContextProcess, ContextLog, ContextFlow
-from integrations.znuny_otrs import zs_create_ticket, zs_integration_setup, zs_provide_context_for_detections, zs_provide_new_detections, zs_add_note_to_ticket
+from integrations.znuny_otrs import (
+    zs_create_ticket,
+    zs_integration_setup,
+    zs_provide_context_for_detections,
+    zs_provide_new_detections,
+    zs_add_note_to_ticket,
+    zs_get_ticket_by_number,
+)
 import lib.logging_helper as logging_helper
 import lib.config_helper as config_helper
 import datetime
 import uuid
 
 
+# Test get ticket by number
+def test_zs_get_ticket_by_number():
+    # Prepare the config
+    cfg = config_helper.Config().cfg
+
+    # Test the function
+    ticket = zs_get_ticket_by_number("2023061977000295")
+    assert type(ticket) == dict, "zs_get_ticket_by_number() should return a dict with the ticket data"
+
+    # Print the results
+    mlog = logging_helper.Log("test_znuny_otrs")
+    mlog.info("Ticket:")
+    mlog.info(ticket)
+
+
 # Test ticket creation
 def test_zs_create_ticket():
-    TEST_ONLINE = False # Set to True to test the integration with changings to a real OTRS instance
+    TEST_ONLINE = False  # Set to True to test the integration with changings to a real OTRS instance
 
     # Prepare the config
     cfg = config_helper.Config().cfg
@@ -43,8 +65,9 @@ def test_zs_create_ticket():
     mlog.info("Ticket ID:")
     mlog.info(ticket_id)
 
+
 def test_add_note_to_ticket():
-    TEST_ONLINE = False # Set to True to test the integration with changings to a real OTRS instance
+    TEST_ONLINE = False  # Set to True to test the integration with changings to a real OTRS instance
 
     # Test "raw" note creation
     result = zs_add_note_to_ticket("2023052177000051", "raw", not TEST_ONLINE, "Test Note Title", "Test Note Body")
@@ -58,4 +81,4 @@ def test_add_note_to_ticket():
     mlog.info(result)
 
 
-#test_zs_create_ticket()
+# test_zs_create_ticket()

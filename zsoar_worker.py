@@ -16,6 +16,7 @@ import traceback
 import lib.config_helper as config_helper
 import lib.logging_helper as logging_helper
 import lib.class_helper as class_helper  # TODO: Implement class_helper.py
+from integrations.znuny_otrs import zs_add_note_to_ticket
 
 
 def check_module_exists(module_name, playbook=False):
@@ -31,7 +32,7 @@ def check_module_exists(module_name, playbook=False):
         if not playbook:
             __import__("integrations." + module_name)
         else:
-             __import__("playbooks." + module_name)
+            __import__("playbooks." + module_name)
         return True
     except ModuleNotFoundError:
         return False
@@ -107,7 +108,9 @@ def main(config, fromDaemon=False, debug=False):
 
         # Check if module provides getting new detections
         if not check_module_has_function(module_name, "zs_provide_new_detections", mlog):
-            mlog.debug("The module " + module_name + " does not provide the function zs_provide_new_detections. Skipping Integration.")
+            mlog.debug(
+                "The module " + module_name + " does not provide the function zs_provide_new_detections. Skipping Integration."
+            )
             continue
 
         # Make the actual call to the integration
@@ -145,11 +148,10 @@ def main(config, fromDaemon=False, debug=False):
             else:
                 mlog.info("Adding new detection " + detection.name + " (" + detection.uuid + ") to the detection array.")
 
-                # For now every 'Detection' equals exactly one 'DetectionReport' (this may change in the future to reduce duplicates, etc..) 
-                detection_report_tmp = class_helper.DetectionReport(detection) # TODO: make this more advanced
+                # For now every 'Detection' equals exactly one 'DetectionReport' (this may change in the future to reduce duplicates, etc..)
+                detection_report_tmp = class_helper.DetectionReport(detection)  # TODO: make this more advanced
 
                 DetectionList.append(detection_report_tmp)
-
 
     # Loop through each detection
     for detection_report in DetectionList:
@@ -159,7 +161,6 @@ def main(config, fromDaemon=False, debug=False):
 
         # Check every playbook if it can handle the detection
         for playbook_name in config["playbooks"]:
-
             # Check if the playbook is enabled
             if not config["playbooks"][playbook_name]["enabled"]:
                 mlog.warning("The playbook " + playbook_name + " is disabled. Skipping.")
@@ -172,18 +173,24 @@ def main(config, fromDaemon=False, debug=False):
 
             # Ask the playbook if it can handle the detection
             try:
-                mlog.info(f"Calling playbook {playbook_name} to check if it can handle current detection '{detection_title}' ({str(detection_id)})")
+                mlog.info(
+                    f"Calling playbook {playbook_name} to check if it can handle current detection '{detection_title}' ({str(detection_id)})"
+                )
                 module_import = __import__("playbooks." + playbook_name)
                 playbook_import = getattr(module_import, playbook_name)
                 can_handle = playbook_import.zs_can_handle_detection(detection_report)
             except Exception as e:
-                mlog.warning("The playbook " + playbook_name + " failed to check if it can handle the detection. Error: " + str(e))
+                mlog.warning(
+                    "The playbook " + playbook_name + " failed to check if it can handle the detection. Error: " + str(e)
+                )
                 continue
 
             # Let the playbook handle the detection
             if can_handle:
                 try:
-                    mlog.info(f"Playbook can handle the detection. Calling it to handle: '{detection_title}' ({str(detection_id)})")
+                    mlog.info(
+                        f"Playbook can handle the detection. Calling it to handle: '{detection_title}' ({str(detection_id)})"
+                    )
                     detection_report_new = playbook_import.zs_handle_detection(detection_report)
                 except Exception as e:
                     mlog.warning("The playbook " + playbook_name + " failed to handle the detection. Error: " + str(e))
@@ -198,12 +205,16 @@ def main(config, fromDaemon=False, debug=False):
                     detectionHandled = True
 
                 # Add the detection report to the detectior report array
-                mlog.info(f"Adding detection report for detection {detection_title} ({str(detection_id)}) to the detection report array.")
+                mlog.info(
+                    f"Adding detection report for detection {detection_title} ({str(detection_id)}) to the detection report array."
+                )
                 DetectionReportList.append(detection_report_new)
 
         # If no playbook was able to handle the detection, log it
         if not detectionHandled:
             mlog.warning("No playbook was able to handle the detection " + detection_title + " (" + str(detection_id) + ").")
+        else:
+            mlog.info("Detection " + detection_title + " (" + str(detection_id) + ") was handled successfully.")
 
     mlog.info("Finished worker script.")
 
