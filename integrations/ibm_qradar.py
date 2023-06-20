@@ -848,7 +848,8 @@ def zs_provide_new_detections(config, TEST=False) -> List[Detection]:
 
             mlog.info("Processing new offense with ID " + str(offense["id"]) + " ...")
             mlog.debug("Offense content: " + str(offense))
-            host_ip = offense["offense_source"]
+            host_ip = cast_to_ipaddress(offense["offense_source"], False)
+
             device = ContextDevice(None, host_ip)
 
             detection = Detection(
