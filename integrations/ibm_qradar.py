@@ -809,44 +809,43 @@ def zs_provide_new_detections(config, TEST=False) -> List[Detection]:
         return []
     mlog.info("Found {:d} new offenses".format(len(offenses)))
 
-    # QRadar Rules
-    rules = {}
-    rule_list = []
-    # Get rules associated with offenses
-    for offense in offenses:
-        for rule in offense["rules"]:
-            rules[rule["id"]] = {}
-
-    # Get rule details for each rule
-    for rule_id in rules.keys():
-        rules[rule_id] = qradar.get_rule(rule_id).json()
-        rules[rule_id]["id"] = rule_id
-
-    # Create rule objects for each offense and rule
-    for offense in offenses:
-        for i in range(len(offense["rules"])):
-            offense["rules"][i] = rules[offense["rules"][i]["id"]]
-            rule_list.append(
-                Rule(
-                    offense["rules"][i]["id"],
-                    offense["rules"][i]["name"],
-                    tags=[offense["rules"][i]["origin"], offense["rules"][i]["type"]],
-                )
-            )
-        offense["start_time"] = datetime.datetime.fromtimestamp(
-            offense["start_time"] / 1000,
-            tz=dateutil.tz.gettz("Europe/Berlin"),
-        )
-
-    # Link to offense
-    for offense in offenses:
-        offense["url"] = "{:s}/console/do/sem/offensesummary?appName=Sem&pageId=OffenseSummary&summaryId={:d}".format(
-            qradar_url,
-            offense["id"],
-        )
-
     for offense in offenses:
         try:
+            # QRadar Rules
+            rule_list = []
+            rules = {}
+
+            # Get rules associated with offenses
+            for rule in offense["rules"]:
+                rules[rule["id"]] = {}
+
+            # Get rule details for each rule
+            for rule_id in rules.keys():
+                rules[rule_id] = qradar.get_rule(rule_id).json()
+                rules[rule_id]["id"] = rule_id
+
+            # Link to offense
+            offense["url"] = "{:s}/console/do/sem/offensesummary?appName=Sem&pageId=OffenseSummary&summaryId={:d}".format(
+                qradar_url,
+                offense["id"],
+            )
+
+            # Create rule objects for each offense and rule
+            rule_list = []
+            for i in range(len(offense["rules"])):
+                offense["rules"][i] = rules[offense["rules"][i]["id"]]
+                rule_list.append(
+                    Rule(
+                        offense["rules"][i]["id"],
+                        offense["rules"][i]["name"],
+                        tags=[offense["rules"][i]["origin"], offense["rules"][i]["type"]],
+                    )
+                )
+            offense["start_time"] = datetime.datetime.fromtimestamp(
+                offense["start_time"] / 1000,
+                tz=dateutil.tz.gettz("Europe/Berlin"),
+            )
+
             mlog.info("Processing new offense with ID " + str(offense["id"]) + " ...")
             mlog.debug("Offense content: " + str(offense))
             host_ip = offense["offense_source"]

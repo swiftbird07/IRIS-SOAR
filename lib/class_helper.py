@@ -3593,11 +3593,14 @@ class DetectionReport:
     def get_title(self):
         """Returns the title of the report."""
         rules = []
-        for detection in self.detections:
-            for rule in detection.rules:
-                rules.append(rule.name)
-        if len(rules) > 0:
-            return rules[0]
+        try:
+            for detection in self.detections:
+                for rule in detection.rules:
+                    rules.append(rule.name)
+            if len(rules) > 0:
+                return rules[0]
+        except:
+            pass
         return self.detections[0].name
 
     def get_ticket_number(self):

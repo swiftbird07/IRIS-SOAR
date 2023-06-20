@@ -8,6 +8,7 @@ import lib.config_helper as config_helper
 import lib.logging_helper as logging_helper
 import zsoar_worker as zsoar_worker
 from argparse import ArgumentParser
+import traceback
 
 TEST_CALL = True  # Stays True if the script is called by the test script
 
@@ -52,9 +53,7 @@ def main(TEST_CALL):
             zsoar_worker.main(cfg, fromDaemon=True, debug=args.debug_module)
             mlog.info("zsoar_worker.py finished. Waiting for next run.")
         except Exception as e:
-            mlog.error(
-                "zsoar_worker.py failed. See the zsoar_worker logs for more information. Error: " + str(e),
-            )
+            mlog.error("zsoar_worker.py failed. See the zsoar_worker logs for more information. Error: " + traceback.format_exc())
 
         # Reload config in case it was changed
         try:
