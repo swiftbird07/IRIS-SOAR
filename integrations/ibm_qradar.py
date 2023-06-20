@@ -581,7 +581,7 @@ def create_flow_from_events(mlog, offense_id, all_events):
             elif "Reject" in event["Event Name"]:
                 firewall_action = "Reject"
 
-            rule_id = dict_get(event, "Rule ID")
+            rule_id = dict_get(event, "Firewall - Rule ID")
             rule_id = int(rule_id) if rule_id else None
 
             if event["Source Asset Name"] != None:

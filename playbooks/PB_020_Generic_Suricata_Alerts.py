@@ -207,3 +207,5 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
     detection_report.update_audit(
         current_action.set_successful(message=f"Successfully updated ticket '{ticket_number}' title to '{title}'."), logger=mlog
     )
+
+    return detection_report
