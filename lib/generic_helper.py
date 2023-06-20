@@ -292,6 +292,76 @@ def format_results(events, format, group_by="uuid", transform=False):
                     if dns_query_response is not None:
                         event["dns_response"] = dns_query_response
 
+            if "http" in event:
+                http = event["http"]
+                del event["http"]
+
+                if http is not None and http != "None":
+                    http = json.loads(http)
+
+                    http_url = dict_get(http, "full_url")
+                    if http_url is not None:
+                        event["full_url"] = http_url
+
+                    http_method = dict_get(http, "method")
+                    if http_method is not None:
+                        event["http_method"] = http_method
+
+                    http_status_code = dict_get(http, "status_code")
+                    if http_status_code is not None:
+                        event["http_status_code"] = http_status_code
+
+                    http_user_agent = dict_get(http, "user_agent")
+                    if http_user_agent is not None:
+                        event["http_user_agent"] = http_user_agent
+
+                    http_referer = dict_get(http, "host")
+                    if http_referer is not None:
+                        event["host"] = http_referer
+
+                    http_body = dict_get(http, "request_headers")
+                    if http_body is not None and http_body != "None":
+                        event["request_headers"] = http_body
+
+                    http_body = dict_get(http, "request_body")
+                    if http_body is not None and http_body != "None":
+                        event["request_body"] = http_body
+
+                    http_body = dict_get(http, "response_headers")
+                    if http_body is not None and http_body != "None":
+                        event["response_headers"] = http_body
+
+                    http_body = dict_get(http, "response_body")
+                    if http_body is not None and http_body != "None":
+                        event["response_body"] = http_body
+
+                    http_body = dict_get(http, "certificate")
+                    if http_body is not None and http_body != "None":
+                        event["response_body"] = http_body
+
+            if "device" in event or "log_source_device" in event:
+                if "device" in event:
+                    device = event["device"]
+                    del event["device"]
+                if "log_source_device" in event:
+                    device = event["log_source_device"]
+                    del event["log_source_device"]
+
+                if device is not None and device != "None":
+                    device = json.loads(device)
+
+                    device_name = dict_get(device, "name")
+                    if device_name is not None:
+                        event["device_name"] = device_name
+
+                    device_type = dict_get(device, "type")
+                    if device_type is not None and device_type != "None":
+                        event["device_type"] = device_type
+
+                    device_os = dict_get(device, "os")
+                    if device_os is not None:
+                        event["device_os"] = device_os
+
             if "process_signature" in event:
                 signature = event["process_signature"]
                 del event["process_signature"]
@@ -378,6 +448,8 @@ def cast_to_ipaddress(ip, strict=True) -> Union[ipaddress.IPv4Address, ipaddress
     Raises:
         ValueError: If the IP address is invalid
     """
+    if not ip and not strict:
+        return None
     if type(ip) != ipaddress.IPv4Address and type(ip) != ipaddress.IPv6Address and type(ip) != None:
         try:
             ip = ipaddress.ip_address(ip)

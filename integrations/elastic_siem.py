@@ -341,7 +341,7 @@ def create_process_from_doc(mlog, doc_dict, detectionOnly=True):
 
     sha256 = dict_get(doc_dict, "process.hash.sha256")
     if sha256 is None:
-        mlog.warning("No SHA256 hash found for process. Using random hash instead.")
+        mlog.warning(f"No SHA256 hash found for process '{dict_get(doc_dict, 'process.name')}'. Using random hash instead.")
         # Create 64 random hex characters
         sha256 = "".join(random.choice(string.hexdigits) for _ in range(64))
 
@@ -976,7 +976,10 @@ def zs_provide_new_detections(config, TEST="") -> List[Detection]:
             index = doc["_index"]
             acknowledge_alert(mlog, config, detection.uuid, index)
         except Exception as e:
-            mlog.error("Failed to acknowledge alert with id: " + detection.vendor_id + ". Error: " + str(e))
+            detections.remove(detection)
+            mlog.critical(
+                f"[LOOP PROTECTION] Removed detection {detection.name} ({detection.uuid}) from list of new detections, because the alert could not be acknowledged and a loop might occur! Error: {e}"
+            )
 
     # ...
     # ...

@@ -20,7 +20,7 @@ integrations:
       log_level_stdout: warning
       log_level_syslog: error
   ibm_qradar:
-    enabled: false
+    enabled: true
     logging:
       log_level_file: debug
       log_level_stdout: debug
@@ -53,7 +53,7 @@ integrations:
       default_priority: 3 normal
       default_type: Security Alert
       enabled: true
-      target_queue: ZSOAR Detections::Tests
+      target_queue: ZSOAR Detections::T0 (Auto Analysis Only)
       target_queue_escalation: ZSOAR Detections::Tests
     url: http://znuny.pve.lan
     username: zsoar
@@ -74,6 +74,10 @@ logging:
   split_files_by_module: false
 playbooks:
   PB_010_Generic_Elastic_Alerts:
+    enabled: true
+  PB_011_Generic_QRadar_Offenses:
+    enabled: true
+  PB_020_Generic_Suricata_Alerts:
     enabled: true
   PB_110_Generic_VirusTotal:
     enabled: true

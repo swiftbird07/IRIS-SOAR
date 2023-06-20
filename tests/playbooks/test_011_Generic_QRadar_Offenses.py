@@ -4,12 +4,11 @@
 # ! Be aware that this has to be an online test
 import datetime
 
-from integrations.znuny_otrs import zs_create_ticket
 from playbooks.PB_011_Generic_QRadar_Offenses import zs_can_handle_detection, zs_handle_detection
-from lib.class_helper import DetectionReport, AuditLog, Detection, ContextLog, ContextFlow, ContextFile, Rule
+from lib.class_helper import DetectionReport, Detection, Rule
 
 detection = Detection(
-    "ibm_qradar",
+    "IBM QRadar",
     "QRadar Offense Test",
     [Rule("1438", "Test Rule")],
     datetime.datetime.now(),

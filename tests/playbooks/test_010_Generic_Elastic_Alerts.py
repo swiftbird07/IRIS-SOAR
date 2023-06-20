@@ -18,41 +18,46 @@ from playbooks.bb_elastic_process_context import bb_get_all_processes_by_uuid
 TEST_ONLINE = True  # Set this to True to make changes to Znuny while testing
 TEST_PROCESS_UID = "MmExOGIwZTQtZjNlYS00YmVmLWI2OTItYTk4NzUzNTY3ZjkxLTc3Njg3LTE2ODcwOTc2MTE="
 
-# Prepare the config
-cfg = Config().cfg
-integration_config = cfg["integrations"]["znuny_otrs"]
 
-# Prepare the logger
-mlog = logging_helper.Log("test_PB_010_Generic_Elastic_Alerts")
+def prepare_test():
+    # Prepare the config
+    cfg = Config().cfg
+    integration_config = cfg["integrations"]["znuny_otrs"]
 
-# Prepare a DetectionReport object
-rule = Rule("123", "Some Rule", 0)
+    # Prepare the logger
+    mlog = logging_helper.Log("test_PB_010_Generic_Elastic_Alerts")
 
-ruleList = []
-ruleList.append(rule)
-detection = Detection("010 Detection", "Some Detection", ruleList, datetime.datetime.now())
-detection.vendor_id = "elastic_siem"
+    # Prepare a DetectionReport object
+    rule = Rule("123", "Some Rule", 0)
 
-detectionList = []
-detectionList.append(detection)
-detection_report = DetectionReport(detectionList)
+    ruleList = []
+    ruleList.append(rule)
+    detection = Detection("010 Detection", "Some Detection", ruleList, datetime.datetime.now())
+    detection.vendor_id = "elastic_siem"
 
-process = bb_get_all_processes_by_uuid(detection_report, TEST_PROCESS_UID)
+    detectionList = []
+    detectionList.append(detection)
+    detection_report = DetectionReport(detectionList)
 
-detection_report.add_context(process)
-detection.process = process
+    process = bb_get_all_processes_by_uuid(detection_report, TEST_PROCESS_UID)
 
-assert (
-    detection_report != None
-), "DetectionReport class could not be initialized"  # Sanity check - should be already tested by test_zsoar_lib.py -> test_class_helper()
+    detection_report.add_context(process)
+    detection.process = process
+
+    assert (
+        detection_report != None
+    ), "DetectionReport class could not be initialized"  # Sanity check - should be already tested by test_zsoar_lib.py -> test_class_helper()
+    return detection_report
 
 
 def test_zs_can_handle_detection():
+    detection_report = prepare_test()
     # Test the function
     can_handle = zs_can_handle_detection(detection_report)
     assert can_handle == True, "zs_can_handle_detection() should return True for this detection report"
 
 
 def test_zs_handle_detection():
+    detection_report = prepare_test()
     zs_handle_detection(detection_report, not TEST_ONLINE)
     assert True == True, "zs_handle_detection() should not raise an exception"

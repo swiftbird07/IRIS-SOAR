@@ -27,6 +27,7 @@ import traceback
 import dateutil.tz
 import requests
 import collections
+import ipaddress
 
 import lib.logging_helper as logging_helper
 
@@ -52,7 +53,7 @@ CONNECTION_TIMEOUT = 3  # The timeout in seconds for the connection to QRadar (s
 # Feel free to edit this log sources or custom fields to match your environment.
 QUERIES = {
     "https://10.20.1.1": {
-        "Suricata": {
+        "Suricata Traffic": {
             "SELECT": (
                 "DATEFORMAT(devicetime, 'yyyy-MM-dd HH:mm:ss') AS 'Log Source Time'",
                 "LOGSOURCENAME(logsourceid) AS 'Log Source'",
@@ -65,14 +66,6 @@ QUERIES = {
                 "CATEGORYNAME(category) AS 'Low Level Category'",
                 "QIDNAME(qid) as 'Event Name'",
                 "username AS 'Username'",
-                '"Alert - Created"',
-                '"Alert - Action"',
-                '"Alert - Category"',
-                '"Alert - Domain"',
-                '"Alert - SID"',
-                '"Alert - Severity"',
-                '"Alert - Signature"',
-                '"Alert - Updated"',
                 '"Application"',
                 '"Certificate - Issuer"',
                 '"Certificate - Subject"',
@@ -120,6 +113,32 @@ QUERIES = {
             "WHERE": ("LOGSOURCENAME(logsourceid) MATCHES 'Firewall.*'",),
             "ORDER BY": ("devicetime ASC",),
         },
+        "Suricata Alerts": {
+            "SELECT": (
+                "DATEFORMAT(devicetime, 'yyyy-MM-dd HH:mm:ss') AS 'Log Source Time'",
+                "LOGSOURCENAME(logsourceid) AS 'Log Source'",
+                "sourceip AS 'Source IP'",
+                "sourceport AS 'Source Port'",
+                "ASSETHOSTNAME(sourceip) AS 'Source Asset Name'",
+                "destinationip AS 'Destination IP'",
+                "destinationport AS 'Destination Port'",
+                "ASSETHOSTNAME(destinationip) AS 'Destination Asset Name'",
+                "CATEGORYNAME(category) AS 'Low Level Category'",
+                "QIDNAME(qid) as 'Event Name'",
+                "username AS 'Username'",
+                '"Alert - Created"',
+                '"Alert - Action"',
+                '"Alert - Category"',
+                '"Alert - Domain"',
+                '"Alert - SID"',
+                '"Alert - Severity"',
+                '"Alert - Signature"',
+                '"Alert - Updated"',
+            ),
+            "FROM": "events",
+            "WHERE": ("LOGSOURCENAME(logsourceid) MATCHES 'Suricata .*'",),
+            "ORDER BY": ("devicetime ASC",),
+        },
         "FALLBACK": {
             "SELECT": (
                 "DATEFORMAT(devicetime, 'yyyy-MM-dd HH:mm:ss') AS 'Log Source Time'",
@@ -141,9 +160,9 @@ QUERIES = {
     }
 }
 # Define what Log Sources are for what purpose of context:
-FLOW_LOG_SOURCES = ["Firewall", "Suricata"]
-LOG_LOG_SOURCES = ["FALLBACK"]
-FILE_LOG_SOURCES = ["Suricata"]
+FLOW_LOG_SOURCES = ["Firewall", "Suricata Traffic"]
+LOG_LOG_SOURCES = ["Suricata Alerts", "FALLBACK"]
+FILE_LOG_SOURCES = ["Suricata Traffic"]
 
 
 if __name__ == "__main__":
@@ -507,12 +526,17 @@ def create_flow_from_events(mlog, offense_id, all_events):
                 http = HTTP(offense_id, "Unknown (Encrypted)", "HTTPS", event["Server Name Indication"], None)
 
             if dict_get(event, "DNS - Query") != None:
+                query_response_ip = cast_to_ipaddress(event["DNS - Query Response"], None)
+                dns_type = "A"
+                if type(query_response_ip) == ipaddress.IPv6Address:
+                    dns_type = "AAAA"
+
                 mlog.debug("Creating DNS context for event: " + repr(event))
                 dns = DNSQuery(
                     offense_id,
-                    type=event["DNS - Type"],
+                    type=dns_type,
                     query=event["DNS - Query"],
-                    response=event["DNS - Query Response"],
+                    query_response=event["DNS - Query Response"],
                     timestamp=event["Log Source Time"],
                     has_response=event["DNS - Query Response"] != None,
                 )
@@ -730,7 +754,19 @@ def create_files_from_events(mlog, offense_id, all_events):
             file = None
 
             if dict_get(event, "File Hash") != None:
-                file = ContextFile(offense_id, event["Log Source Time"], "File Transfer", event["Filename"], event["File Hash"])
+                # Get filename from end of the filename path
+                file_name = dict_get(event, "Filename")
+                if file_name and "/" in file_name and len(file_name.split("/")) > 1:
+                    file_name = file_name.split("/")[-1]
+
+                file = ContextFile(
+                    offense_id,
+                    event["Log Source Time"],
+                    "File Transfer",
+                    file_name,
+                    event["File Hash"],
+                    file_path=event["Filename"],
+                )
                 mlog.debug("File context created: " + str(file))
                 file_list.append(file)
         except KeyError as e:

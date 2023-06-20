@@ -146,7 +146,7 @@ def main(config, fromDaemon=False, debug=False):
             if not isinstance(detection, class_helper.Detection):
                 mlog.warning("The module " + module_name + " provided an invalid detection. Skipping.")
             else:
-                mlog.info("Adding new detection " + detection.name + " (" + detection.uuid + ") to the detection array.")
+                mlog.info("Adding new detection " + detection.name + " (" + str(detection.uuid) + ") to the detection array.")
 
                 # For now every 'Detection' equals exactly one 'DetectionReport' (this may change in the future to reduce duplicates, etc..)
                 detection_report_tmp = class_helper.DetectionReport(detection)  # TODO: make this more advanced
@@ -209,6 +209,8 @@ def main(config, fromDaemon=False, debug=False):
                     f"Adding detection report for detection {detection_title} ({str(detection_id)}) to the detection report array."
                 )
                 DetectionReportList.append(detection_report_new)
+            else:
+                mlog.info(f"Playbook can not handle the detection. Skipping.")
 
         # If no playbook was able to handle the detection, log it
         if not detectionHandled:

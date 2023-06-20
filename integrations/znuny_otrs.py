@@ -400,15 +400,17 @@ def zs_create_ticket(
     detection = detection_report.detections[0]
 
     timestamp = detection.timestamp
-    detection_title = detection.name
+    detection_title = detection_report.get_title()
     description = detection.description
     severity = detection.severity
     detection_uuid = detection.uuid
     detection_source = detection.source
 
     # Get offender for ticket title
-    if detection.device:
+    if detection.device and detection.device.name != "" and detection.device.name != None:
         offender = detection.device.name
+    elif detection.device and str(detection.device.local_ip) != "":
+        offender = detection.device.local_ip
     elif detection.indicators["ip"]:
         offender = detection.indicators["ip"][0]
     else:
@@ -575,7 +577,7 @@ def zs_add_note_to_ticket(
     elif mode == "context_process":
         # Create a note for Process Context
         try:
-            if not playbook_name or not detection_report or not detection or not detection_contexts:
+            if not playbook_name or not detection_report or not detection:
                 raise ValueError("Missing arguments for context_process note creation.")
 
             process_names = detection_contexts
@@ -649,7 +651,7 @@ def zs_add_note_to_ticket(
                 current_action.set_error(message=f"Failed to create note for processes in detection (catched).", exception=e),
                 logger=mlog,
             )
-        return
+        return 1
 
     elif mode == "context_network":
         # Create a note for Network Context
@@ -719,7 +721,7 @@ def zs_add_note_to_ticket(
                 current_action.set_error(message=f"Failed to create note for network in detection (catched).", exception=e),
                 logger=mlog,
             )
-        return
+        return 1
 
     elif mode == "context_file":
         # Create a note for File Events
@@ -730,6 +732,12 @@ def zs_add_note_to_ticket(
             detected_process_file_events = detection_contexts
             context_processes_file_events = other_contexts
 
+            if not detected_process_file_events:
+                detected_process_file_events = []
+
+            if not context_processes_file_events:
+                context_processes_file_events = []
+
             current_action = AuditLog(
                 playbook_name, playbook_step, "Create Note - File Events", "Creating note for file events in the detection."
             )
@@ -738,7 +746,7 @@ def zs_add_note_to_ticket(
 
             # Check if any file events were found
             if (
-                detected_process_file_events is None
+                len(detected_process_file_events) == 0
                 and len(context_processes_file_events) == 0
                 and len(detection_report.context_files) == 0
             ):
@@ -791,7 +799,7 @@ def zs_add_note_to_ticket(
                 current_action.set_error(message=f"Failed to create note for file events in detection (catched).", exception=e),
                 logger=mlog,
             )
-        return
+        return 1
 
     elif mode == "context_registry":
         # Create a note for Registry Events
@@ -866,7 +874,7 @@ def zs_add_note_to_ticket(
                 ),
                 logger=mlog,
             )
-        return
+        return 1
 
     elif mode == "context_log":
         # Create a note for Log Events
@@ -941,7 +949,7 @@ def zs_add_note_to_ticket(
                 current_action.set_error(message=f"Failed to create note for log events in detection (catched).", exception=e),
                 logger=mlog,
             )
-        return
+        return 1
 
     elif mode == "analysis":
         return NotImplementedError("Analysis mode is not implemented yet.")
@@ -950,7 +958,7 @@ def zs_add_note_to_ticket(
         create_auto_detection(
             "existing_ticket", detection_report, detection, playbook_name, playbook_step, DRY_RUN, ticket_number
         )
-        return
+        return 1
 
     article = pyotrs.Article(
         {
@@ -981,6 +989,43 @@ def zs_add_note_to_ticket(
         except KeyError:
             mlog.critical("Note creation failed. Znuny did not return a note ID. Aborting note creation.")
             return Exception("Note creation failed. Znuny did not return a note ID. Aborting note creation.")
+
+
+def zs_update_ticket_title(detection_report: DetectionReport, title, DRY_RUN=False):
+    """Updates the title of a ticket.
+
+    Args:
+        ticket_number (int): Ticket number of the ticket to update.
+        title (str): New title of the ticket.
+        DRY_RUN (bool, optional): If true, no actual changes will be made. Defaults to False.
+
+    Returns:
+        int: Ticket number of the updated ticket.
+    """
+    if len(title) > 200:
+        mlog.warning(f"Ticket title '{title}' is longer than 200 characters. Truncating title to 197 characters + '...'.")
+        title = title[:197] + "..."
+
+    ticket_number = detection_report.get_ticket_number()
+    ticket_id = detection_report.get_ticket_id()
+
+    mlog.debug(f"Updating title of ticket {ticket_number} to '{title}'")
+    # Create client and session
+    client = create_client_session()
+
+    if DRY_RUN:
+        mlog.warning("Dry run mode is enabled. Not updating actual ticket.")
+        return ticket_number
+    else:
+        # Updating ticket title
+        result = client.ticket_update(ticket_id=ticket_id, Title=title)
+
+        # Check if title was updated successfully
+        try:
+            return result["TicketNumber"]
+        except KeyError:
+            mlog.critical("Title update failed. Znuny did not return a ticket number. Aborting title update.")
+            return Exception("Title update failed. Znuny did not return a ticket number. Aborting title update.")
 
 
 if __name__ == "__main__":

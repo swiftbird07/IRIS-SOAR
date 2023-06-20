@@ -20,6 +20,7 @@ from lib.generic_helper import (
     cast_to_ipaddress,
     add_to_timeline,
     remove_duplicates_from_dict,
+    dict_get,
 )
 
 DEFAULT_IP = ipaddress.ip_address("127.0.0.1")  # When no IP address is provided, this is used
@@ -1072,7 +1073,11 @@ class ContextFile:
         self.related_detection_uuid = related_detection_uuid
         self.timestamp = timestamp
         self.action = action
+
+        if file_name and file_name.startswith("/") and len(file_name) > 1:  # ContextFile name should not start with a slash
+            file_name = file_name[1:]
         self.file_name = file_name
+
         self.file_original_name = file_original_name
         self.file_path = file_path
         self.file_original_path = file_original_path
@@ -1188,8 +1193,9 @@ class DNSQuery:
         type: str,
         query: str,
         has_response: bool = False,
-        query_response: Union[ipaddress.IPv4Address, ipaddress.IPv6Address, str] = DEFAULT_IP,
+        query_response: Union[ipaddress.IPv4Address, ipaddress.IPv6Address, str] = None,
         rcode: str = "NOERROR",
+        timestamp=datetime.datetime.now(),
     ):
         self.related_detection_uuid = related_detection_uuid
 
@@ -1200,14 +1206,14 @@ class DNSQuery:
         self.query = query
 
         self.has_response = has_response
-        if not has_response and query_response != DEFAULT_IP and query_response != None:
-            raise ValueError("query_response must be DEFAULT_IP or None if 'has_response' is False")
-        if has_response and query_response == DEFAULT_IP:
+
+        if has_response and query_response == None:
             mlog = logging_helper.Log("lib.class_helper")
             mlog.warning("DNSQuery __init__: query_response is still DEFAULT_IP while has_response is True.", str(self))
         self.query_response = query_response
 
         self.rcode = rcode
+        self.timestamp = timestamp
 
     def __dict__(self):
         dict_ = {
@@ -1217,6 +1223,7 @@ class DNSQuery:
             "has_response": self.has_response,
             "query_response": str(self.query_response),
             "rcode": self.rcode,
+            "timestamp": self.timestamp,
         }
         return dict_
 
@@ -2805,7 +2812,7 @@ class Detection:
                 raise TypeError("user must be of type Person")
         self.user = user
 
-        if file == None and flow != None and flow.http.file:
+        if file == None and flow != None and dict_get(flow, "http.file") != None:
             file = flow.http.file
 
         if file != None:
@@ -3095,8 +3102,6 @@ class AuditLog:
     def set_successful(self, message: str = "The action taken was successful.", data: dict = None, ticket_number=None) -> bool:
         """Sets the audit log element as successful. If a ticket number is given, "result_in_ticket" is automatically set to True."""
         self.result_was_successful = True
-        self.result_had_warnings = False
-        self.result_had_errors = False
         self.result_request_retry = False
         self.result_message = message
         self.result_data["success"] = data
@@ -3587,7 +3592,13 @@ class DetectionReport:
 
     def get_title(self):
         """Returns the title of the report."""
-        return self.detections[0].name  # TODO: Make this more sophisticated
+        rules = []
+        for detection in self.detections:
+            for rule in detection.rules:
+                rules.append(rule.name)
+        if len(rules) > 0:
+            return rules[0]
+        return self.detections[0].name
 
     def get_ticket_number(self):
         """Returns the ticket number of the report."""
@@ -3596,5 +3607,15 @@ class DetectionReport:
                 return self.ticket["TicketNumber"]
             except:
                 return self.ticket.field_get("TicketNumber")
+        else:
+            raise ValueError("The detection_report has no ticket.")
+
+    def get_ticket_id(self):
+        """Returns the ticket id of the report."""
+        if self.ticket is not None:
+            try:
+                return self.ticket["TicketID"]
+            except:
+                return self.ticket.field_get("TicketID")
         else:
             raise ValueError("The detection_report has no ticket.")

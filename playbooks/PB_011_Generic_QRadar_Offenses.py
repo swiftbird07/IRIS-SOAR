@@ -47,7 +47,7 @@ def zs_can_handle_detection(detection_report: DetectionReport) -> bool:
         return False
     # Check if any of the detecions of the detection report is a QRadar Offense
     for detection in detection_report.detections:
-        if detection.vendor_id == "ibm_qradar":
+        if detection.vendor_id == "IBM QRadar":
             mlog.info(f"Playbook '{PB_NAME}' can handle detection '{detection.name}' ({detection.uuid}).")
             return True
     return False
@@ -66,7 +66,7 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
     detection_title = detection_report.get_title()
     detections_to_handle = []
     for detection in detection_report.detections:
-        if detection.vendor_id == "ibm_qradar":
+        if detection.vendor_id == "IBM QRadar":
             mlog.debug(f"Adding detection: '{detection.name}' ({detection.uuid}) to list.")
             detections_to_handle.append(detection)
 
@@ -90,13 +90,16 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
         return detection_report
     detection_report.update_audit(current_action.set_successful(message="Detection is not whitelisted."), logger=mlog)
 
+    current_action = AuditLog(PB_NAME, 1, f"Creating ticket", f"Creating ticket for detection '{detection_title}'")
     # Create initial ticket for detection
     ticket_number = zs_create_ticket(
         detection_report, detection, False, auto_detection_note=True, playbook_name=PB_NAME, playbook_step=1
     )
     if not ticket_number:
         mlog.critical(f"Could not create ticket for detection: '{detection.name}' ({detection.uuid})")
+        detection_report.update_audit(current_action.set_error(message=f"Could not create ticket."), logger=mlog)
         return detection_report
+    detection_report.update_audit(current_action.set_successful(message=f"Created ticket '{ticket_number}'."), logger=mlog)
 
     # Create additional notes for each other detection in the detection report
     if len(detection_report.detections) > 1:
@@ -124,7 +127,7 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
     # Gather offense related context
     current_action = AuditLog(
         PB_NAME,
-        2,
+        3,
         f"Gathering further context for offense '{detection_title}'",
         "Started gathering context of events that were in the original offense.",
     )
@@ -184,7 +187,7 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
             logger=mlog,
         )
 
-    current_action = AuditLog(PB_NAME, 3, f"Adding context to ticket '{ticket_number}'", "Started adding context to ticket.")
+    current_action = AuditLog(PB_NAME, 4, f"Adding context to ticket '{ticket_number}'", "Started adding context to ticket.")
 
     # Create a note for each context
     note_id_1 = zs_add_note_to_ticket(
@@ -254,3 +257,5 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
     ticket = zs_get_ticket_by_number(ticket_number)
     detection.ticket = ticket
     detection_report.add_context(ticket)
+
+    return detection_report
