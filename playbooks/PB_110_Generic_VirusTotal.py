@@ -15,7 +15,7 @@
 # - Add notes to related tickets
 #
 PB_NAME = "PB_010_Generic_VirusTotal"
-PB_VERSION = "0.0.1"
+PB_VERSION = "0.1.0"
 PB_AUTHOR = "Martin Offermann"
 PB_LICENSE = "MIT"
 PB_ENABLED = True

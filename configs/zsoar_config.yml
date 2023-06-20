@@ -53,7 +53,7 @@ integrations:
       default_priority: 3 normal
       default_type: Security Alert
       enabled: true
-      target_queue: ZSOAR Detections::Tests
+      target_queue: ZSOAR Detections::T0 (Auto Analysis Only)
       target_queue_escalation: ZSOAR Detections::Tests
     url: http://znuny.pve.lan
     username: zsoar
