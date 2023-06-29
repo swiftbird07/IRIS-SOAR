@@ -113,7 +113,7 @@ def startup(mlog, DEBUG, ALLOW_MULTIPLE_INSTANCES):
                 )
                 raise SystemExit(1)
             else:
-                mlog.warning("Daemon is already running. Multiple instances are aloowed, so this is ignored. Continuing...")
+                mlog.warning("Daemon is already running. Multiple instances are allowed, so this is ignored. Continuing...")
 
         # Start the daemon with or without debug mode
         if DEBUG:

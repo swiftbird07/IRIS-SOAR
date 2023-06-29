@@ -837,6 +837,12 @@ def zs_add_note_to_ticket(
             context_processes_registry_events = other_contexts
             body = ""
 
+            if detected_process_registry_events is None:
+                detected_process_registry_events = []
+
+            if context_processes_registry_events is None:
+                context_processes_registry_events = []
+
             current_action = AuditLog(
                 playbook_name,
                 playbook_step,
@@ -852,7 +858,7 @@ def zs_add_note_to_ticket(
 
             # Check if any registry events were found
             if (
-                detected_process_registry_events is None
+                len(detected_process_registry_events) == 0
                 and len(context_processes_registry_events) == 0
                 and len(detection_report.context_registries) == 0
             ):

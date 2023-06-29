@@ -2737,7 +2737,12 @@ class Detection:
         self.vendor_id = vendor_id
         self.name = name
         self.description = description
+
         self.timestamp = timestamp
+        if type(timestamp) == str:
+            # '2023-06-29T17:33:44.091Z'
+            self.timestamp = datetime.datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%S.%fZ")
+
         self.source = host_name
 
         self.severity = severity
