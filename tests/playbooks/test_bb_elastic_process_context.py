@@ -30,7 +30,7 @@ mlog = logging_helper.Log("test_bb_elastic_process_context")
 # Prepare a DetectionReport object
 rule = Rule("123", "Some Rule", 0)
 
-TEST_PROCESS_UID = "N2E5MmQ4NDctM2QxMS00ZDE3LThkZDAtNDRlMTJkYzA3ZmQ4LTE0NDQzOTEtMTY4NzA5MjQ1Ng=="
+TEST_PROCESS_UID = "YjExNmM1NTYtNGNmMi00NTc5LWEwOGQtODU5OTIwMjVmMjNmLTE5MjQ2ODUtMTY4ODA2MTkxOA=="
 
 ruleList = []
 ruleList.append(rule)

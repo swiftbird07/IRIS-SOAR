@@ -17,6 +17,9 @@ import zsoar_worker as zsoar_worker
 
 TEST_CALL = True  # Stays True if the script is called by the test script
 REPORT_ZOMBIE_PROCESSES = False  # If True, the script will report zombie processes when searching for the PID of a script. If you are using the developing, this should be set to False as tests from pytest will hang otherwise.
+ALLOW_MULTIPLE_INSTANCES = (
+    False  # If True, the script will allow multiple instances of Z-SOAR to run at the same time. This is not reccomended.
+)
 
 
 def add_arguments():
@@ -36,6 +39,11 @@ def add_arguments():
     parser.add_argument("--stop", action="store_true", help="Stop Z-SOAR")
     parser.add_argument("--restart", action="store_true", help="Restart Z-SOAR")
     parser.add_argument("--status", action="store_true", help="Show the status of Z-SOAR")
+    parser.add_argument(
+        "--allow-multiple-instances",
+        action="store_true",
+        help="Allow multiple instances of Z-SOAR to run at the same time. This is not reccomended.",
+    )
 
     return parser
 
@@ -54,11 +62,7 @@ def get_script_pid(mlog, script):
         if q.name().lower().startswith("python"):
             try:
                 if len(q.cmdline()) > 1 and script in q.cmdline()[1] and q.pid != os.getpid():
-                    mlog.debug(
-                        "'{}' script is running: {}. Command line: {}".format(
-                            script, str(q), str(q.cmdline())
-                        )
-                    )
+                    mlog.debug("'{}' script is running: {}. Command line: {}".format(script, str(q), str(q.cmdline())))
                     return q.pid
             except psutil.ZombieProcess:
                 if q.pid != os.getpid() and REPORT_ZOMBIE_PROCESSES:
@@ -80,11 +84,13 @@ def get_script_pid(mlog, script):
     return -1
 
 
-def startup(mlog, DEBUG):
+def startup(mlog, DEBUG, ALLOW_MULTIPLE_INSTANCES):
     """Starts the main loop (called 'worker') or the daemon depending on the settings.
 
     Args:
         mlog (logging_helper.Log): The logger
+        DEBUG (bool): If debug mode is enabled
+        ALLOW_MULTIPLE_INSTANCES (bool): If multiple instances of Z-SOAR should be allowed
 
     Returns:
         None
@@ -101,10 +107,13 @@ def startup(mlog, DEBUG):
         mlog.info("Starting the daemon...")
         # Check if daemon is already running
         if get_script_pid(mlog, "zsoar_daemon.py") > 0:
-            mlog.critical(
-                "Daemon is already running. Use 'zsoar.py --restart' to restart it or 'zsoar.py --stop' to stop it manually."
-            )
-            raise SystemExit(1)
+            if not ALLOW_MULTIPLE_INSTANCES:
+                mlog.critical(
+                    "Daemon is already running. Use 'zsoar.py --restart' to restart it or 'zsoar.py --stop' to stop it manually."
+                )
+                raise SystemExit(1)
+            else:
+                mlog.warning("Daemon is already running. Multiple instances are aloowed, so this is ignored. Continuing...")
 
         # Start the daemon with or without debug mode
         if DEBUG:
@@ -121,11 +130,7 @@ def startup(mlog, DEBUG):
             )
 
         if popen.returncode != None:
-            mlog.critical(
-                "Could not start the daemon: System call failed. Subprocess returned: {}".format(
-                    popen.returncode
-                )
-            )
+            mlog.critical("Could not start the daemon: System call failed. Subprocess returned: {}".format(popen.returncode))
             if not TEST_CALL:
                 raise SystemExit(1)
         else:
@@ -147,11 +152,7 @@ def startup(mlog, DEBUG):
         return_code = zsoar_worker.main(settings, debug=DEBUG)
 
         if return_code != None:
-            mlog.critical(
-                "Could not start the worker: System call failed. Subprocess returned: {}".format(
-                    popen.returncode
-                )
-            )
+            mlog.critical("Could not start the worker: System call failed. Subprocess returned: {}".format(popen.returncode))
             if not TEST_CALL:
                 raise SystemExit(1)
 
@@ -225,9 +226,7 @@ def setup(step=0, continue_steps=True):
         print("This setup will guide you through the installation and configuration of Z-SOAR.")
         print("Please note that this setup is not yet finished and will be extended in the future.")
         print("If you want to skip the setup, you can edit the config file manually.")
-        print(
-            "The config file is located at: " + os.path.join(os.getcwd(), "config", "zsoar.cfg.yml")
-        )
+        print("The config file is located at: " + os.path.join(os.getcwd(), "config", "zsoar.cfg.yml"))
         print(
             "\nYou can also continue the setup by running the setup mode again. To start from the beginning, delete the config file."
         )
@@ -461,10 +460,16 @@ def main():
         mlog.info("Starting the setup...")
         setup(mlog)
 
+    if parser.parse_args().allow_multiple_instances:
+        mlog.warning(
+            "You have enabled the option to allow multiple instances of Z-SOAR to run at the same time. This is not reccomended."
+        )
+        ALLOW_MULTIPLE_INSTANCES = True
+
     # Check if the start mode is enabled:
     if parser.parse_args().start:
         mlog.info("Starting Z-SOAR")
-        startup(mlog, DEBUG)
+        startup(mlog, DEBUG, ALLOW_MULTIPLE_INSTANCES)
         if not TEST_CALL:
             sys.exit(0)
 
@@ -478,7 +483,7 @@ def main():
     if parser.parse_args().restart:
         mlog.info("Restarting Z-SOAR...")
         stop(mlog)
-        startup(mlog, DEBUG)
+        startup(mlog, DEBUG, ALLOW_MULTIPLE_INSTANCES)
         if not TEST_CALL:
             sys.exit(0)
 

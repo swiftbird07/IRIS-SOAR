@@ -11,7 +11,7 @@ daemon:
 integrations:
   elastic_siem:
     elastic_password: $ZS_INT_ELASTIC_PW
-    elastic_url: https://10.20.1.6:9200
+    elastic_url: https://10.20.1.28:9200
     elastic_user: zsoar
     elastic_verify_certs: false
     enabled: true
@@ -53,7 +53,7 @@ integrations:
       default_priority: 3 normal
       default_type: Security Alert
       enabled: true
-      target_queue: ZSOAR Detections::T0 (Auto Analysis Only)
+      target_queue: ZSOAR Detections::Tests
       target_queue_escalation: ZSOAR Detections::Tests
     url: http://znuny.pve.lan
     username: zsoar
@@ -78,6 +78,8 @@ playbooks:
   PB_011_Generic_QRadar_Offenses:
     enabled: true
   PB_020_Generic_Suricata_Alerts:
+    enabled: true
+  PB_021_Advanced_Elastic_Context:
     enabled: true
   PB_110_Generic_VirusTotal:
     enabled: true

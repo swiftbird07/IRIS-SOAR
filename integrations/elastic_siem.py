@@ -23,6 +23,7 @@ import ipaddress
 import re
 import random
 import string
+import time
 
 import lib.logging_helper as logging_helper
 
@@ -275,8 +276,8 @@ def create_flow_from_doc(mlog, doc_dict, detection_id):
         dict_get(doc_dict, "destination.port"),
         dict_get(doc_dict, "network.protocol"),
         dict_get(doc_dict, "network.application"),
-        None,
-        None,
+        dict_get(doc_dict, "process.name"),
+        dict_get(doc_dict, "process.pid"),
         None,
         dict_get(doc_dict, "source.bytes"),
         dict_get(doc_dict, "destination.bytes"),
@@ -475,7 +476,9 @@ def get_all_indices(mlog, config, security_only=False):
 
     # Check if the response was successful
     if response.status_code != 200:
-        mlog.error("get_all_indices() - Elasticsearch returned status code: " + str(response.status_code))
+        mlog.error(
+            "get_all_indices() - Elasticsearch returned status code: " + str(response.status_code) + " - " + str(response.text)
+        )
         return []
 
     # Parse the response
@@ -495,7 +498,15 @@ def get_all_indices(mlog, config, security_only=False):
     return indices
 
 
-def search_entity_by_id(mlog, config, entity_id, entity_type="process", security_only=True):
+def search_entity_by_id(
+    mlog,
+    config,
+    entity_id,
+    entity_type="process",
+    security_only=True,
+    search_start: datetime.datetime = None,
+    search_end: datetime.datetime = None,
+):
     """Searches for an entity by its entity ID.
 
     Args:
@@ -511,9 +522,35 @@ def search_entity_by_id(mlog, config, entity_id, entity_type="process", security
     skip_cache = False
 
     # Check if entity_type is valid first
-    valid_entity_types = ["network", "file", "parent_process", "process", "registry"]
+    valid_entity_types = [
+        "network",
+        "file",
+        "parent_process",
+        "process",
+        "registry",
+        "dest_ip_process",
+        "host_ip_process",
+        "host_ip_flow",
+        "host_ip_file",
+        "host_ip_registry",
+    ]
     if entity_type not in valid_entity_types:
         raise NotImplementedError(f"search_entity_by_id() - entity_type '{entity_type}' not implemented")
+
+    if type(entity_id) == ipaddress.IPv4Address or type(entity_id) == ipaddress.IPv6Address:
+        entity_id = str(entity_id)
+        search_start = str(search_start.isoformat())
+        search_end = str(search_end.isoformat())
+
+        is_dst = time.daylight and time.localtime().tm_isdst > 0
+        utc_offset = -(time.altzone if is_dst else time.timezone)
+        timezone_offset = int(utc_offset / 60 / 60)
+        if timezone_offset > 0:
+            timezone_offset = "+0" + str(timezone_offset) + ":00"
+        elif timezone_offset < 0:
+            timezone_offset = "-0" + str(timezone_offset) + ":00"
+        else:
+            timezone_offset = ""
 
     # Now, check if the enity is in the cache (except for parent_process)
     if (
@@ -525,6 +562,16 @@ def search_entity_by_id(mlog, config, entity_id, entity_type="process", security
             cache_result = get_from_cache("elastic_siem", "file_entities", entity_id)
         elif entity_type == "registry":
             cache_result = get_from_cache("elastic_siem", "registry_entities", entity_id)
+        elif entity_type == "dest_ip_process":
+            cache_result = get_from_cache("elastic_siem", "dest_ip_process_entities", entity_id)
+        elif entity_type == "host_ip_process":
+            cache_result = get_from_cache("elastic_siem", "host_ip_process_entities", entity_id)
+        elif entity_type == "host_ip_flow":
+            cache_result = get_from_cache("elastic_siem", "host_ip_flow_entities", entity_id)
+        elif entity_type == "host_ip_file":
+            cache_result = get_from_cache("elastic_siem", "host_ip_file_entities", entity_id)
+        elif entity_type == "host_ip_registry":
+            cache_result = get_from_cache("elastic_siem", "host_ip_registry_entities", entity_id)
         else:
             cache_result = get_from_cache("elastic_siem", "entities", entity_id)
             if cache_result and len(cache_result) > 1:
@@ -550,7 +597,10 @@ def search_entity_by_id(mlog, config, entity_id, entity_type="process", security
     elastic_user = config["elastic_user"]
     elastic_pw = config["elastic_password"]
     should_verify = config["elastic_verify_certs"]
-    lookback_time = f"now-{LOOKBACK_DAYS}d/d"
+    if entity_type != "dest_ip_process":
+        lookback_time = f"now-{LOOKBACK_DAYS}d/d"
+    else:
+        lookback_time = f"now-1d/d"
 
     # Define headers and URL for Elasticsearch search
     headers = {
@@ -637,6 +687,136 @@ def search_entity_by_id(mlog, config, entity_id, entity_type="process", security
                     }
                 }
             }
+        elif entity_type == "dest_ip_process":
+            search_query = {
+                "query": {
+                    "bool": {
+                        "must": [
+                            {"match": {"destination.ip": entity_id}},
+                            {"range": {"@timestamp": {"gte": lookback_time}}},
+                        ]
+                    }
+                }
+            }
+        elif entity_type == "host_ip_process":
+            search_query = {
+                "query": {
+                    "bool": {
+                        "must": [],
+                        "filter": [
+                            {
+                                "bool": {
+                                    "must": [
+                                        {"match": {"host.ip": entity_id}},
+                                        {"match": {"event.category": "process"}},
+                                        {
+                                            "range": {
+                                                "@timestamp": {
+                                                    "time_zone": timezone_offset,
+                                                    "gte": search_start,
+                                                    "lte": search_end,
+                                                }
+                                            }
+                                        },
+                                    ]
+                                }
+                            }
+                        ],
+                        "should": [],
+                        "must_not": [],
+                    }
+                }
+            }
+
+        elif entity_type == "host_ip_flow":
+            search_query = {
+                "query": {
+                    "bool": {
+                        "must": [],
+                        "filter": [
+                            {
+                                "bool": {
+                                    "must": [
+                                        {"match": {"host.ip": entity_id}},
+                                        {"match": {"event.category": "network"}},
+                                        {
+                                            "range": {
+                                                "@timestamp": {
+                                                    "time_zone": timezone_offset,
+                                                    "gte": search_start,
+                                                    "lte": search_end,
+                                                }
+                                            }
+                                        },
+                                    ]
+                                }
+                            }
+                        ],
+                        "should": [],
+                        "must_not": [],
+                    }
+                }
+            }
+
+        elif entity_type == "host_ip_file":
+            search_query = {
+                "query": {
+                    "bool": {
+                        "must": [],
+                        "filter": [
+                            {
+                                "bool": {
+                                    "must": [
+                                        {"match": {"host.ip": entity_id}},
+                                        {"match": {"event.category": "file"}},
+                                        {
+                                            "range": {
+                                                "@timestamp": {
+                                                    "time_zone": timezone_offset,
+                                                    "gte": search_start,
+                                                    "lte": search_end,
+                                                }
+                                            }
+                                        },
+                                    ]
+                                }
+                            }
+                        ],
+                        "should": [],
+                        "must_not": [],
+                    }
+                }
+            }
+
+        elif entity_type == "host_ip_registry":
+            search_query = {
+                "query": {
+                    "bool": {
+                        "must": [],
+                        "filter": [
+                            {
+                                "bool": {
+                                    "must": [
+                                        {"match": {"host.ip": entity_id}},
+                                        {"match": {"event.category": "registry"}},
+                                        {
+                                            "range": {
+                                                "@timestamp": {
+                                                    "time_zone": timezone_offset,
+                                                    "gte": search_start,
+                                                    "lte": search_end,
+                                                }
+                                            }
+                                        },
+                                    ]
+                                }
+                            }
+                        ],
+                        "should": [],
+                        "must_not": [],
+                    }
+                }
+            }
 
         # mlog.debug(f"search_entity_by_id() - Searching index {index} for entity with URL: " + url + " and data: " + json.dumps(search_query)) | L2 DEBUG
 
@@ -648,7 +828,9 @@ def search_entity_by_id(mlog, config, entity_id, entity_type="process", security
             if response.status_code == 404:
                 # mlog.debug(f"search_entity_by_id() - Index {index}: Elasticsearch returned status code 404. Index does not exist.") | L2 DEBUG
                 continue
-            mlog.error(f"search_entity_by_id() - Elasticsearch search failed with status code {response.status_code}")
+            mlog.error(
+                f"search_entity_by_id() - Elasticsearch search failed with status code {response.status_code}. Response: {response.text}"
+            )
             continue
 
         # mlog.debug(f"search_entity_by_id() - Response text: {response.text}") | L2 DEBUG
@@ -680,7 +862,10 @@ def search_entity_by_id(mlog, config, entity_id, entity_type="process", security
         elif entity_type == "registry":
             add_to_cache("elastic_siem", "registry_entities", str(entity_id), "empty")
 
-        else:
+        elif entity_type == "dest_ip_process":
+            add_to_cache("elastic_siem", "dest_ip_process_entities", str(entity_id), "empty")
+
+        elif entity_type == "process":
             add_to_cache("elastic_siem", "entities", entity_id, "empty")
         return None
 
@@ -906,7 +1091,7 @@ def zs_provide_new_detections(config, TEST="") -> List[Detection]:
 
         if dict_get(doc_dict, "host.ip") is not None:
             for ip in doc_dict["host"]["ip"]:
-                ip_casted = cast_to_ipaddress(ip)
+                ip_casted = cast_to_ipaddress(ip, False)
                 if ip_casted is not None and ip_casted.is_private:
                     if ip.startswith("10."):
                         host_ip = ip_casted
@@ -1002,6 +1187,9 @@ def zs_provide_context_for_detections(
     search_value=None,
     UUID_is_parent=False,
     maxContext=50,
+    search_type="uuid",
+    search_start=None,
+    search_end=None,
 ) -> Union[ContextFlow, ContextLog, ContextProcess]:
     """Returns a DetectionReport object with context for the detections from the Elasic integration.
 
@@ -1071,105 +1259,233 @@ def zs_provide_context_for_detections(
     # ...
     # ...
     if not TEST:
-        if required_type == ContextProcess:
-            if search_value is None:
-                mlog.info(
-                    "No UUID provided. This implies that the detection is not from Elastic SIEM itself. Will return relevant processes if found."
-                )
-                # ... TODO: Get all processes related to the detection
-            else:
-                if UUID_is_parent:
+        if search_type == "uuid":
+            if required_type == ContextProcess:
+                if search_value is None:
                     mlog.info(
-                        "Process Parent UUID provided. Will return all processes with parent UUID: "
-                        + search_value
-                        + " (meaning all children processes)"
+                        "No UUID provided. This implies that the detection is not from Elastic SIEM itself. Will return relevant processes if found."
                     )
-                    docs = search_entity_by_id(mlog, config, search_value, entity_type="parent_process")
-
-                    if docs == None or len(docs) == 0:
-                        mlog.info(
-                            "No processes found which have a parent with UUID: "
-                            + search_value
-                            + " (meaning no child processes found)"
-                        )
-                        return None
-                    else:
-                        counter = 0
-                        for doc in docs:
-                            event_category = doc["_source"]["event"]["category"][0]
-                            if event_category != "process":
-                                mlog.info("Skipping adding event with category: " + event_category)
-                                continue
-                            if maxContext != -1 and counter >= maxContext:
-                                mlog.info(
-                                    "Reached given maxContext limit (" + str(maxContext) + "). Will not return more context."
-                                )
-                                break
-                            process = create_process_from_doc(mlog, doc["_source"])
-                            return_objects.append(process)
-                            counter += 1
+                    # ... TODO: Get all processes related to the detection
                 else:
-                    mlog.info("UUID provided. Will return the single process with UUID: " + search_value)
-                    doc = search_entity_by_id(mlog, config, search_value, entity_type="process")
-                    if doc is not None:
-                        process = create_process_from_doc(mlog, doc)
-                        return_objects.append(process)
+                    if UUID_is_parent:
+                        mlog.info(
+                            "Process Parent UUID provided. Will return all processes with parent UUID: "
+                            + str(search_value)
+                            + " (meaning all children processes)"
+                        )
+                        docs = search_entity_by_id(mlog, config, search_value, entity_type="parent_process")
 
-        elif required_type == ContextFlow:
-            # TODO: Implement seach in Suricata Indices as well
+                        if docs == None or len(docs) == 0:
+                            mlog.info(
+                                "No processes found which have a parent with UUID: "
+                                + str(search_value)
+                                + " (meaning no child processes found)"
+                            )
+                            return None
+                        else:
+                            counter = 0
+                            for doc in docs:
+                                event_category = doc["_source"]["event"]["category"][0]
+                                if event_category != "process":
+                                    mlog.info("Skipping adding event with category: " + event_category)
+                                    continue
+                                if maxContext != -1 and counter >= maxContext:
+                                    mlog.info(
+                                        "Reached given maxContext limit (" + str(maxContext) + "). Will not return more context."
+                                    )
+                                    break
+                                process = create_process_from_doc(mlog, doc["_source"])
+                                return_objects.append(process)
+                                counter += 1
+                    else:
+                        mlog.info("UUID provided. Will return the single process with UUID: " + str(search_value))
+                        doc = search_entity_by_id(mlog, config, search_value, entity_type="process")
+                        if doc is not None:
+                            process = create_process_from_doc(mlog, doc)
+                            return_objects.append(process)
 
-            if len(search_value) > 71:  # TODO: Implement searching flow by Process / File Entity ID
-                mlog.info("Process Entity ID provided. Will return all flows for process with Entity ID: " + search_value)
-                flow_docs = search_entity_by_id(mlog, config, search_value, entity_type="network", security_only=True)
+            elif required_type == ContextFlow:
+                # TODO: Implement seach in Suricata Indices as well
 
-                if flow_docs == None or len(flow_docs) == 0:
-                    mlog.info("No flows found for process with Entity ID: " + search_value)
-                    return None
+                if len(search_value) > 71:  # TODO: Implement searching flow by Process / File Entity ID
+                    mlog.info(
+                        "Process Entity ID provided. Will return all flows for process with Entity ID: " + str(search_value)
+                    )
+                    flow_docs = search_entity_by_id(mlog, config, search_value, entity_type="network", security_only=True)
 
-                for doc in flow_docs:
-                    return_objects.append(create_flow_from_doc(mlog, doc["_source"], detection_id))
-            else:
-                mlog.error("UUID does not match either a valid Elastic Entity ID")
-                return None
-
-        elif required_type == ContextFile:
-            if search_value is None:  # UUID in this context means process ID, SHA256 or EntityID
-                # Need a process ID for now
-                return NotImplementedError
-            else:
-                if len(search_value) > 69:  # TODO: Implement searching file by Process / File Entity ID
-                    mlog.info("Process Entity ID provided. Will return file with Entity ID: " + search_value)
-                    file_docs = search_entity_by_id(mlog, config, search_value, entity_type="file", security_only=True)
-
-                    if file_docs == None or len(file_docs) == 0:
-                        mlog.info("No files found with Entity ID: " + search_value)
+                    if flow_docs == None or len(flow_docs) == 0:
+                        mlog.info("No flows found for process with Entity ID: " + str(search_value))
                         return None
 
-                    for doc in file_docs:
-                        file_obj = create_file_from_doc(mlog, doc["_source"], detection_id)
-                        return_objects.append(file_obj)
+                    for doc in flow_docs:
+                        return_objects.append(create_flow_from_doc(mlog, doc["_source"], detection_id))
                 else:
                     mlog.error("UUID does not match either a valid Elastic Entity ID")
                     return None
 
-        elif required_type == ContextRegistry:
-            if search_value is None:
-                # Need a process ID for now
-                return NotImplementedError
-            else:
-                if len(search_value) > 69:
-                    mlog.info("Process Entity ID provided. Will return registry with Entity ID: " + search_value)
-                    registry_docs = search_entity_by_id(mlog, config, search_value, entity_type="registry", security_only=True)
+            elif required_type == ContextFile:
+                if search_value is None:  # UUID in this context means process ID, SHA256 or EntityID
+                    # Need a process ID for now
+                    return NotImplementedError
+                else:
+                    if len(search_value) > 69:  # TODO: Implement searching file by Process / File Entity ID
+                        mlog.info("Process Entity ID provided. Will return file with Entity ID: " + str(search_value))
+                        file_docs = search_entity_by_id(mlog, config, search_value, entity_type="file", security_only=True)
 
-                    if registry_docs == None or len(registry_docs) == 0:
-                        mlog.info("No registry entries found with Entity ID: " + search_value)
+                        if file_docs == None or len(file_docs) == 0:
+                            mlog.info("No files found with Entity ID: " + str(search_value))
+                            return None
+
+                        for doc in file_docs:
+                            file_obj = create_file_from_doc(mlog, doc["_source"], detection_id)
+                            return_objects.append(file_obj)
+                    else:
+                        mlog.error("UUID does not match either a valid Elastic Entity ID")
                         return None
 
-                    for doc in registry_docs:
+            elif required_type == ContextRegistry:
+                if search_value is None:
+                    # Need a process ID for now
+                    return NotImplementedError
+                else:
+                    if len(search_value) > 69:
+                        mlog.info("Process Entity ID provided. Will return registry with Entity ID: " + str(search_value))
+                        registry_docs = search_entity_by_id(
+                            mlog, config, search_value, entity_type="registry", security_only=True
+                        )
+
+                        if registry_docs == None or len(registry_docs) == 0:
+                            mlog.info("No registry entries found with Entity ID: " + str(search_value))
+                            return None
+
+                        for doc in registry_docs:
+                            registry_obj = create_registry_from_doc(mlog, doc["_source"], detection_id)
+                            return_objects.append(registry_obj)
+
+        if search_type == "dest_ip":
+            if required_type == ContextProcess:
+                if type(cast_to_ipaddress(search_value)) == ipaddress.IPv4Address or ipaddress.IPv6Address:
+                    mlog.info("IP Address provided. Will return all processes with destination IP: " + str(search_value))
+                    docs = search_entity_by_id(
+                        mlog,
+                        config,
+                        search_value,
+                        entity_type="dest_ip_process",
+                        search_start=search_start,
+                        search_end=search_end,
+                    )
+
+                    if docs == None or len(docs) == 0:
+                        mlog.info("No processes found which have destination IP Address: " + str(search_value))
+                        return None
+
+                    for doc in docs:
+                        event_category = doc["_source"]["event"]["category"][0]
+                        if event_category not in ["process", "network"]:
+                            mlog.info("Skipping adding event with category: " + event_category)
+                            continue
+                        process = create_process_from_doc(mlog, doc["_source"])
+                        return_objects.append(process)
+
+        if search_type == "host_ip":
+            if required_type == ContextProcess:
+                if type(cast_to_ipaddress(search_value, False)) == ipaddress.IPv4Address or ipaddress.IPv6Address:
+                    mlog.info("IP Address provided. Will return all processes with host IP: " + str(search_value))
+                    docs = search_entity_by_id(
+                        mlog,
+                        config,
+                        search_value,
+                        entity_type="host_ip_process",
+                        search_start=search_start,
+                        search_end=search_end,
+                    )
+
+                    if docs == None or len(docs) == 0:
+                        mlog.info("No processes found which have host IP Address: " + str(search_value))
+                        return None
+
+                    for doc in docs:
+                        event_category = doc["_source"]["event"]["category"][0]
+                        if event_category not in ["process"]:
+                            mlog.info("Skipping adding event with category: " + event_category)
+                            continue
+                        process = create_process_from_doc(mlog, doc["_source"])
+                        return_objects.append(process)
+                else:
+                    mlog.error("IP Address provided is not valid.")
+                    return None
+
+            if required_type == ContextFile:
+                if type(cast_to_ipaddress(search_value, False)) == ipaddress.IPv4Address or ipaddress.IPv6Address:
+                    mlog.info("IP Address provided. Will return all files with host IP: " + str(search_value))
+                    docs = search_entity_by_id(
+                        mlog, config, search_value, entity_type="host_ip_file", search_start=search_start, search_end=search_end
+                    )
+
+                    if docs == None or len(docs) == 0:
+                        mlog.info("No files found which have host IP Address: " + str(search_value))
+                        return None
+
+                    for doc in docs:
+                        event_category = doc["_source"]["event"]["category"][0]
+                        if event_category not in ["file"]:
+                            mlog.info("Skipping adding event with category: " + event_category)
+                            continue
+                        file_obj = create_file_from_doc(mlog, doc["_source"], detection_id)
+                        return_objects.append(file_obj)
+                else:
+                    mlog.error("IP Address provided is not valid.")
+                    return None
+
+            if required_type == ContextRegistry:
+                if type(cast_to_ipaddress(search_value, False)) == ipaddress.IPv4Address or ipaddress.IPv6Address:
+                    mlog.info("IP Address provided. Will return all registry entries with host IP: " + str(search_value))
+                    docs = search_entity_by_id(
+                        mlog,
+                        config,
+                        search_value,
+                        entity_type="host_ip_registry",
+                        search_start=search_start,
+                        search_end=search_end,
+                    )
+
+                    if docs == None or len(docs) == 0:
+                        mlog.info("No registry entries found which have host IP Address: " + str(search_value))
+                        return None
+
+                    for doc in docs:
+                        event_category = doc["_source"]["event"]["category"][0]
+                        if event_category not in ["registry"]:
+                            mlog.info("Skipping adding event with category: " + event_category)
+                            continue
                         registry_obj = create_registry_from_doc(mlog, doc["_source"], detection_id)
                         return_objects.append(registry_obj)
-    # ...
-    # ...
+                else:
+                    mlog.error("IP Address provided is not valid.")
+                    return None
+
+            if required_type == ContextFlow:
+                if type(cast_to_ipaddress(search_value, False)) == ipaddress.IPv4Address or ipaddress.IPv6Address:
+                    mlog.info("IP Address provided. Will return all flows with host IP: " + str(search_value))
+                    docs = search_entity_by_id(
+                        mlog, config, search_value, entity_type="host_ip_flow", search_start=search_start, search_end=search_end
+                    )
+
+                    if docs == None or len(docs) == 0:
+                        mlog.info("No flows found which have host IP Address: " + str(search_value))
+                        return None
+
+                    for doc in docs:
+                        event_category = doc["_source"]["event"]["category"][0]
+                        if event_category not in ["network"]:
+                            mlog.info("Skipping adding event with category: " + event_category)
+                            continue
+                        flow_obj = create_flow_from_doc(mlog, doc["_source"], detection_id)
+                        return_objects.append(flow_obj)
+                else:
+                    mlog.error("IP Address provided is not valid.")
+                    return None
+
     if len(return_objects) == 0:
         mlog.info(
             "zs_provide_context_for_detections() found no context for detection '"

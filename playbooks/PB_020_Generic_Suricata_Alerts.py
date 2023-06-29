@@ -57,7 +57,7 @@ def zs_can_handle_detection(detection_report: DetectionReport) -> bool:
 
         if detection.vendor_id == "IBM QRadar":
             for log in detection_report.context_logs:
-                if dict_get(log.log_custom_fields, "Alert - SID") != None:
+                if dict_get(log.log_custom_fields, "Alert - Signature") != None:
                     mlog.info(f"Playbook '{PB_NAME}' can handle detection '{detection.name}' ({detection.uuid}).")
                     return True
     mlog.info(f"Playbook '{PB_NAME}' cannot handle detection '{detection.name}' ({detection.uuid}).")
@@ -110,9 +110,9 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
 
     for log in detection_report.context_logs:
         custom_fields = log.log_custom_fields
-        if dict_get(custom_fields, "Alert - SID") != None:
+        if dict_get(custom_fields, "Alert - Signature") != None:
             rule = Rule(
-                custom_fields["Alert - SID"],
+                dict_get(custom_fields, "Alert - SID", "Unknown"),
                 custom_fields["Alert - Signature"],
                 custom_fields["Alert - Severity"],
                 description="Category: " + custom_fields["Alert - Category"],
@@ -167,6 +167,13 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
     )
     detection_report.update_audit(current_action, logger=mlog)
 
+    if len(rules_new) == 0:
+        mlog.critical("Could not update ticket title, as there are no rules.")
+        detection_report.update_audit(
+            current_action.set_error(message="Could not update ticket title, as there are no rules."), logger=mlog
+        )
+        return detection_report
+
     title = "[Z-SOAR] Suricata Alert: "
     title_rule = rules_new[0].name
     title += title_rule
@@ -190,7 +197,7 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
     if len(offender) == 0:
         offender.append(log.log_source_ip)
     if len(offender) == 1:
-        title += " | Offender: " + offender[0]
+        title += " | Offender: " + str(offender[0])
     else:
         offender = list(set(offender))
         title += " | Offender: " + ", ".join(offender)

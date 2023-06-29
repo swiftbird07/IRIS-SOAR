@@ -13,7 +13,7 @@ detection = Detection(
     [Rule("1438", "Test Rule")],
     datetime.datetime.now(),
     "This is a test description",
-    host_ip="123.123.123.123",
+    host_ip="10.20.1.6",
     host_name="test-host",
     uuid="1438",
 )

@@ -130,7 +130,7 @@ def test_startup_daemon():
 
     # Test if the daemon can be started
     mlog = zsoar.logging_helper.Log("zsoar_test_core")
-    zsoar.startup(mlog, True)
+    zsoar.startup(mlog, True, False)
     assert zsoar.get_script_pid(mlog, "zsoar_daemon.py") > 0, "The daemon was not started."
 
     # Reset to original config

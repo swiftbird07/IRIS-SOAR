@@ -495,6 +495,7 @@ def zs_add_note_to_ticket(
     tree=None,
     file_names=None,
     visible_for_customer=True,
+    gather_type=None,
 ):
     """Adds a note to an existing ticket in Znuny.
 
@@ -582,13 +583,14 @@ def zs_add_note_to_ticket(
 
             process_names = detection_contexts
             process_tree = tree
+            body = ""
 
             current_action = AuditLog(
                 playbook_name, playbook_step, "Create Note - Process Context", "Creating note for processes in detection."
             )
             detection_report.update_audit(current_action, logger=mlog)
 
-            if not detection.process:
+            if not detection.process and gather_type != "time range":
                 mlog.warning(f"Detection has no process. Skipping note creation.")
                 detection_report.update_audit(
                     current_action.set_warning(warning_message=f"Detection has no process. Skipping note creation."), logger=mlog
@@ -599,30 +601,33 @@ def zs_add_note_to_ticket(
                     process_tree = process_tree.replace("\n", "<br>")
                     process_tree = process_tree.replace("    ", "&emsp;")
 
-                body = f"<br><br><h2>Process Context:</h2><br><br>"
-                body += (
-                    f"<br><br><h3>Process Tree:</h3><br>{process_tree if process_tree else 'No process tree available.'}<br><br>"
-                )
-                body += f"<br><br><h3>Context regarding detected Process:</h3><br><br>"
-                body += f"Process Name: {detection.process.process_name if detection.process else 'N/A'}<br>"
-                body += f"Process ID: {detection.process.process_id}<br>"
-                body += f"Process Path: {detection.process.process_path}<br>"
-                body += f"Process Command Line: {detection.process.process_command_line}<br>"
-                body += f"Process SHA256: {detection.process.process_sha256}<br>"
+                title = "Context: Processes"
+                if gather_type and gather_type == "time range":
+                    title += " [time range]"
+                else:
+                    title += " [direct]"
+                    body += f"<br><br><h2>Process Context:</h2><br><br>"
+                    body += f"<br><br><h3>Process Tree:</h3><br>{process_tree if process_tree else 'No process tree available.'}<br><br>"
+                    body += f"<br><br><h3>Context regarding detected Process:</h3><br><br>"
+                    body += f"Process Name: {detection.process.process_name if detection.process else 'N/A'}<br>"
+                    body += f"Process ID: {detection.process.process_id}<br>"
+                    body += f"Process Path: {detection.process.process_path}<br>"
+                    body += f"Process Command Line: {detection.process.process_command_line}<br>"
+                    body += f"Process SHA256: {detection.process.process_sha256}<br>"
 
-                body += f"<br><br><h3>List of all reported process names: </h3><br><br>"
-                body += f"{get_unique(process_names)}"
+                    body += f"<br><br><h3>List of all reported process names: </h3><br><br>"
+                    body += f"{get_unique(process_names)}"
 
-                body += f"<br><br><h3>Parent Processes:<br><br><h3>"
-                body += format_results(parents, "html", group_by="process_id")
+                    body += f"<br><br><h3>Parent Processes:<br><br><h3>"
+                    body += format_results(parents, "html", group_by="process_id")
 
-                body += f"<br><br><h3>Child Processes:</h3><br>"
-                body += "<br>" + format_results(children, "html", group_by="process_id")
+                    body += f"<br><br><h3>Child Processes:</h3><br>"
+                    body += "<br>" + format_results(children, "html", group_by="process_id")
 
                 body += "<br><br><h3>Complete Process Timeline:</h3><br>"
-                body += "<br>" + format_results(detection_report.context_processes, "html", group_by="timestamp")
+                body += "<br>" + format_results(detection_report.context_processes, "html", group_by="")
 
-                note_id = zs_add_note_to_ticket(ticket_number, "raw", DRY_RUN, "Context: Processes", body, "text/html")
+                note_id = zs_add_note_to_ticket(ticket_number, "raw", DRY_RUN, title, body, "text/html")
                 if type(note_id) is not int:
                     mlog.warning(f"Failed to create note for processes in detection.")
                     detection_report.update_audit(
@@ -662,35 +667,49 @@ def zs_add_note_to_ticket(
             detected_process_flows = detection_contexts
             context_process_flows = other_contexts
 
+            if not detected_process_flows:
+                detected_process_flows = []
+
+            if not context_process_flows:
+                context_process_flows = []
+
+            body = ""
+
             current_action = AuditLog(
                 playbook_name, playbook_step, "Create Note - Network Context", "Creating note for network flows in the detection."
             )
             detection_report.update_audit(current_action, logger=mlog)
+
             note_title = "Context: Network Flows"
+            if gather_type and gather_type == "time range":
+                note_title += " [time range]"
+            else:
+                note_title += " [direct]"
 
             # Check if any network flows were found
-            if detected_process_flows is None and len(context_process_flows) == 0 and len(detection_report.context_flows) == 0:
+            if len(detected_process_flows) == 0 and len(context_process_flows) == 0 and len(detection_report.context_flows) == 0:
                 detection_report.update_audit(
                     current_action.set_warning(warning_message=f"Found no network flows for detection."), logger=mlog
                 )
                 note_title += " (empty)"
 
-            body = f"<br><br><h2>Network Context:</h2><br><br>"
-            if detection.process:
-                body += f"<h3>Network Flows of detected Process '{detection.process.process_name}' ({detection.process.process_id}):</h3><br><br>"
-            else:
-                body += f"<h3>Network Flows of Detection:</h3><br><br>"
-            body += format_results(detected_process_flows, "html", group_by="timestamp")
+            if not gather_type or gather_type == "direct":
+                body += f"<br><br><h2>Network Context:</h2><br><br>"
+                if detection.process:
+                    body += f"<h3>Network Flows of detected Process '{detection.process.process_name}' ({detection.process.process_id}):</h3><br><br>"
+                else:
+                    body += f"<h3>Network Flows of Detection:</h3><br><br>"
+                body += format_results(detected_process_flows, "html", group_by="")
 
-            body += f"<br><br><h3>List of all reported IPs and domains: </h3><br><br>"
-            body += str(detection_report.indicators["ip"]) + "<br>" + str(detection_report.indicators["domain"]) + "<br><br>"
+                body += f"<br><br><h3>List of all reported IPs and domains: </h3><br><br>"
+                body += str(detection_report.indicators["ip"]) + "<br>" + str(detection_report.indicators["domain"]) + "<br><br>"
 
-            if context_process_flows and len(context_process_flows) > 0:
-                body += f"<br><br><h3>Network Flows of other Processes (grouped by process):</h3><br><br>"
-                body += format_results(context_process_flows, "html", group_by="process_id")
+                if context_process_flows and len(context_process_flows) > 0:
+                    body += f"<br><br><h3>Network Flows of other Processes (grouped by process):</h3><br><br>"
+                    body += format_results(context_process_flows, "html", group_by="process_id")
 
-                body += "<br><br><h3>Complete Network Timeline:</h3><br>"
-                body += "<br>" + format_results(detection_report.context_flows, "html", group_by="timestamp")
+            body += "<br><br><h3>Complete Network Timeline:</h3><br>"
+            body += "<br>" + format_results(detection_report.context_flows, "html", group_by="")
 
             note_id = zs_add_note_to_ticket(ticket_number, "raw", DRY_RUN, note_title, body, "text/html")
             if type(note_id) is not int:
@@ -738,11 +757,17 @@ def zs_add_note_to_ticket(
             if not context_processes_file_events:
                 context_processes_file_events = []
 
+            body = ""
+
             current_action = AuditLog(
                 playbook_name, playbook_step, "Create Note - File Events", "Creating note for file events in the detection."
             )
             detection_report.update_audit(current_action, logger=mlog)
             note_title = "Context: File Events"
+            if gather_type and gather_type == "time range":
+                note_title += " [time range]"
+            else:
+                note_title += " [direct]"
 
             # Check if any file events were found
             if (
@@ -755,21 +780,22 @@ def zs_add_note_to_ticket(
                 )
                 note_title += " (empty)"
 
-            body = f"<br><br><h2>File Event Context:</h2><br><br>"
-            if detection.process:
-                body += f"<h3>File Events of detected Process '{detection.process.process_name}' ({detection.process.process_id}):</h3><br><br>"
-            else:
-                body += f"<h3>File Events of Detection:</h3><br><br>"
-            body += format_results(detected_process_file_events, "html", group_by="timestamp")
+            if not gather_type or gather_type == "direct":
+                body += f"<br><br><h2>File Event Context:</h2><br><br>"
+                if detection.process:
+                    body += f"<h3>File Events of detected Process '{detection.process.process_name}' ({detection.process.process_id}):</h3><br><br>"
+                else:
+                    body += f"<h3>File Events of Detection:</h3><br><br>"
+                body += format_results(detected_process_file_events, "html", group_by="")
 
-            if context_processes_file_events and len(context_processes_file_events) > 0:
-                body += f"<br><br><h3>List of all reported files: </h3><br><br>"
-                body += f"{get_unique(file_names)}"
-                body += f"<br><br><h3>File Events of other Processes (grouped by process):</h3><br><br>"
-                body += format_results(context_processes_file_events, "html", group_by="process_id")
+                if context_processes_file_events and len(context_processes_file_events) > 0:
+                    body += f"<br><br><h3>List of all reported files: </h3><br><br>"
+                    body += f"{get_unique(file_names)}"
+                    body += f"<br><br><h3>File Events of other Processes (grouped by process):</h3><br><br>"
+                    body += format_results(context_processes_file_events, "html", group_by="process_id")
 
-                body += "<br><br><h3>Complete File Event Timeline:</h3><br>"
-                body += "<br>" + format_results(detection_report.context_files, "html", group_by="timestamp")
+            body += "<br><br><h3>Complete File Event Timeline:</h3><br>"
+            body += "<br>" + format_results(detection_report.context_files, "html", group_by="")
 
             note_id = zs_add_note_to_ticket(ticket_number, "raw", DRY_RUN, note_title, body, "text/html")
             if type(note_id) is not int:
@@ -809,6 +835,7 @@ def zs_add_note_to_ticket(
 
             detected_process_registry_events = detection_contexts
             context_processes_registry_events = other_contexts
+            body = ""
 
             current_action = AuditLog(
                 playbook_name,
@@ -818,6 +845,10 @@ def zs_add_note_to_ticket(
             )
             detection_report.update_audit(current_action, logger=mlog)
             note_title = "Context: Registry Events"
+            if gather_type and gather_type == "time range":
+                note_title += " [time range]"
+            else:
+                note_title += " [direct]"
 
             # Check if any registry events were found
             if (
@@ -831,16 +862,17 @@ def zs_add_note_to_ticket(
                 )
                 note_title += " (empty)"
 
-            body = f"<br><br><h2>Registry Event Context:</h2><br><br>"
-            if detection.process:
-                body += f"<h3>Registry Events of detected Process '{detection.process.process_name}' ({detection.process.process_id}):</h3><br><br>"
-            else:
-                body += f"<h3>Registry Events of detected Process <N/A>:</h3><br><br>"
-            body += format_results(detected_process_registry_events, "html", group_by="timestamp")
-            body += f"<br><br><h3>Registry Events of other Processes (grouped by process):</h3><br><br>"
-            body += format_results(context_processes_registry_events, "html", group_by="process_id")
+            if not gather_type or gather_type == "direct":
+                body += f"<br><br><h2>Registry Event Context:</h2><br><br>"
+                if detection.process:
+                    body += f"<h3>Registry Events of detected Process '{detection.process.process_name}' ({detection.process.process_id}):</h3><br><br>"
+                else:
+                    body += f"<h3>Registry Events of detected Process <N/A>:</h3><br><br>"
+                body += format_results(detected_process_registry_events, "html", group_by="")
+                body += f"<br><br><h3>Registry Events of other Processes (grouped by process):</h3><br><br>"
+                body += format_results(context_processes_registry_events, "html", group_by="process_id")
             body += f"<br><br><h3>Complete Registry Event Timeline:</h3><br>"
-            body += "<br>" + format_results(detection_report.context_registries, "html", group_by="timestamp")
+            body += "<br>" + format_results(detection_report.context_registries, "html", group_by="")
 
             note_id = zs_add_note_to_ticket(ticket_number, "raw", DRY_RUN, note_title, body, "text/html")
             if type(note_id) is not int:
@@ -884,6 +916,7 @@ def zs_add_note_to_ticket(
 
             detected_process_log_events = detection_contexts
             context_processes_log_events = other_contexts
+            body = ""
 
             current_action = AuditLog(
                 playbook_name,
@@ -893,6 +926,10 @@ def zs_add_note_to_ticket(
             )
             detection_report.update_audit(current_action, logger=mlog)
             note_title = "Context: Log Events"
+            if gather_type and gather_type == "time range":
+                note_title += " [time range]"
+            else:
+                note_title += " [direct]"
 
             # Check if any log events were found
             if (
@@ -906,18 +943,20 @@ def zs_add_note_to_ticket(
                 )
                 note_title += " (empty)"
 
-            body = f"<br><br><h2>Log Event Context:</h2><br><br>"
-            if detection.process:
-                body += f"<h3>Log Events of detected Process '{detection.process.process_name}' ({detection.process.process_id}):</h3><br><br>"
-            else:
-                body += f"<h3>Log Events of Detection:</h3><br><br>"
-            body += format_results(detected_process_log_events, "html", group_by="timestamp")
+            if not gather_type or gather_type == "direct":
+                body += f"<br><br><h2>Log Event Context:</h2><br><br>"
+                if detection.process:
+                    body += f"<h3>Log Events of detected Process '{detection.process.process_name}' ({detection.process.process_id}):</h3><br><br>"
+                else:
+                    body += f"<h3>Log Events of Detection:</h3><br><br>"
+                body += format_results(detected_process_log_events, "html", group_by="")
 
-            if context_processes_log_events and len(context_processes_log_events) > 0:
-                body += f"<br><br><h3>Log Events of other Processes (grouped by process):</h3><br><br>"
-                body += format_results(context_processes_log_events, "html", group_by="process_id")
-                body += f"<br><br><h3>Complete Log Event Timeline:</h3><br>"
-                body += "<br>" + format_results(detection_report.context_logs, "html", group_by="timestamp")
+                if context_processes_log_events and len(context_processes_log_events) > 0:
+                    body += f"<br><br><h3>Log Events of other Processes (grouped by process):</h3><br><br>"
+                    body += format_results(context_processes_log_events, "html", group_by="process_id")
+
+            body += f"<br><br><h3>Complete Log Event Timeline:</h3><br>"
+            body += "<br>" + format_results(detection_report.context_logs, "html", group_by="")
 
             note_id = zs_add_note_to_ticket(ticket_number, "raw", DRY_RUN, note_title, body, "text/html")
             if type(note_id) is not int:
