@@ -465,6 +465,8 @@ def main():
             "You have enabled the option to allow multiple instances of Z-SOAR to run at the same time. This is not reccomended."
         )
         ALLOW_MULTIPLE_INSTANCES = True
+    else:
+        ALLOW_MULTIPLE_INSTANCES = False
 
     # Check if the start mode is enabled:
     if parser.parse_args().start:
