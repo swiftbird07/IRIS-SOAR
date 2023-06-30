@@ -1316,7 +1316,7 @@ class HTTP:
             if method != "Unknown (Encrypted)":
                 raise ValueError("status_code must be an integer")
 
-        if status_code and status_code < 0 or status_code > 999 and method != "Unknown (Encrypted)":
+        if status_code and status_code < 0 or status_code and status_code > 999 and method != "Unknown (Encrypted)":
             raise ValueError("status_code must be between 0 and 999")
         self.status_code = status_code
 
