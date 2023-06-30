@@ -568,7 +568,7 @@ def search_entity_by_id(
     """
     mlog.debug("search_entity_by_id() - called with entity_id '" + str(entity_id) + "' and entity_type: " + entity_type)
     skip_cache = False
-    timezone_offset = "+0:00"
+    timezone_offset = "+00:00"
 
     # Check if entity_type is valid first
     valid_entity_types = [
@@ -599,7 +599,7 @@ def search_entity_by_id(
         elif timezone_offset < 0:
             timezone_offset = "-0" + str(timezone_offset) + ":00"
         else:
-            timezone_offset = "+0:00"
+            timezone_offset = "+00:00"
         mlog.debug("search_entity_by_id() - calculated timezone_offset: " + str(timezone_offset))
 
     # Now, check if the enity is in the cache (except for parent_process)
