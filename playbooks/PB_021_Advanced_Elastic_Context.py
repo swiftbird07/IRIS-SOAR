@@ -282,14 +282,21 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
                     )
 
                 # Add all contexts to the detection report:
-                for process in processes:
-                    detection_report.add_context(process)
-                for flow in flows:
-                    detection_report.add_context(flow)
-                for file in files:
-                    detection_report.add_context(file)
-                for reg in registry:
-                    detection_report.add_context(reg)
+                if processes:
+                    for process in processes:
+                        detection_report.add_context(process)
+
+                if flows:
+                    for flow in flows:
+                        detection_report.add_context(flow)
+
+                if files:
+                    for file in files:
+                        detection_report.add_context(file)
+
+                if registry:
+                    for reg in registry:
+                        detection_report.add_context(reg)
 
     # Gather process related contexts from BB_Elastic_Context_Fetcher:
     current_action = AuditLog(

@@ -598,7 +598,8 @@ def search_entity_by_id(
         elif timezone_offset < 0:
             timezone_offset = "-0" + str(timezone_offset) + ":00"
         else:
-            timezone_offset = ""
+            timezone_offset = "+0:00"
+        mlog.debug("search_entity_by_id() - timezone_offset: " + str(timezone_offset))
 
     # Now, check if the enity is in the cache (except for parent_process)
     if (
