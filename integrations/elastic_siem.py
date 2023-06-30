@@ -1098,7 +1098,7 @@ def zs_provide_new_detections(config, TEST="") -> List[Detection]:
                         break  # This is prefered, therefore break here
                     elif ip.startswith("192.168."):
                         host_ip = ip_casted  # Continue loop to maybe find a 10.* IP
-                elif ip_casted.is_global:
+                elif ip_casted and ip_casted.is_global:
                     global_ip = ip_casted
 
         mlog.debug("Decided host IP: " + str(host_ip))
