@@ -329,7 +329,7 @@ def create_flow_from_doc(mlog, doc_dict, detection_id):
         None,
         dict_get(doc_dict, "source.bytes"),
         dict_get(doc_dict, "destination.bytes"),
-        dict_get(doc_dict, "host.mac")[0],
+        dict_get(doc_dict, "host.mac")[0] if dict_get(doc_dict, "host.mac") else None,
         None,
         dict_get(doc_dict, "host.name"),
         None,
