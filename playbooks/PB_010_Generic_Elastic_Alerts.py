@@ -95,6 +95,8 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
 
     detection: Detection = detections_to_handle[0]  #  We primarily handle the first detection
 
+    # TODO: Handle indirect detection with event.outcome = unknown (e.g by signal.group.id: "b562097d6e9ffdde7981da7da11054cd23c61f5cfe2ba0583020f8b0ca463aef")
+
     # First check the global whitelist for whitelist entries
     mlog.info(f"Checking global whitelist for detection: '{detection.name}' ({detection.uuid})")
     if detection.check_against_whitelist():

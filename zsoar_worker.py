@@ -181,7 +181,10 @@ def main(config, fromDaemon=False, debug=False):
                 can_handle = playbook_import.zs_can_handle_detection(detection_report)
             except Exception as e:
                 mlog.warning(
-                    "The playbook " + playbook_name + " failed to check if it can handle the detection. Error: " + str(e)
+                    "The playbook "
+                    + playbook_name
+                    + " failed to check if it can handle the detection. Error: "
+                    + traceback.format_exc()
                 )
                 continue
 
@@ -193,7 +196,9 @@ def main(config, fromDaemon=False, debug=False):
                     )
                     detection_report_new = playbook_import.zs_handle_detection(detection_report)
                 except Exception as e:
-                    mlog.warning("The playbook " + playbook_name + " failed to handle the detection. Error: " + str(e))
+                    mlog.warning(
+                        "The playbook " + playbook_name + " failed to handle the detection. Error: " + traceback.format_exc()
+                    )
                     continue
 
                 # Check if the playbook handled the detection correctly
