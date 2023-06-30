@@ -149,6 +149,24 @@ def init_logging(config):
     return mlog
 
 
+def get_host_ip_from_doc(doc_dict):
+    host_ip = None
+    global_ip = None
+
+    if dict_get(doc_dict, "host.ip") is not None:
+        for ip in doc_dict["host"]["ip"]:
+            ip_casted = cast_to_ipaddress(ip, False)
+            if ip_casted is not None and ip_casted.is_private:
+                if ip.startswith("10."):
+                    host_ip = ip_casted
+                    break  # This is prefered, therefore break here
+                elif ip.startswith("192.168."):
+                    host_ip = ip_casted  # Continue loop to maybe find a 10.* IP
+            elif ip_casted and ip_casted.is_global:
+                global_ip = ip_casted
+    return host_ip, global_ip
+
+
 def create_flow_from_doc(mlog, doc_dict, detection_id):
     """Creates a ContextFlow object from an Elastic-SIEM document.
        Will also add DNS or HTTP objects to flow if available.
@@ -166,8 +184,16 @@ def create_flow_from_doc(mlog, doc_dict, detection_id):
     dst_location = None
 
     # Create flow object if applicable
-    if "source" in doc_dict and "address" in doc_dict["source"]:
-        src_ip = cast_to_ipaddress(dict_get(doc_dict, "source.address"))
+    if "source" in doc_dict and "address" in doc_dict["source"] or dict_get(doc_dict, "source.ip"):
+        src_ip = cast_to_ipaddress(dict_get(doc_dict, "source.address"), False)
+        if not src_ip:
+            src_ip = cast_to_ipaddress(dict_get(doc_dict, "source.ip"), False)
+
+        if not src_ip:
+            mlog.error(
+                "create_flow_from_doc - No source IP casted in Elastic-SIEM document, even though the field source.ip or source.address have a value. Skipping flow."
+            )
+            return None
 
         # Get source location if possible
         if "geo" in doc_dict["source"]:
@@ -185,11 +211,26 @@ def create_flow_from_doc(mlog, doc_dict, detection_id):
             except Exception as e:
                 mlog.warning("create_flow_from_doc - Could not parse source flow location from Elastic-SIEM document: " + str(e))
     else:
-        src_ip = cast_to_ipaddress(dict_get(doc_dict, "host.ip")[0])
-        mlog.warning("create_flow_from_doc - No source IP found in Elastic-SIEM document. Using host's IP: " + str(src_ip))
+        host_ip, _ = get_host_ip_from_doc(doc_dict)
 
-    if "destination" in doc_dict and "address" in doc_dict["destination"]:
-        dst_ip = cast_to_ipaddress(dict_get(doc_dict, "destination.address"))
+        mlog.warning("create_flow_from_doc - No source IP found in Elastic-SIEM document. Using host's IP: " + str(src_ip))
+        src_ip = cast_to_ipaddress(host_ip, False)
+        if not src_ip:
+            mlog.error(
+                "create_flow_from_doc - No source IP casted in Elastic-SIEM document, even though the field host.ip has a value. Skipping flow."
+            )
+            return None
+
+    if "destination" in doc_dict and "address" in doc_dict["destination"] or dict_get(doc_dict, "destination.ip"):
+        dst_ip = cast_to_ipaddress(dict_get(doc_dict, "destination.address"), False)
+        if not dst_ip:
+            dst_ip = cast_to_ipaddress(dict_get(doc_dict, "destination.ip"))
+
+        if not dst_ip:
+            mlog.error(
+                "create_flow_from_doc - No destination IP casted in Elastic-SIEM document, even though the field destination.ip or destination.address have a value. Skipping flow."
+            )
+            return None
 
         # Get destination location if possible
         if "geo" in doc_dict["destination"]:
@@ -209,8 +250,15 @@ def create_flow_from_doc(mlog, doc_dict, detection_id):
                     "create_flow_from_doc - Could not parse destination flow location from Elastic-SIEM document: " + str(e)
                 )
     else:
-        dst_ip = cast_to_ipaddress(dict_get(doc_dict, "host.ip")[0])
+        host_ip, _ = get_host_ip_from_doc(doc_dict)
         mlog.warning("create_flow_from_doc - No destination IP found in Elastic-SIEM document. Using host's IP: " + str(src_ip))
+
+        dst_ip = cast_to_ipaddress(host_ip, False)
+        if not dst_ip:
+            mlog.error(
+                "create_flow_from_doc - No destination IP casted in Elastic-SIEM document, even though the field host.ip has a value. Skipping flow."
+            )
+            return None
 
     # Get http object if applicable
     http = None
@@ -1089,17 +1137,7 @@ def zs_provide_new_detections(config, TEST="") -> List[Detection]:
         host_ip = None
         global_ip = None
 
-        if dict_get(doc_dict, "host.ip") is not None:
-            for ip in doc_dict["host"]["ip"]:
-                ip_casted = cast_to_ipaddress(ip, False)
-                if ip_casted is not None and ip_casted.is_private:
-                    if ip.startswith("10."):
-                        host_ip = ip_casted
-                        break  # This is prefered, therefore break here
-                    elif ip.startswith("192.168."):
-                        host_ip = ip_casted  # Continue loop to maybe find a 10.* IP
-                elif ip_casted and ip_casted.is_global:
-                    global_ip = ip_casted
+        host_ip, global_ip = get_host_ip_from_doc(doc_dict)
 
         mlog.debug("Decided host IP: " + str(host_ip))
         detection_id = doc_dict["kibana.alert.uuid"]
