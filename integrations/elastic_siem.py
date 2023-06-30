@@ -568,6 +568,7 @@ def search_entity_by_id(
     """
     mlog.debug("search_entity_by_id() - called with entity_id '" + str(entity_id) + "' and entity_type: " + entity_type)
     skip_cache = False
+    timezone_offset = "+0:00"
 
     # Check if entity_type is valid first
     valid_entity_types = [
@@ -585,7 +586,7 @@ def search_entity_by_id(
     if entity_type not in valid_entity_types:
         raise NotImplementedError(f"search_entity_by_id() - entity_type '{entity_type}' not implemented")
 
-    if type(entity_id) == ipaddress.IPv4Address or type(entity_id) == ipaddress.IPv6Address:
+    if entity_type in ["dest_ip_process", "host_ip_process", "host_ip_flow", "host_ip_file", "host_ip_registry"]:
         entity_id = str(entity_id)
         search_start = str(search_start.isoformat())
         search_end = str(search_end.isoformat())
@@ -599,7 +600,7 @@ def search_entity_by_id(
             timezone_offset = "-0" + str(timezone_offset) + ":00"
         else:
             timezone_offset = "+0:00"
-        mlog.debug("search_entity_by_id() - timezone_offset: " + str(timezone_offset))
+        mlog.debug("search_entity_by_id() - calculated timezone_offset: " + str(timezone_offset))
 
     # Now, check if the enity is in the cache (except for parent_process)
     if (
