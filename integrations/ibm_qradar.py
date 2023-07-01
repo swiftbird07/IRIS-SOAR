@@ -346,14 +346,14 @@ class QRadar:
         except requests.exceptions.RequestException as e:
             self.client.mlog.error("Error in set_tag(): " + str(e))
 
-    def create_note(self, offense, ticket):
+    def create_note(self, offense, uuid):
         try:
             _ = self.client.request(
                 method="POST",
                 path="/api/siem/offenses/{:d}/notes".format(offense),
                 params={
                     "fields": "",
-                    "note_text": "Ticket #" + str(ticket),
+                    "note_text": "Detection Created UUID: " + str(uuid),
                 },
             )
         except requests.exceptions.RequestException as e:
@@ -866,6 +866,7 @@ def zs_provide_new_detections(config, TEST=False) -> List[Detection]:
             )
             try:
                 qradar.set_tag(offense["id"], TEST)  # acknowledge offense
+                qradar.create_note(offense["id"], detection.uuid)
                 detections.append(detection)
             except Exception:
                 mlog.error(
