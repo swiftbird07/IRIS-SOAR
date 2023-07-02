@@ -154,6 +154,9 @@ def get_host_ip_from_doc(doc_dict):
     global_ip = None
 
     if dict_get(doc_dict, "host.ip") is not None:
+        if type(doc_dict["host"]["ip"]) is str:
+            doc_dict["host"]["ip"] = [doc_dict["host"]["ip"]]
+
         for ip in doc_dict["host"]["ip"]:
             ip_casted = cast_to_ipaddress(ip, False)
             if ip_casted is not None and ip_casted.is_private:
@@ -198,12 +201,13 @@ def create_flow_from_doc(mlog, doc_dict, detection_id):
         # Get source location if possible
         if "geo" in doc_dict["source"]:
             try:
-                long_lat = doc_dict["source"]["geo"]["location"]
+                long_lat = dict_get(doc_dict, "source.geo.location")
+
                 src_location = Location(
                     dict_get(doc_dict, "source.geo.country_name"),
                     dict_get(doc_dict, "source.geo.city_name"),
-                    long_lat["lat"],
-                    long_lat["lon"],
+                    long_lat["lat"] if long_lat else None,
+                    long_lat["lon"] if long_lat else None,
                     asn=dict_get(doc_dict, "source.as.number"),
                     org=dict_get(doc_dict, "source.as.organization.name"),
                     certainty=80,
@@ -235,12 +239,13 @@ def create_flow_from_doc(mlog, doc_dict, detection_id):
         # Get destination location if possible
         if "geo" in doc_dict["destination"]:
             try:
-                long_lat = doc_dict["destination"]["geo"]["location"]
+                long_lat = dict_get(doc_dict, "destination.geo.location")
+
                 dst_location = Location(
                     dict_get(doc_dict, "destination.geo.country_name"),
                     dict_get(doc_dict, "destination.geo.city_name"),
-                    long_lat["lat"],
-                    long_lat["lon"],
+                    long_lat["lat"] if long_lat else None,
+                    long_lat["lon"] if long_lat else None,
                     asn=dict_get(doc_dict, "destination.as.number"),
                     org=dict_get(doc_dict, "destination.as.organization.name"),
                     certainty=80,
@@ -313,7 +318,13 @@ def create_flow_from_doc(mlog, doc_dict, detection_id):
         except Exception as e:
             mlog.warning("create_flow_from_doc - Could not parse flow's DNS from Elastic-SIEM document: " + str(e))
 
-    # Create the flow object
+    source_bytes = int(dict_get(doc_dict, "destination.bytes")) if dict_get(doc_dict, "destination.bytes") else None
+    destination_bytes = int(dict_get(doc_dict, "source.bytes")) if dict_get(doc_dict, "source.bytes") else None
+    if source_bytes is None:
+        source_bytes = int(dict_get(doc_dict, "suricata.eve.flow.bytes_toclient"))
+    if destination_bytes is None:
+        destination_bytes = int(dict_get(doc_dict, "suricata.eve.flow.bytes_toserver"))
+
     flow = ContextFlow(
         detection_id,
         dict_get(doc_dict, "@timestamp"),
@@ -327,8 +338,8 @@ def create_flow_from_doc(mlog, doc_dict, detection_id):
         dict_get(doc_dict, "process.name"),
         dict_get(doc_dict, "process.pid"),
         None,
-        dict_get(doc_dict, "source.bytes"),
-        dict_get(doc_dict, "destination.bytes"),
+        source_bytes,
+        destination_bytes,
         dict_get(doc_dict, "host.mac")[0] if dict_get(doc_dict, "host.mac") else None,
         None,
         dict_get(doc_dict, "host.name"),
@@ -342,9 +353,12 @@ def create_flow_from_doc(mlog, doc_dict, detection_id):
         http=http,
         dns_query=dns,
         detection_relevance=50,
+        firewall_action=dict_get(doc_dict, "event.action") if dict_get(doc_dict, "event.action") else "Unknown",
+        firewall_rule_id=dict_get(doc_dict, "rule.ruleset"),
     )
 
-    mlog.debug("Created flow: " + str(flow))
+    flow_str = str(flow)
+    mlog.debug("Created flow: " + flow_str)
     return flow
 
 
@@ -586,7 +600,7 @@ def search_entity_by_id(
     if entity_type not in valid_entity_types:
         raise NotImplementedError(f"search_entity_by_id() - entity_type '{entity_type}' not implemented")
 
-    if entity_type in ["dest_ip_process", "host_ip_process", "host_ip_flow", "host_ip_file", "host_ip_registry"]:
+    if entity_type in ["host_ip_process", "host_ip_flow", "host_ip_file", "host_ip_registry"]:
         entity_id = str(entity_id)
         search_start = str(search_start.isoformat())
         search_end = str(search_end.isoformat())

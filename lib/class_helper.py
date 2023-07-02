@@ -1579,12 +1579,16 @@ class ContextFlow:
         self.device = device
 
         self.firewall_action = firewall_action
-        if firewall_action not in ["Permit", "Deny", "Reject", "Unknown"]:
+        if firewall_action == "blocked":
+            self.firewall_action = "Deny"
+
+        if (bytes_received is not None and bytes_received == 0) or (bytes_send is not None and bytes_send == 0):
+            self.firewall_action = "Deny / Failed Connection"
+
+        if self.firewall_action not in ["Permit", "Deny", "Deny / Failed Connection", "Reject", "Unknown"]:
             raise ValueError("firewall_action must be either Permit, Deny, Reject or Unknown")
 
         self.firewall_rule_id = firewall_rule_id
-        if firewall_rule_id is not None and (type(firewall_rule_id) != int or firewall_rule_id < 0):
-            raise ValueError("firewall_rule_id must be an integer greater than 0")
 
         self.uuid = uuid
         self.detection_relevance = handle_percentage(detection_relevance)
@@ -1598,7 +1602,7 @@ class ContextFlow:
             "timestamp": str(self.timestamp),
             "data": self.data,
             "integration": self.integration,
-            "firewall_action": self.firewall_action if self.firewall_action != "Unknown" else None,
+            "firewall_action": self.firewall_action,
             "source_ip": str(self.source_ip),
             "source_location": str(self.source_location),
             "source_port": self.source_port,
@@ -1617,6 +1621,8 @@ class ContextFlow:
             "sub_category": self.sub_category,
             "flow_direction": self.flow_direction,
             "flow_id": self.flow_id,
+            "bytes_send": self.bytes_send,
+            "bytes_received": self.bytes_received,
             "interface": self.interface,
             "network": self.network,
             "network_type": self.network_type,

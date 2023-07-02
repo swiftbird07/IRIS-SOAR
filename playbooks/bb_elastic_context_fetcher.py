@@ -204,7 +204,7 @@ def bb_get_context_process_network_flows(
         list -- A list of ContextFlow objects related to the detected process.
         list -- A list of other ContextFlow objects
     """
-    detected_process_flows = None
+    detected_process_flows = []
 
     # Gather network flows from alerted process
     try:
@@ -222,7 +222,7 @@ def bb_get_context_process_network_flows(
         if detection.flow:
             detected_process_flows.append(detection.flow)
 
-        if detected_process_flows is None:
+        if len(detected_process_flows) == 0:
             mlog.warning(f"Got no network flows for detection.")
             detection_report.update_audit(
                 current_action.set_warning(warning_message=f"Found no network flows for detected process."), logger=mlog
@@ -331,7 +331,7 @@ def bb_get_context_process_file_events(
         list -- A list of file names
     """
     # Gather file events from alerted process
-    detected_process_file_events = None
+    detected_process_file_events = []
     file_names = []
     try:
         current_action = AuditLog(
@@ -344,7 +344,7 @@ def bb_get_context_process_file_events(
         if detection.file:
             detected_process_file_events.append(detection.file)
 
-        if detected_process_file_events is None:
+        if len(detected_process_file_events) == 0:
             mlog.warning(f"Got no file events for detection.")
             detection_report.update_audit(
                 current_action.set_warning(warning_message=f"Found no file events for detected process."), logger=mlog
@@ -434,7 +434,7 @@ def bb_get_context_process_registry_events(
         list -- A list of registry keys
     """
     # Gatther registry events from detected process
-    detected_process_registry_events = None
+    detected_process_registry_events = []
     try:
         current_action = AuditLog(
             playbook_name,
@@ -449,7 +449,7 @@ def bb_get_context_process_registry_events(
         if detection.registry:
             detected_process_registry_events.append(detection.registry)
 
-        if detected_process_registry_events is None:
+        if len(detected_process_registry_events) == 0:
             mlog.warning(f"Got no registry events from detected process.")
             detection_report.update_audit(
                 current_action.set_warning(warning_message=f"Found no registry events for detected process."), logger=mlog
