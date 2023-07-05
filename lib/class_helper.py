@@ -3636,3 +3636,13 @@ class CaseFile:
                 return self.ticket.field_get("TicketID")
         else:
             raise ValueError("The case_file has no ticket.")
+
+    def get_ticket_title(self):
+        """Returns the ticket title of the case."""
+        if self.ticket is not None:
+            try:
+                return self.ticket["Title"]
+            except:
+                return self.ticket.field_get("Title")
+        else:
+            raise ValueError("The case_file has no ticket.")

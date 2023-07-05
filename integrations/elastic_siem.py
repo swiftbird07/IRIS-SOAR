@@ -321,9 +321,17 @@ def create_flow_from_doc(mlog, doc_dict, detection_id):
     source_bytes = int(dict_get(doc_dict, "destination.bytes")) if dict_get(doc_dict, "destination.bytes") else None
     destination_bytes = int(dict_get(doc_dict, "source.bytes")) if dict_get(doc_dict, "source.bytes") else None
     if source_bytes is None:
-        source_bytes = int(dict_get(doc_dict, "suricata.eve.flow.bytes_toclient"))
+        source_bytes = (
+            int(dict_get(doc_dict, "suricata.eve.flow.bytes_toclient"))
+            if dict_get(doc_dict, "suricata.eve.flow.bytes_toclient")
+            else None
+        )
     if destination_bytes is None:
-        destination_bytes = int(dict_get(doc_dict, "suricata.eve.flow.bytes_toserver"))
+        destination_bytes = (
+            int(dict_get(doc_dict, "suricata.eve.flow.bytes_toserver"))
+            if dict_get(doc_dict, "suricata.eve.flow.bytes_toserver")
+            else None
+        )
 
     flow = ContextFlow(
         detection_id,
@@ -1206,6 +1214,7 @@ def zs_provide_new_detections(config, TEST="") -> List[Detection]:
             registry=registry,
             uuid=detection_id,
             device=device,
+            severity=doc_dict["kibana.alert.risk_score"],
         )
         mlog.info("Created detection: " + str(detection))
         detections.append(detection)

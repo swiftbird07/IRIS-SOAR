@@ -119,7 +119,7 @@ def zs_handle_detection(case_file: CaseFile, TEST=False) -> CaseFile:
     try:
         handle_percentage(highest_severity)  # throws an exception if the percentage is not between 0 and 100
 
-        if highest_severity == 0:
+        if highest_severity <= 1:
             case_file.threat_level = "negligible"
         elif highest_severity <= 25:
             case_file.threat_level = "low"
@@ -133,7 +133,7 @@ def zs_handle_detection(case_file: CaseFile, TEST=False) -> CaseFile:
         mlog.error(f"Could not handle percentage '{highest_severity}'")
         case_file.update_audit(init_action.set_error(message=f"Could not handle percentage '{highest_severity}'"), mlog)
     # Set the case title based on the ticket title
-    case_file.title = case_file.ticket["Ticket"]["Title"]
+    case_file.title = case_file.get_ticket_title()
 
     # Set the priority of the ticket
     current_action = AuditLog(
