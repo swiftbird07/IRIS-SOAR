@@ -11,3 +11,5 @@ mock
 pytest
 # For Znuny/OTRS integration
 pyotrs
+# For Matrix integration
+matrix_client

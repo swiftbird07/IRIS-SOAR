@@ -3234,7 +3234,7 @@ class DetectionReport:
             self.detections = [detections]
 
         self.action = None
-        self.action_result = None
+        self.action_result = "undetermined"  # One of "undetermined", "unknown_unresolved", "unknown_resolved", "known_false-positive", "known_non-issue", "incident_resolved", "incident_unresolved"
         self.action_result_message = None
         self.action_result_data = None
         self.audit_trail: List[AuditLog] = [

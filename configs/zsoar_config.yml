@@ -28,6 +28,17 @@ integrations:
     qradar_api_key: $ZS_INT_QRADAR_API_KEY
     qradar_url: https://10.20.1.1
     qradar_verify_certs: false
+  matrix_notify:
+    enabled: true
+    logging:
+      log_level_file: info
+      log_level_stdout: warning
+      log_level_syslog: error
+    matrix_access_token: $ZS_INT_MATRIX_ACCESS_TOKEN
+    matrix_enabled: true
+    matrix_server: $ZS_INT_MATRIX_SERVER_URL
+    matrix_room_id: $ZS_INT_MATRIX_ROOM_ID
+    matrix_verify_certs: true
   virus_total:
     api_key: $ZS_INT_VIRUSTOTAL_API_KEY
     enabled: true

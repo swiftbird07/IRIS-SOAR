@@ -74,7 +74,7 @@ def zs_can_handle_detection(detection_report: DetectionReport) -> bool:
         mlog.info(f"Playbook '{PB_NAME}' cannot handle detection report '{detection_report.uuid}' as there is no ticket for it.")
         return False
 
-    # Check if any of the detecions of the detection report is an Elastic Alert
+    # Check if any of the detecions of the detection report has an indicator that is searchable in VirusTotal
     for detection in detection_report.detections:
         if (
             len(detection.indicators["ip"]) > 0
