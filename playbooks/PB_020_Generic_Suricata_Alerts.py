@@ -209,4 +209,25 @@ def zs_handle_detection(case_file: CaseFile, DRY_RUN=False) -> CaseFile:
         current_action.set_successful(message=f"Successfully updated ticket '{ticket_number}' title to '{title}'."), logger=mlog
     )
 
+    # Update Detection severity
+    current_action = AuditLog(
+        PB_NAME, 4, "Updating detection severity.", "Updating detection severity based on Suricata Alert Severity."
+    )
+    case_file.update_audit(current_action, logger=mlog)
+    max_severity = 0
+    for rule in rules_new:
+        if rule.severity and int(rule.severity) > max_severity:
+            max_severity = int(rule.severity)
+
+    if max_severity > 0:
+        detection.severity = max_severity
+        case_file.detections[0] = detection
+        case_file.update_audit(
+            current_action.set_successful(message=f"Successfully updated detection severity to '{max_severity}'."), logger=mlog
+        )
+    else:
+        case_file.update_audit(
+            current_action.set_warning(warning_message="Could not find any severity > 0 to update."), logger=mlog
+        )
+
     return case_file

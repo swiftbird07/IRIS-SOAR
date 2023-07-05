@@ -94,6 +94,8 @@ playbooks:
     enabled: true
   PB_110_Generic_VirusTotal:
     enabled: true
+  PB_900_Classify_and_Notify:
+    enabled: true
 setup:
   load_enviroment_variables: true
   setup_step: 2

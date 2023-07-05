@@ -1071,6 +1071,72 @@ def zs_update_ticket_title(case_file: CaseFile, title, DRY_RUN=False):
             return Exception("Title update failed. Znuny did not return a ticket number. Aborting title update.")
 
 
+def zs_update_ticket_priority(case_file: CaseFile, priority, DRY_RUN=False):
+    """Updates the priority of a ticket.
+
+    Args:
+        ticket_number (int): Ticket number of the ticket to update.
+        priority (str): New priority of the ticket.
+        DRY_RUN (bool, optional): If true, no actual changes will be made. Defaults to False.
+
+    Returns:
+        int: Ticket number of the updated ticket.
+    """
+    ticket_number = case_file.get_ticket_number()
+    ticket_id = case_file.get_ticket_id()
+
+    mlog.debug(f"Updating priority of ticket {ticket_number} to '{priority}'")
+    # Create client and session
+    client = create_client_session()
+
+    if DRY_RUN:
+        mlog.warning("Dry run mode is enabled. Not updating actual ticket.")
+        return ticket_number
+    else:
+        # Updating ticket priority
+        result = client.ticket_update(ticket_id=ticket_id, Priority=priority)
+
+        # Check if priority was updated successfully
+        try:
+            return result["TicketNumber"]
+        except KeyError:
+            mlog.critical("Priority update failed. Znuny did not return a ticket number. Aborting priority update.")
+            return Exception("Priority update failed. Znuny did not return a ticket number. Aborting priority update.")
+
+
+def zs_update_ticket_state(case_file: CaseFile, state, DRY_RUN=False):
+    """Updates the state of a ticket.
+
+    Args:
+        ticket_number (int): Ticket number of the ticket to update.
+        state (str): New state of the ticket.
+        DRY_RUN (bool, optional): If true, no actual changes will be made. Defaults to False.
+
+    Returns:
+        int: Ticket number of the updated ticket.
+    """
+    ticket_number = case_file.get_ticket_number()
+    ticket_id = case_file.get_ticket_id()
+
+    mlog.debug(f"Updating state of ticket {ticket_number} to '{state}'")
+    # Create client and session
+    client = create_client_session()
+
+    if DRY_RUN:
+        mlog.warning("Dry run mode is enabled. Not updating actual ticket.")
+        return ticket_number
+    else:
+        # Updating ticket state
+        result = client.ticket_update(ticket_id=ticket_id, State=state)
+
+        # Check if state was updated successfully
+        try:
+            return result["TicketNumber"]
+        except KeyError:
+            mlog.critical("State update failed. Znuny did not return a ticket number. Aborting state update.")
+            return Exception("State update failed. Znuny did not return a ticket number. Aborting state update.")
+
+
 if __name__ == "__main__":
     # This integration should not be called directly besides running the integration setup!
     main()

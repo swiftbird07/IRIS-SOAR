@@ -55,7 +55,7 @@ def zs_notify(config: dict, message: str, allow_multiple: bool = False) -> bool:
         response = matrix_client.send_message_event(
             room_id=MATRIX_ROOM_ID,
             event_type="m.room.message",
-            content={"msgtype": "m.text", "body": message},
+            content={"msgtype": "m.text", "format": "org.matrix.custom.html", "body": message, "formatted_body": message},
         )
 
         if dict_get(response, "event_id") is None:

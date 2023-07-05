@@ -20,18 +20,16 @@ PB_AUTHOR = "Martin Offermann"
 PB_LICENSE = "MIT"
 PB_ENABLED = True
 
-TICKET_URL_PATH = "/otrs/index.pl?Action=AgentTicketZoom;TicketID="  # The path to the ticket in the OTRS web interface
+TICKET_URL_PATH = "/znuny/index.pl?Action=AgentTicketZoom;TicketID="  # The path to the ticket in the OTRS web interface
 NOTIFY_RESOLVED_CASES = True  # If resolved cases should still be notified
-import ipaddress
-from typing import Union, List
 
 import lib.logging_helper as logging_helper
-from lib.class_helper import CaseFile, ContextProcess, AuditLog, Detection, ContextThreatIntel, DNSQuery, HTTP
+from lib.class_helper import CaseFile, AuditLog
 from lib.config_helper import Config
-from lib.generic_helper import cast_to_ipaddress, format_results, is_local_tld, handle_percentage
+from lib.generic_helper import handle_percentage
 
 from integrations.matrix_notify import zs_notify
-from integrations.znuny_otrs import zs_add_note_to_ticket, zs_get_ticket_by_number, zs_set_ticket_priority
+from integrations.znuny_otrs import zs_get_ticket_by_number, zs_update_ticket_priority, zs_update_ticket_state
 
 # Prepare the logger
 cfg = Config().cfg
@@ -50,17 +48,17 @@ def get_emoji_for_threat_level(threat_level: str) -> str:
         str: The emoji for the threat level
     """
     if threat_level == "negligible":
-        return ":white_circle:"
+        return "⚪️"
     elif threat_level == "low":
-        return ":green_circle:"
+        return "🟢"
     elif threat_level == "medium":
-        return ":yellow_circle:"
+        return "🟡"
     elif threat_level == "high":
-        return ":orange_circle:"
+        return "🟠"
     elif threat_level == "critical":
-        return ":red_circle:"
+        return "🔴"
     else:
-        return ":question:"
+        return "⍰"
 
 
 def zs_can_handle_detection(case_file: CaseFile) -> bool:
@@ -111,7 +109,7 @@ def zs_handle_detection(case_file: CaseFile, TEST=False) -> CaseFile:
     # Get the highest severity of all detections
     highest_severity = 0
     for detection in case_file.detections:
-        if detection.severity > highest_severity:
+        if detection.severity and detection.severity > highest_severity:
             highest_severity = detection.severity
     case_file.update_audit(
         init_action.set_successful(message=f"Got the highest severity of all detections. Severity: {highest_severity}"), mlog
@@ -134,6 +132,8 @@ def zs_handle_detection(case_file: CaseFile, TEST=False) -> CaseFile:
     except Exception:
         mlog.error(f"Could not handle percentage '{highest_severity}'")
         case_file.update_audit(init_action.set_error(message=f"Could not handle percentage '{highest_severity}'"), mlog)
+    # Set the case title based on the ticket title
+    case_file.title = case_file.ticket["Ticket"]["Title"]
 
     # Set the priority of the ticket
     current_action = AuditLog(
@@ -175,7 +175,7 @@ def zs_handle_detection(case_file: CaseFile, TEST=False) -> CaseFile:
 
     mlog.info(f"Setting priority of ticket '{ticket_number}' to '{priority}'")
     if TEST == False:
-        if zs_set_ticket_priority(ticket_number, priority) == False:
+        if zs_update_ticket_priority(case_file, priority) == False:
             mlog.error(f"Could not set priority of ticket '{ticket_number}' to '{priority}'")
             case_file.update_audit(
                 current_action.set_failed(f"Could not set priority of ticket '{ticket_number}' to '{priority}'"), mlog
@@ -188,7 +188,7 @@ def zs_handle_detection(case_file: CaseFile, TEST=False) -> CaseFile:
         current_action = AuditLog(PB_NAME, 2, "Closing ticket", "Closing the ticket as the case is resolved.")
         case_file.update_audit(current_action, mlog)
         if TEST == False:
-            if zs_set_ticket_state(ticket_number, "closed successful") == False:
+            if zs_update_ticket_state(case_file, "closed successful") == False:
                 mlog.error(f"Could not close ticket '{ticket_number}'")
                 case_file.update_audit(current_action.set_failed(f"Could not close ticket '{ticket_number}'"), mlog)
                 return case_file
@@ -205,6 +205,7 @@ def zs_handle_detection(case_file: CaseFile, TEST=False) -> CaseFile:
     case_file.update_audit(current_action, mlog)
     ticket_url = cfg["integrations"]["znuny_otrs"]["url"]
     ticket_url += TICKET_URL_PATH
+    ticket_url += str(case_file.get_ticket_id())
 
     emoji = "ℹ️"  # default emoji (undetermined)
     if case_file.status == "resolved":
@@ -250,19 +251,20 @@ def zs_handle_detection(case_file: CaseFile, TEST=False) -> CaseFile:
         + len(case_file.context_threat_intel)
     )
 
-    message = f"#### {emoji} New `{case_file.status.upper()}` `{case_file.result.upper()}` ticket was created in Znuny.\n\n"
-    message += f"#### Title\n\n`{case_file.title}`\n\n"
-    message += f"#### Threat Type\n\n`{case_file.threat_type}`\n\n"
+    message = f"<h4>{emoji} New <code>{case_file.status.upper()}</code> <code>{case_file.result.upper()}</code> ticket was created in Znuny.</h4>\n\n"
+    message += f"<h4>Title</h4>\n\n<p><code>{case_file.title}</code></p>\n\n"
+    message += f"<h4>Threat Type</h4>\n\n<p><code>{case_file.threat_type}</code></p>\n\n"
+    message += f"<h4>Threat Level</h4>\n\n<p><code>{case_file.threat_level.capitalize()} {get_emoji_for_threat_level(case_file.threat_level)}</code></p>\n\n"
+    message += f"<h4>Statistics:</h4>\n\n<pre>\n- Confidence: {case_file.result_confidence}\n- Playbooks handled: {str(len(case_file.playbooks))}\n- Number of Gathered Context Objects: {str(number_of_gathered_context_objects)}\n</pre>\n\n"
     message += (
-        f"#### Threat Level\n\n`{case_file.threat_level.capitalize()} {get_emoji_for_threat_level(case_file.threat_level)}`\n\n"
+        f"<h4>Resolved?</h4>\n\n<ul>\n  <li><code>Yes</code></li>\n</ul>\n\n"
+        if case_file.status == "resolved"
+        else f"<h4>Resolved?</h4>\n\n<ul>\n  <li><code>No</code></li>\n</ul>\n\n"
     )
-    message += f"#### Statistics:\n\n```\n- Confidence: {case_file.result_confidence}\n- Playbooks handled: {str(len(case_file.playbooks))}\n- Number of Gathered Context Objects: {str(number_of_gathered_context_objects)}\n```\n\n"
-    message += f"#### Resolved?\n\n- `Yes`\n\n" if case_file.status == "resolved" else f"#### Resolved?\n\n- `No`\n\n"
-    message += f"#### Ticket URL\n\n{ticket_url}\n\n"
+    message += f"<h4>Ticket URL</h4>\n\n<p>{ticket_url}</p>\n\n"
 
     # Then send the message
-    if TEST == False:
-        if zs_notify(cfg["matrix_notify"], message, False):
-            case_file.update_audit(current_action.set_successful("Notified user"), mlog)
-        else:
-            case_file.update_audit(current_action.set_failed("Failed to notify user."), mlog)
+    if zs_notify(cfg["integrations"]["matrix_notify"], message, TEST):
+        case_file.update_audit(current_action.set_successful("Notified user"), mlog)
+    else:
+        case_file.update_audit(current_action.set_error(message="Failed to notify user."), mlog)
