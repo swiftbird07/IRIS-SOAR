@@ -20,7 +20,7 @@ PB_AUTHOR = "Martin Offermann"
 PB_LICENSE = "MIT"
 PB_ENABLED = True
 
-from lib.class_helper import DetectionReport, AuditLog, Detection, ContextLog, ContextFlow, ContextFile
+from lib.class_helper import CaseFile, AuditLog, Detection, ContextLog, ContextFlow, ContextFile
 from lib.logging_helper import Log
 from lib.config_helper import Config
 from integrations.znuny_otrs import zs_create_ticket, zs_add_note_to_ticket, zs_get_ticket_by_number
@@ -33,11 +33,11 @@ log_level_stdout = cfg["integrations"]["ibm_qradar"]["logging"]["log_level_stdou
 mlog = Log("playbooks." + PB_NAME, log_level_file, log_level_stdout)
 
 
-def zs_can_handle_detection(detection_report: DetectionReport) -> bool:
+def zs_can_handle_detection(case_file: CaseFile) -> bool:
     """Checks if this playbook can handle the detection.
 
     Args:
-        detection_report (DetectionReport): The detection report
+        case_file (CaseFile): The detection case
 
     Returns:
         bool: True if the playbook can handle the detection, False if not
@@ -45,34 +45,34 @@ def zs_can_handle_detection(detection_report: DetectionReport) -> bool:
     if PB_ENABLED == False:
         mlog.info(f"Playbook '{PB_NAME}' is disabled. Not handling detection.")
         return False
-    # Check if any of the detecions of the detection report is a QRadar Offense
-    for detection in detection_report.detections:
+    # Check if any of the detecions of the detection case is a QRadar Offense
+    for detection in case_file.detections:
         if detection.vendor_id == "IBM QRadar":
             mlog.info(f"Playbook '{PB_NAME}' can handle detection '{detection.name}' ({detection.uuid}).")
             return True
     return False
 
 
-def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> DetectionReport:
+def zs_handle_detection(case_file: CaseFile, DRY_RUN=False) -> CaseFile:
     """Handles the detection.
 
     Args:
-        detection_report (DetectionReport): The detection report
+        case_file (CaseFile): The detection case
         DRY_RUN (bool, optional): If True, no external changes will be made. Defaults to False.
 
     Returns:
-        DetectionReport: The detection report with the context processes
+        CaseFile: The detection case with the context processes
     """
-    detection_title = detection_report.get_title()
+    detection_title = case_file.get_title()
     detections_to_handle = []
-    for detection in detection_report.detections:
+    for detection in case_file.detections:
         if detection.vendor_id == "IBM QRadar":
             mlog.debug(f"Adding detection: '{detection.name}' ({detection.uuid}) to list.")
             detections_to_handle.append(detection)
 
     if len(detections_to_handle) == 0:
-        mlog.critical("Found no detections in detection report to handle.")
-        return detection_report
+        mlog.critical("Found no detections in detection case to handle.")
+        return case_file
 
     detection: Detection = detections_to_handle[0]  # We primarily handle the first detection
 
@@ -81,34 +81,34 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
         PB_NAME,
         0,
         f"Checking Whitelist for detection '{detection_title}'",
-        "Started handling detection report. Checking first if any detections are whitelisted.",
+        "Started handling detection case. Checking first if any detections are whitelisted.",
     )
-    detection_report.update_audit(current_action, logger=mlog)
+    case_file.update_audit(current_action, logger=mlog)
     mlog.info(f"Checking global whitelist for detection: '{detection.name}' ({detection.uuid})")
     if detection.check_against_whitelist():
-        detection_report.update_audit(current_action.set_successful(message="Detection is whitelisted, skipping."), logger=mlog)
-        return detection_report
-    detection_report.update_audit(current_action.set_successful(message="Detection is not whitelisted."), logger=mlog)
+        case_file.update_audit(current_action.set_successful(message="Detection is whitelisted, skipping."), logger=mlog)
+        return case_file
+    case_file.update_audit(current_action.set_successful(message="Detection is not whitelisted."), logger=mlog)
 
     current_action = AuditLog(PB_NAME, 1, f"Creating ticket", f"Creating ticket for detection '{detection_title}'")
     # Create initial ticket for detection
     ticket_number = zs_create_ticket(
-        detection_report, detection, False, auto_detection_note=True, playbook_name=PB_NAME, playbook_step=1
+        case_file, detection, False, auto_detection_note=True, playbook_name=PB_NAME, playbook_step=1
     )
     if not ticket_number:
         mlog.critical(f"Could not create ticket for detection: '{detection.name}' ({detection.uuid})")
-        detection_report.update_audit(current_action.set_error(message=f"Could not create ticket."), logger=mlog)
-        return detection_report
-    detection_report.update_audit(current_action.set_successful(message=f"Created ticket '{ticket_number}'."), logger=mlog)
+        case_file.update_audit(current_action.set_error(message=f"Could not create ticket."), logger=mlog)
+        return case_file
+    case_file.update_audit(current_action.set_successful(message=f"Created ticket '{ticket_number}'."), logger=mlog)
 
-    # Create additional notes for each other detection in the detection report
-    if len(detection_report.detections) > 1:
+    # Create additional notes for each other detection in the detection case
+    if len(case_file.detections) > 1:
         sub_step = 1
-        for other_detection in detection_report.detections:
+        for other_detection in case_file.detections:
             if other_detection.uuid != detection.uuid:
                 zs_add_note_to_ticket(
                     ticket_number,
-                    detection_report,
+                    case_file,
                     other_detection,
                     False,
                     auto_detection_note=True,
@@ -117,12 +117,12 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
                 )
                 sub_step += 1
 
-    # Add ticket to detection (-report)
-    mlog.debug(f"Adding ticket to detection and detection report.")
+    # Add ticket to detection (-case)
+    mlog.debug(f"Adding ticket to detection and detection case.")
     if not DRY_RUN:
         ticket = zs_get_ticket_by_number(ticket_number)
         detection.ticket = ticket
-        detection_report.add_context(ticket)
+        case_file.add_context(ticket)
 
     # Gather offense related context
     current_action = AuditLog(
@@ -131,11 +131,11 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
         f"Gathering further context for offense '{detection_title}'",
         "Started gathering context of events that were in the original offense.",
     )
-    detection_report.update_audit(current_action, logger=mlog)
+    case_file.update_audit(current_action, logger=mlog)
     flows = []
-    flows = zs_provide_context_for_detections(detection_report, ContextFlow, search_type="offense", search_value=detection.uuid)
+    flows = zs_provide_context_for_detections(case_file, ContextFlow, search_type="offense", search_value=detection.uuid)
     if type(flows) is Exception:
-        detection_report.update_audit(
+        case_file.update_audit(
             current_action.set_error(
                 message=f"Could not gather context for offense '{detection_title}'. Error: {flows}", data=flows
             ),
@@ -144,12 +144,12 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
         flows = []
     elif flows:
         for flow in flows:
-            detection_report.add_context(flow)
+            case_file.add_context(flow)
 
     logs = []
-    logs = zs_provide_context_for_detections(detection_report, ContextLog, search_type="offense", search_value=detection.uuid)
+    logs = zs_provide_context_for_detections(case_file, ContextLog, search_type="offense", search_value=detection.uuid)
     if type(logs) is Exception:
-        detection_report.update_audit(
+        case_file.update_audit(
             current_action.set_error(
                 message=f"Could not gather context for offense '{detection_title}'. Error: {logs}", data=logs
             ),
@@ -158,12 +158,12 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
         logs = []
     elif logs:
         for log in logs:
-            detection_report.add_context(log)
+            case_file.add_context(log)
 
     files = []
-    files = zs_provide_context_for_detections(detection_report, ContextFile, search_type="offense", search_value=detection.uuid)
+    files = zs_provide_context_for_detections(case_file, ContextFile, search_type="offense", search_value=detection.uuid)
     if type(files) is Exception:
-        detection_report.update_audit(
+        case_file.update_audit(
             current_action.set_error(
                 message=f"Could not gather context for offense '{detection_title}'. Error: {files}", data=files
             ),
@@ -172,17 +172,17 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
         files = []
     elif files:
         for file in files:
-            detection_report.add_context(file)
+            case_file.add_context(file)
 
     if len(flows) > 0 or len(logs) > 0 or len(files) > 0:
-        detection_report.update_audit(
+        case_file.update_audit(
             current_action.set_successful(
                 message=f"Found {len(flows)} flows, {len(logs)} logs and {len(files)} files that were in the original offense."
             ),
             logger=mlog,
         )
     else:
-        detection_report.update_audit(
+        case_file.update_audit(
             current_action.set_warning(warning_message=f"Found no flows, logs or files that were in the original offense."),
             logger=mlog,
         )
@@ -196,7 +196,7 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
         False,
         playbook_name=PB_NAME,
         playbook_step=4,
-        detection_report=detection_report,
+        case_file=case_file,
         detection=detection,
         detection_contexts=flows,
     )
@@ -206,7 +206,7 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
         False,
         playbook_name=PB_NAME,
         playbook_step=5,
-        detection_report=detection_report,
+        case_file=case_file,
         detection=detection,
         detection_contexts=logs,
     )
@@ -216,25 +216,25 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
         False,
         playbook_name=PB_NAME,
         playbook_step=6,
-        detection_report=detection_report,
+        case_file=case_file,
         detection=detection,
         detection_contexts=files,
     )
 
     if not note_id_1 or type(note_id_1) is Exception:
-        detection_report.update_audit(
+        case_file.update_audit(
             current_action.set_error(message=f"Could not add context network to ticket '{ticket_number}'. Error: {note_id_1}"),
             logger=mlog,
         )
 
     if not note_id_2 or type(note_id_2) is Exception:
-        detection_report.update_audit(
+        case_file.update_audit(
             current_action.set_error(message=f"Could not add context log to ticket '{ticket_number}'. Error: {note_id_2}"),
             logger=mlog,
         )
 
     if not note_id_3 or type(note_id_3) is Exception:
-        detection_report.update_audit(
+        case_file.update_audit(
             current_action.set_error(message=f"Could not add context file to ticket '{ticket_number}'. Error: {note_id_3}"),
             logger=mlog,
         )
@@ -247,15 +247,15 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
         and type(note_id_2) is not Exception
         and type(note_id_3) is not Exception
     ):
-        detection_report.update_audit(
+        case_file.update_audit(
             current_action.set_successful(message=f"Successfully added all offense contexts to ticket '{ticket_number}'."),
             logger=mlog,
         )
 
-    # Add ticket to detection (-report)
-    mlog.debug(f"Adding ticket to detection and detection report.")
+    # Add ticket to detection (-case)
+    mlog.debug(f"Adding ticket to detection and detection case.")
     ticket = zs_get_ticket_by_number(ticket_number)
     detection.ticket = ticket
-    detection_report.add_context(ticket)
+    case_file.add_context(ticket)
 
-    return detection_report
+    return case_file

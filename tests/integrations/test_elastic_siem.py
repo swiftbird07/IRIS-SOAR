@@ -2,7 +2,7 @@
 
 import pytest
 
-from lib.class_helper import Detection, DetectionReport, Rule, ContextProcess, ContextLog, ContextFlow
+from lib.class_helper import Detection, CaseFile, Rule, ContextProcess, ContextLog, ContextFlow
 from integrations.elastic_siem import (
     zs_provide_new_detections,
     zs_provide_context_for_detections,
@@ -35,7 +35,7 @@ def test_zs_provide_context_for_detections():
     cfg = config_helper.Config().cfg
     integration_config = cfg["integrations"]["elastic_siem"]
 
-    # Prepare a DetectionReport object
+    # Prepare a CaseFile object
     rule = Rule("123", "Some Rule", 0)
 
     ruleList = []
@@ -44,19 +44,19 @@ def test_zs_provide_context_for_detections():
 
     detectionList = []
     detectionList.append(detection)
-    detection_report = DetectionReport(detectionList)
+    case_file = CaseFile(detectionList)
     assert (
-        detection_report != None
-    ), "DetectionReport class could not be initialized"  # Sanity check - should be already tested by test_zsoar_lib.py -> test_class_helper()
+        case_file != None
+    ), "CaseFile class could not be initialized"  # Sanity check - should be already tested by test_zsoar_lib.py -> test_class_helper()
 
     # Test the function
-    flows = zs_provide_context_for_detections(integration_config, detection_report, ContextFlow, TEST=True, search_value=86677)
+    flows = zs_provide_context_for_detections(integration_config, case_file, ContextFlow, TEST=True, search_value=86677)
     assert type(flows[0]) == ContextFlow, "zs_provide_context_for_detections() should return a ContextFlow object"
 
-    processes = zs_provide_context_for_detections(integration_config, detection_report, ContextProcess, TEST=True)
+    processes = zs_provide_context_for_detections(integration_config, case_file, ContextProcess, TEST=True)
     assert type(processes[0]) == ContextProcess, "zs_provide_context_for_detections() should return a ContextProcess object"
 
-    events = zs_provide_context_for_detections(integration_config, detection_report, ContextLog, TEST=True)
+    events = zs_provide_context_for_detections(integration_config, case_file, ContextLog, TEST=True)
     assert type(events[0]) == ContextLog, "zs_provide_context_for_detections() should return a ContextLog object"
 
     # Print the results
@@ -116,7 +116,7 @@ def test_online_context_for_detections():
     cfg = config_helper.Config().cfg
     integration_config = cfg["integrations"]["elastic_siem"]
 
-    # Prepare a DetectionReport object
+    # Prepare a CaseFile object
     rule = Rule("123", "Some Rule", 0)
 
     ruleList = []
@@ -125,14 +125,12 @@ def test_online_context_for_detections():
 
     detectionList = []
     detectionList.append(detection)
-    detection_report = DetectionReport(detectionList)
+    case_file = CaseFile(detectionList)
     assert (
-        detection_report != None
-    ), "DetectionReport class could not be initialized"  # Sanity check - should be already tested by test_zsoar_lib.py -> test_class_helper()
+        case_file != None
+    ), "CaseFile class could not be initialized"  # Sanity check - should be already tested by test_zsoar_lib.py -> test_class_helper()
 
-    flows = zs_provide_context_for_detections(
-        integration_config, detection_report, ContextFlow, TEST=False, search_value=ENTITY_ID
-    )
+    flows = zs_provide_context_for_detections(integration_config, case_file, ContextFlow, TEST=False, search_value=ENTITY_ID)
     assert type(flows[0]) == ContextFlow, "zs_provide_context_for_detections() should return a ContextFlow object"
 
 

@@ -86,7 +86,7 @@ def main(config, fromDaemon=False, debug=False):
     mlog.info("Started Z-SOAR worker script")
     mlog.info("Checking for new detections...")
     DetectionList = []
-    DetectionReportList = []
+    CaseFileList = []
 
     for integration in integrations:
         module_name = integration
@@ -148,15 +148,15 @@ def main(config, fromDaemon=False, debug=False):
             else:
                 mlog.info("Adding new detection " + detection.name + " (" + str(detection.uuid) + ") to the detection array.")
 
-                # For now every 'Detection' equals exactly one 'DetectionReport' (this may change in the future to reduce duplicates, etc..)
-                detection_report_tmp = class_helper.DetectionReport(detection)  # TODO: make this more advanced
+                # For now every 'Detection' equals exactly one 'CaseFile' (this may change in the future to reduce duplicates, etc..)
+                case_file_tmp = class_helper.CaseFile(detection)  # TODO: make this more advanced
 
-                DetectionList.append(detection_report_tmp)
+                DetectionList.append(case_file_tmp)
 
     # Loop through each detection
-    for detection_report in DetectionList:
-        detection_title = detection_report.get_title()
-        detection_id = detection_report.uuid
+    for case_file in DetectionList:
+        detection_title = case_file.get_title()
+        detection_id = case_file.uuid
         detectionHandled = False
 
         # Check every playbook if it can handle the detection
@@ -178,7 +178,7 @@ def main(config, fromDaemon=False, debug=False):
                 )
                 module_import = __import__("playbooks." + playbook_name)
                 playbook_import = getattr(module_import, playbook_name)
-                can_handle = playbook_import.zs_can_handle_detection(detection_report)
+                can_handle = playbook_import.zs_can_handle_detection(case_file)
             except Exception as e:
                 mlog.warning(
                     "The playbook "
@@ -194,7 +194,7 @@ def main(config, fromDaemon=False, debug=False):
                     mlog.info(
                         f"Playbook can handle the detection. Calling it to handle: '{detection_title}' ({str(detection_id)})"
                     )
-                    detection_report_new = playbook_import.zs_handle_detection(detection_report)
+                    case_file_new = playbook_import.zs_handle_detection(case_file)
                 except Exception as e:
                     mlog.warning(
                         "The playbook " + playbook_name + " failed to handle the detection. Error: " + traceback.format_exc()
@@ -202,18 +202,18 @@ def main(config, fromDaemon=False, debug=False):
                     continue
 
                 # Check if the playbook handled the detection correctly
-                if not isinstance(detection_report_new, class_helper.DetectionReport):
-                    mlog.error("The playbook " + playbook_name + " did not return a valid detection report. Skipping.")
+                if not isinstance(case_file_new, class_helper.CaseFile):
+                    mlog.error("The playbook " + playbook_name + " did not return a valid detection case. Skipping.")
                     continue
                 else:
                     mlog.info("The playbook " + playbook_name + " handled the detection correctly.")
                     detectionHandled = True
 
-                # Add the detection report to the detectior report array
+                # Add the detection case to the detectior case array
                 mlog.info(
-                    f"Adding detection report for detection {detection_title} ({str(detection_id)}) to the detection report array."
+                    f"Adding detection case for detection {detection_title} ({str(detection_id)}) to the detection case array."
                 )
-                DetectionReportList.append(detection_report_new)
+                CaseFileList.append(case_file_new)
             else:
                 mlog.info(f"Playbook can not handle the detection. Skipping.")
 

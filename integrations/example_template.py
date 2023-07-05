@@ -26,7 +26,7 @@ import lib.logging_helper as logging_helper
 from lib.class_helper import Rule, Detection
 
 # For context for detections (remove unused types):
-from lib.class_helper import DetectionReport, ContextFlow, ContextLog
+from lib.class_helper import CaseFile, ContextFlow, ContextLog
 
 LOG_LEVEL = "DEBUG"  # Force log level. Recommended to set to DEBUG during development.
 # from elasticsearch import Elasticsearch
@@ -45,7 +45,9 @@ def init_logging(config):
     Returns:
         logging_helper.Log: The logging object
     """
-    log_level_file = config["logging"]["log_level_file"]  # be aware that only configs from this integration are available not the general config
+    log_level_file = config["logging"][
+        "log_level_file"
+    ]  # be aware that only configs from this integration are available not the general config
     log_level_stdout = config["logging"]["log_level_stdout"]
     log_level_syslog = config["logging"]["log_level_syslog"]  # TODO: Add syslog support
 
@@ -99,12 +101,12 @@ def zs_provide_new_detections(config, test_return_dummy_data=False) -> List[Dete
 ############################################
 
 
-def zs_provide_context_for_detections(config, detection_report: DetectionReport, required_type: type, test=False) -> list:
-    """Returns a DetectionReport object with context for the detections from the XXX integration.
+def zs_provide_context_for_detections(config, case_file: CaseFile, required_type: type, test=False) -> list:
+    """Returns a CaseFile object with context for the detections from the XXX integration.
 
     Args:
         config (dict): The configuration dictionary for this integration
-        detection (DetectionReport): The DetectionReport object to add context to
+        detection (CaseFile): The CaseFile object to add context to
         required_type (type): The type of context to return. Can be one of the following:
             [ContextFlow, ContextLog]
         test (bool, optional): If set to True, dummy context data will be returned. Defaults to False.
@@ -113,15 +115,19 @@ def zs_provide_context_for_detections(config, detection_report: DetectionReport,
         list of [ContextFlow | ContextLog]: The required contexts of type 'required_type'
     """
     mlog = init_logging(config)
-    detection_report_str = "'" + detection_report.get_title() + "' (" + str(detection_report.uuid) + ")"
-    mlog.info(f"zs_provide_context_for_detections() called with detection report: {detection_report_str} and required_type: {required_type}")
+    case_file_str = "'" + case_file.get_title() + "' (" + str(case_file.uuid) + ")"
+    mlog.info(
+        f"zs_provide_context_for_detections() called with detection case: {case_file_str} and required_type: {required_type}"
+    )
 
     provided_typed = []
     provided_typed.append(ContextFlow)
     provided_typed.append(ContextLog)
 
     if required_type not in provided_typed:
-        mlog.error("The required type is not provided by this integration. '" + str(required_type) + "' is not in " + str(provided_typed))
+        mlog.error(
+            "The required type is not provided by this integration. '" + str(required_type) + "' is not in " + str(provided_typed)
+        )
         raise TypeError("The required type is not provided by this integration.")
 
     # ...
@@ -142,10 +148,13 @@ def zs_provide_context_for_detections(config, detection_report: DetectionReport,
                 "zs_provide_context_for_detections() returned the following context: "
                 + str(context_object)
                 + " for detection: "
-                + str(detection_report)
+                + str(case_file)
             )
         else:
             mlog.info(
-                "zs_provide_context_for_detections() found no context for detection: " + detection_name + " and required_type: " + str(required_type)
+                "zs_provide_context_for_detections() found no context for detection: "
+                + detection_name
+                + " and required_type: "
+                + str(required_type)
             )
     return return_objects

@@ -16,7 +16,7 @@ import traceback
 def zs_notify(config: dict, message: str, allow_multiple: bool = False) -> bool:
     """
     This function is used to send notifications to Matrix.
-    :param detection_report: The detection report object.
+    :param case_file: The detection case object.
     :param config: The configuration object.
     :param message: The message to send.
     :param allow_multiple: If multiple notifications with the same message should be allowed (default: False)

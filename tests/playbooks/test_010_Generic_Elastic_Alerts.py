@@ -10,7 +10,7 @@ import datetime
 import json
 
 import lib.logging_helper as logging_helper
-from lib.class_helper import DetectionReport, Detection, Rule, ContextProcess
+from lib.class_helper import CaseFile, Detection, Rule, ContextProcess
 from lib.config_helper import Config
 from playbooks.PB_010_Generic_Elastic_Alerts import zs_can_handle_detection, zs_handle_detection
 from playbooks.bb_elastic_process_context import bb_get_all_processes_by_uuid
@@ -27,7 +27,7 @@ def prepare_test():
     # Prepare the logger
     mlog = logging_helper.Log("test_PB_010_Generic_Elastic_Alerts")
 
-    # Prepare a DetectionReport object
+    # Prepare a CaseFile object
     rule = Rule("123", "Some Rule", 0)
 
     ruleList = []
@@ -37,27 +37,27 @@ def prepare_test():
 
     detectionList = []
     detectionList.append(detection)
-    detection_report = DetectionReport(detectionList)
+    case_file = CaseFile(detectionList)
 
-    process = bb_get_all_processes_by_uuid(detection_report, TEST_PROCESS_UID)
+    process = bb_get_all_processes_by_uuid(case_file, TEST_PROCESS_UID)
 
-    detection_report.add_context(process)
+    case_file.add_context(process)
     detection.process = process
 
     assert (
-        detection_report != None
-    ), "DetectionReport class could not be initialized"  # Sanity check - should be already tested by test_zsoar_lib.py -> test_class_helper()
-    return detection_report
+        case_file != None
+    ), "CaseFile class could not be initialized"  # Sanity check - should be already tested by test_zsoar_lib.py -> test_class_helper()
+    return case_file
 
 
 def test_zs_can_handle_detection():
-    detection_report = prepare_test()
+    case_file = prepare_test()
     # Test the function
-    can_handle = zs_can_handle_detection(detection_report)
-    assert can_handle == True, "zs_can_handle_detection() should return True for this detection report"
+    can_handle = zs_can_handle_detection(case_file)
+    assert can_handle == True, "zs_can_handle_detection() should return True for this detection case"
 
 
 def test_zs_handle_detection():
-    detection_report = prepare_test()
-    zs_handle_detection(detection_report, not TEST_ONLINE)
+    case_file = prepare_test()
+    zs_handle_detection(case_file, not TEST_ONLINE)
     assert True == True, "zs_handle_detection() should not raise an exception"

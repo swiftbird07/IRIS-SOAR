@@ -216,15 +216,13 @@ def update_audit_log(detection_uuid, new_action, logger=None):
         if type(logger) is Log:
             if is_update:
                 if new_action.result_had_warnings:
-                    logger.warning(f"[AUDIT_UPDATE] DetectionReport '{detection_uuid}' : {str_new_action}")
+                    logger.warning(f"[AUDIT_UPDATE] CaseFile '{detection_uuid}' : {str_new_action}")
                 elif new_action.result_had_errors:
-                    logger.error(f"[AUDIT_UPDATE] DetectionReport '{detection_uuid}' : {str_new_action}")
+                    logger.error(f"[AUDIT_UPDATE] CaseFile '{detection_uuid}' : {str_new_action}")
                 else:
-                    logger.info(
-                        f"[AUDIT_UPDATE] DetectionReport '{detection_uuid}' : {str_new_action}"
-                    )  # TODO: Fix this not working
+                    logger.info(f"[AUDIT_UPDATE] CaseFile '{detection_uuid}' : {str_new_action}")  # TODO: Fix this not working
             else:
-                logger.info(f"[AUDIT] DetectionReport '{detection_uuid}' : {str_new_action}")
+                logger.info(f"[AUDIT] CaseFile '{detection_uuid}' : {str_new_action}")
         else:
             mlog.error(f"Given logger object is not of type Log. Could not log to logger.")
     else:

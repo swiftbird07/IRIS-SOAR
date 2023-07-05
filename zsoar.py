@@ -16,7 +16,7 @@ import zsoar_daemon as zsoar_daemon
 import zsoar_worker as zsoar_worker
 
 TEST_CALL = True  # Stays True if the script is called by the test script
-REPORT_ZOMBIE_PROCESSES = False  # If True, the script will report zombie processes when searching for the PID of a script. If you are using the developing, this should be set to False as tests from pytest will hang otherwise.
+case_ZOMBIE_PROCESSES = False  # If True, the script will case zombie processes when searching for the PID of a script. If you are using the developing, this should be set to False as tests from pytest will hang otherwise.
 ALLOW_MULTIPLE_INSTANCES = (
     False  # If True, the script will allow multiple instances of Z-SOAR to run at the same time. This is not reccomended.
 )
@@ -65,9 +65,9 @@ def get_script_pid(mlog, script):
                     mlog.debug("'{}' script is running: {}. Command line: {}".format(script, str(q), str(q.cmdline())))
                     return q.pid
             except psutil.ZombieProcess:
-                if q.pid != os.getpid() and REPORT_ZOMBIE_PROCESSES:
+                if q.pid != os.getpid() and case_ZOMBIE_PROCESSES:
                     mlog.warning(
-                        "ZOMBIE Python process found: '{}' when searching for {} script. Will report it as instance of the searched script, as zombies can't be checked for command line.".format(
+                        "ZOMBIE Python process found: '{}' when searching for {} script. Will case it as instance of the searched script, as zombies can't be checked for command line.".format(
                             str(q), str(script)
                         )
                     )

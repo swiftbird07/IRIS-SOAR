@@ -23,7 +23,7 @@ PB_ENABLED = True
 
 from typing import Union, List
 import lib.logging_helper as logging_helper
-from lib.class_helper import DetectionReport, AuditLog, Detection
+from lib.class_helper import CaseFile, AuditLog, Detection
 from lib.config_helper import Config
 
 from integrations.znuny_otrs import zs_create_ticket, zs_add_note_to_ticket, zs_get_ticket_by_number
@@ -43,11 +43,11 @@ log_level_stdout = cfg["integrations"]["elastic_siem"]["logging"]["log_level_std
 mlog = logging_helper.Log("playbooks." + PB_NAME, log_level_file, log_level_stdout)
 
 
-def zs_can_handle_detection(detection_report: DetectionReport) -> bool:
+def zs_can_handle_detection(case_file: CaseFile) -> bool:
     """Checks if this playbook can handle the detection.
 
     Args:
-        detection_report (DetectionReport): The detection report
+        case_file (CaseFile): The detection case
 
     Returns:
         bool: True if the playbook can handle the detection, False if not
@@ -55,43 +55,43 @@ def zs_can_handle_detection(detection_report: DetectionReport) -> bool:
     if PB_ENABLED == False:
         mlog.info(f"Playbook '{PB_NAME}' is disabled. Not handling detection.")
         return False
-    # Check if any of the detecions of the detection report is an Elastic Alert
-    for detection in detection_report.detections:
+    # Check if any of the detecions of the detection case is an Elastic Alert
+    for detection in case_file.detections:
         if detection.vendor_id == "elastic_siem":
             mlog.info(f"Playbook '{PB_NAME}' can handle detection '{detection.name}' ({detection.uuid}).")
             return True
     return False
 
 
-def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> DetectionReport:
+def zs_handle_detection(case_file: CaseFile, DRY_RUN=False) -> CaseFile:
     """Handles the detection.
 
     Args:
-        detection_report (DetectionReport): The detection report
+        case_file (CaseFile): The detection case
         DRY_RUN (bool, optional): If True, no external changes will be made. Defaults to False.
 
     Returns:
-        DetectionReport: The detection report with the context processes
+        CaseFile: The detection case with the context processes
     """
-    detection_title = detection_report.get_title()
-    detection_id = detection_report.uuid
+    detection_title = case_file.get_title()
+    detection_id = case_file.uuid
     current_action = AuditLog(
         PB_NAME,
         0,
         f"Checking Whitelist for detection '{detection_title}'",
-        "Started handling detection report. Checking first if any detections are whitelisted.",
+        "Started handling detection case. Checking first if any detections are whitelisted.",
     )
-    detection_report.update_audit(current_action, logger=mlog)
+    case_file.update_audit(current_action, logger=mlog)
 
     detections_to_handle = []
-    for detection in detection_report.detections:
+    for detection in case_file.detections:
         if detection.vendor_id == "elastic_siem":
             mlog.debug(f"Adding detection: '{detection.name}' ({detection.uuid}) to list.")
             detections_to_handle.append(detection)
 
     if len(detections_to_handle) == 0:
-        mlog.critical("Found no detections in detection report to handle.")
-        return detection_report
+        mlog.critical("Found no detections in detection case to handle.")
+        return case_file
 
     detection: Detection = detections_to_handle[0]  #  We primarily handle the first detection
 
@@ -100,26 +100,26 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
     # First check the global whitelist for whitelist entries
     mlog.info(f"Checking global whitelist for detection: '{detection.name}' ({detection.uuid})")
     if detection.check_against_whitelist():
-        detection_report.update_audit(current_action.set_successful(message="Detection is whitelisted, skipping."), logger=mlog)
-        return detection_report
-    detection_report.update_audit(current_action.set_successful(message="Detection is not whitelisted."), logger=mlog)
+        case_file.update_audit(current_action.set_successful(message="Detection is whitelisted, skipping."), logger=mlog)
+        return case_file
+    case_file.update_audit(current_action.set_successful(message="Detection is not whitelisted."), logger=mlog)
 
     # Create initial ticket for detection
     ticket_number = zs_create_ticket(
-        detection_report, detection, False, auto_detection_note=True, playbook_name=PB_NAME, playbook_step=1
+        case_file, detection, False, auto_detection_note=True, playbook_name=PB_NAME, playbook_step=1
     )
     if not ticket_number:
         mlog.critical(f"Could not create ticket for detection: '{detection.name}' ({detection.uuid})")
-        return detection_report
+        return case_file
 
-    # Create additional notes for each other detection in the detection report
-    if len(detection_report.detections) > 1:
+    # Create additional notes for each other detection in the detection case
+    if len(case_file.detections) > 1:
         sub_step = 1
-        for other_detection in detection_report.detections:
+        for other_detection in case_file.detections:
             if other_detection.uuid != detection.uuid:
                 zs_add_note_to_ticket(
                     ticket_number,
-                    detection_report,
+                    case_file,
                     other_detection,
                     False,
                     auto_detection_note=True,
@@ -128,26 +128,26 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
                 )
                 sub_step += 1
 
-    # Add ticket to detection (-report)
-    mlog.debug(f"Adding ticket to detection and detection report.")
+    # Add ticket to detection (-case)
+    mlog.debug(f"Adding ticket to detection and detection case.")
     if not DRY_RUN:
         ticket = zs_get_ticket_by_number(ticket_number)
         detection.ticket = ticket
-        detection_report.add_context(ticket)
+        case_file.add_context(ticket)
 
     # Gather process related contexts from BB_Elastic_Context_Fetcher:
     parents = []
     children = []
     process_tree = ""
 
-    parents = bb_get_context_process_parents(PB_NAME, 2, mlog, detection_report, detection)
-    children = bb_get_context_process_children(PB_NAME, 3, mlog, detection_report, detection)
+    parents = bb_get_context_process_parents(PB_NAME, 2, mlog, case_file, detection)
+    children = bb_get_context_process_children(PB_NAME, 3, mlog, case_file, detection)
     process_tree = bb_get_context_process_tree_visualisation(
-        PB_NAME, 4, mlog, detection_report, detection, parents, children, current_action
+        PB_NAME, 4, mlog, case_file, detection, parents, children, current_action
     )
 
     process_names = []
-    for process in detection_report.context_processes:
+    for process in case_file.context_processes:
         process_names.append(f"{process.process_name} ({process.process_id})")
 
     # Create a note for Process Context
@@ -157,7 +157,7 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
         False,
         playbook_name=PB_NAME,
         playbook_step=5,
-        detection_report=detection_report,
+        case_file=case_file,
         detection=detection,
         detection_contexts=process_names,
         parents=parents,
@@ -168,9 +168,7 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
     # Gather Network related contexts from BB_Elastic_Context_Fetcher:
     detected_process_flows = []
     context_process_flows = []
-    detected_process_flows, context_process_flows = bb_get_context_process_network_flows(
-        PB_NAME, 6, mlog, detection_report, detection
-    )
+    detected_process_flows, context_process_flows = bb_get_context_process_network_flows(PB_NAME, 6, mlog, case_file, detection)
 
     # Create a note for Network Flows
     zs_add_note_to_ticket(
@@ -179,7 +177,7 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
         False,
         playbook_name=PB_NAME,
         playbook_step=8,
-        detection_report=detection_report,
+        case_file=case_file,
         detection=detection,
         detection_contexts=detected_process_flows,
         other_contexts=context_process_flows,
@@ -189,7 +187,7 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
     detected_process_file_events = []
     context_processes_file_events = []
     detected_process_file_events, context_processes_file_events, file_names = bb_get_context_process_file_events(
-        PB_NAME, 8, mlog, detection_report, detection
+        PB_NAME, 8, mlog, case_file, detection
     )
 
     # Create a note for File Events
@@ -199,7 +197,7 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
         False,
         playbook_name=PB_NAME,
         playbook_step=10,
-        detection_report=detection_report,
+        case_file=case_file,
         detection=detection,
         detection_contexts=detected_process_file_events,
         other_contexts=context_processes_file_events,
@@ -210,7 +208,7 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
     detected_process_registry_events = []
     context_processes_registry_events = []
     detected_process_registry_events, context_processes_registry_events, _ = bb_get_context_process_registry_events(
-        PB_NAME, 10, mlog, detection_report, detection
+        PB_NAME, 10, mlog, case_file, detection
     )
 
     # Create a note for Registry Events
@@ -220,13 +218,13 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
         False,
         playbook_name=PB_NAME,
         playbook_step=12,
-        detection_report=detection_report,
+        case_file=case_file,
         detection=detection,
         detection_contexts=detected_process_registry_events,
         other_contexts=context_processes_registry_events,
     )
 
-    return detection_report
+    return case_file
 
 
 # TODO:

@@ -10,7 +10,7 @@ import datetime
 import json
 
 import lib.logging_helper as logging_helper
-from lib.class_helper import DetectionReport, Detection, Rule, ContextProcess, ContextFlow
+from lib.class_helper import CaseFile, Detection, Rule, ContextProcess, ContextFlow
 from lib.config_helper import Config
 from playbooks.bb_elastic_process_context import (
     bb_get_all_processes_by_uuid,
@@ -27,7 +27,7 @@ integration_config = cfg["integrations"]["elastic_siem"]
 # Prepare the logger
 mlog = logging_helper.Log("test_bb_elastic_process_context")
 
-# Prepare a DetectionReport object
+# Prepare a CaseFile object
 rule = Rule("123", "Some Rule", 0)
 
 TEST_PROCESS_UID = "YjExNmM1NTYtNGNmMi00NTc5LWEwOGQtODU5OTIwMjVmMjNmLTE5MjQ2ODUtMTY4ODA2MTkxOA=="
@@ -38,16 +38,16 @@ detection = Detection("456", "Some Detection", ruleList, datetime.datetime.now()
 
 detectionList = []
 detectionList.append(detection)
-detection_report = DetectionReport(detectionList)
+case_file = CaseFile(detectionList)
 assert (
-    detection_report != None
-), "DetectionReport class could not be initialized"  # Sanity check - should be already tested by test_zsoar_lib.py -> test_class_helper()
+    case_file != None
+), "CaseFile class could not be initialized"  # Sanity check - should be already tested by test_zsoar_lib.py -> test_class_helper()
 
 
 def test_bb_get_complete_process_by_uuid():
     # Test the function
     global process
-    process = bb_get_all_processes_by_uuid(detection_report, TEST_PROCESS_UID)
+    process = bb_get_all_processes_by_uuid(case_file, TEST_PROCESS_UID)
     assert type(process) == ContextProcess, "bb_get_complete_process_by_uuid() should return a ContextProcess object"
 
     # Print the results
@@ -57,7 +57,7 @@ def test_bb_get_complete_process_by_uuid():
 
 def test_bb_get_all_parents():
     global parents
-    parents = bb_get_all_parents(detection_report, process=bb_get_all_processes_by_uuid(detection_report, TEST_PROCESS_UID))
+    parents = bb_get_all_parents(case_file, process=bb_get_all_processes_by_uuid(case_file, TEST_PROCESS_UID))
     assert type(parents) == list, "get_all_parents() should return a list of ContextProcess objects"
     assert len(parents) > 0, "get_all_parents() should return at least one parent"
 
@@ -80,7 +80,7 @@ def test_bb_get_all_parents():
 
 def test_bb_get_all_children():
     global children
-    children, _ = bb_get_all_children(detection_report, process=bb_get_all_processes_by_uuid(detection_report, TEST_PROCESS_UID))
+    children, _ = bb_get_all_children(case_file, process=bb_get_all_processes_by_uuid(case_file, TEST_PROCESS_UID))
     assert type(children) == list, "get_all_children() should return a list of ContextProcess objects"
     assert len(children) > 0, "get_all_children() should return at least one child"
 
@@ -112,7 +112,7 @@ def test_bb_make_process_tree_visualisation():
 
 def test_bb_get_process_network_flows():
     # Test the function
-    res, _ = bb_get_process_network_flows(detection_report, process)
+    res, _ = bb_get_process_network_flows(case_file, process)
     assert type(res) == list, "bb_get_process_network_flows() should return a list of flows"
     assert len(res) > 0, "bb_get_process_network_flows() should return at least one flow"
     for flow in res:

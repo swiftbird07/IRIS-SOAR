@@ -1707,9 +1707,9 @@ class ContextProcess:
     """
 
     # TODO: 1) Change that DNSQuery, HTTP and Certificate are directly inside a ContextFlow object, as they depend on each other [DONE]
-    #        1b) Remove them as explicit contexts in Detection and DetectionReport [DONE]
+    #        1b) Remove them as explicit contexts in Detection and CaseFile [DONE]
     #       2) Make that contexts only refere to itself by UUID [DONE]
-    #       3) Create get_context_by_uuid() method in Detection and DetectionReport [DONE]
+    #       3) Create get_context_by_uuid() method in Detection and CaseFile [DONE]
     #       4) Edit the elastic siem integration and building block according to the changes
     #       5) Implement related_detection_uuid in all stand-alone contexts [DONE]
     #       6) Implement relevance scoring in all stand-alone contexts (relevance to the detection) [DONE]
@@ -2607,10 +2607,10 @@ class ContextThreatIntel:
             if self.score_known == None or self.score_total == None:  # Should not happen, as set above
                 mlog = logging_helper.Log("lib.class_helper")
                 mlog.error(
-                    "Class ThreatIntel __init__: implicit calculation of score_unknown: score_unknown is not set and score_known or score_total is None. score_unknown cannot be calculated. You shouldn't see this message. Please report this issue."
+                    "Class ThreatIntel __init__: implicit calculation of score_unknown: score_unknown is not set and score_known or score_total is None. score_unknown cannot be calculated. You shouldn't see this message. Please case this issue."
                 )
                 raise SystemError(
-                    "Class ThreatIntel __init__: implicit calculation of score_unknown: score_unknown is not set and score_known or score_total is None. score_unknown cannot be calculated. You shouldn't see this message. Please report this issue."
+                    "Class ThreatIntel __init__: implicit calculation of score_unknown: score_unknown is not set and score_known or score_total is None. score_unknown cannot be calculated. You shouldn't see this message. Please case this issue."
                 )
             else:
                 self.score_unknown = self.score_total - self.score_known
@@ -2974,13 +2974,13 @@ class Detection:
         return None
 
     def check_against_whitelist(self) -> bool:
-        """Checks the report against the whitelist.
+        """Checks the case against the whitelist.
 
         Args:
             cache_integration_name (str): The name of the cache integration
 
         Returns:
-            bool: True if the report is whitelisted, False otherwise
+            bool: True if the case is whitelisted, False otherwise
         """
         from lib.generic_helper import get_from_cache
 
@@ -3047,7 +3047,7 @@ class Detection:
 
 
 class AuditLog:
-    """The "AuditLog" class serves as a centralized mechanism to capture and document the actions performed by ZSOAR, particularly by its "Playbooks," that impact the detection reports.
+    """The "AuditLog" class serves as a centralized mechanism to capture and document the actions performed by ZSOAR, particularly by its "Playbooks," that impact the detection cases.
        Generally a planned action is declared first as a new AuditLog, pushed to the audit trail, and then executed. The relevant AuditLog is then updated with the result of the action.
 
     Args:
@@ -3197,34 +3197,34 @@ class AuditLog:
         return json.dumps(del_none_from_dict(self.__dict__()), indent=4, sort_keys=False, default=str)
 
 
-class DetectionReport:
-    """DetectionReport class. This class is used for storing detection reports.
+class CaseFile:
+    """CaseFile class. This class is used for storing one or multiple detections in an unified case object.
 
     Attributes:
-        detections (List[Detection]): The detections of the report
-        playbooks (List[str]): The playbooks of the report
-        action (str): The action of the report
-        action_result (bool): The action result of the report
-        action_result_message (str): The action result message of the report
-        action_result_data (str): The action result data of the report
-        context_logs (List[ContextLog]): The context logs of the report
-        context_processes (List[Process]): The context processes of the report
-        context_flows (List[ContextFlow]): The context flows of the report
-        context_threat_intel (List[ContextThreatIntel]): The context threat intel of the report
-        context_files (List[File]): The context files of the report
-        context_http_requests (List[HTTP]): The context http requests of the report
-        context_dns_requests (List[DNS]): The context dns requests of the report
-        context_certificates (List[Certificate]): The context certificates of the report
-        context_registries (List[Registry]): The context registries of the report
-        context_tickets (List[Ticket]): The context tickets of the report
-        uuid (str): The universal unique ID of the report (uuid4 - random if not set)
-        indicators (Dict[str, List[str]]): The indicators of the report (key: indicator type, value: list of indicators)
+        detections (List[Detection]): The detections of the case
+        playbooks (List[str]): The playbooks of the case
+        action (str): The action of the case
+        action_result (bool): The action result of the case
+        action_result_message (str): The action result message of the case
+        action_result_data (str): The action result data of the case
+        context_logs (List[ContextLog]): The context logs of the case
+        context_processes (List[Process]): The context processes of the case
+        context_flows (List[ContextFlow]): The context flows of the case
+        context_threat_intel (List[ContextThreatIntel]): The context threat intel of the case
+        context_files (List[File]): The context files of the case
+        context_http_requests (List[HTTP]): The context http requests of the case
+        context_dns_requests (List[DNS]): The context dns requests of the case
+        context_certificates (List[Certificate]): The context certificates of the case
+        context_registries (List[Registry]): The context registries of the case
+        context_tickets (List[Ticket]): The context tickets of the case
+        uuid (str): The universal unique ID of the case (uuid4 - random if not set)
+        indicators (Dict[str, List[str]]): The indicators of the case (key: indicator type, value: list of indicators)
 
 
     Methods:
-        __init__(self, detections: List[Detection], uuid: uuid.UUID = uuid.uuid4()): Initializes the DetectionReport object.
+        __init__(self, detections: List[Detection], uuid: uuid.UUID = uuid.uuid4()): Initializes the CaseFile object.
         __str__(self): Returns the string representation of the object.
-        add_context_log(self, context: Union[ContextLog, ContextProcess, ContextFlow, ContextThreatIntel, Location, Device, Person, ContextFile]): Adds a context to the report.
+        add_context_log(self, context: Union[ContextLog, ContextProcess, ContextFlow, ContextThreatIntel, Location, Device, Person, ContextFile]): Adds a context to the case.
         get_context_by_uuid(self, uuid: str, filterType: type (optional)): Returns the context by the given uuid.
     """
 
@@ -3233,16 +3233,21 @@ class DetectionReport:
         if type(detections) != list:
             self.detections = [detections]
 
-        self.action = None
-        self.action_result = "undetermined"  # One of "undetermined", "unknown_unresolved", "unknown_resolved", "known_false-positive", "known_non-issue", "incident_resolved", "incident_unresolved"
-        self.action_result_message = None
-        self.action_result_data = None
+        self.procedure_step = (
+            "initial"  # One of "initial", "gather_information", "analyze", "containment", "eradication", "closure"
+        )
+        self.status = "unresolved"  # One of "unresolved", "resolved"
+        self.threat_type = "undetermined"  # One of "undetermined", "unknown", "known"
+        self.threat_level = "undetermined"  # One of "undetermined", "negligible", "low", "medium", "high", "critical"
+        self.result = "undetermined"  # One of "undetermined", "false-positive", "non-issue", "alert", "incident", "breach"
+        self.result_confidence = 0  # 0-100
+        self.playbooks = []
         self.audit_trail: List[AuditLog] = [
             AuditLog(
                 playbook="None/Initial",
                 stage=0,
-                title="Initializing DetectionReport",
-                description="Initializing the DetectionReport onject",
+                title="Initializing CaseFile",
+                description="Initializing the CaseFile onject",
                 start_time=datetime.datetime.now(),
                 is_ticket_related=False,
             )
@@ -3278,8 +3283,8 @@ class DetectionReport:
         self.audit_trail[0].result_had_errors = False
         self.audit_trail[0].result_request_retry = False
         self.audit_trail[0].result_in_ticket = False
-        self.audit_trail[0].result_message = "Initializing DetectionReport was successful."
-        self.audit_trail[0].result_data = "DetectionReport was initialized successfully."
+        self.audit_trail[0].result_message = "Initializing CaseFile was successful."
+        self.audit_trail[0].result_data = "CaseFile was initialized successfully."
 
     def __dict__(self):
         """Returns the object as a dictionary."""
@@ -3330,7 +3335,7 @@ class DetectionReport:
             dict,
         ],
     ):
-        """Adds a context to the detection report, respecting the timeline
+        """Adds a context to the detection case, respecting the timeline
 
         Args:
             context (Union[ContextLog, ContextProcess, ContextFlow, ContextThreatIntel, Location, Device, Person, ContextFile, HTTP, DNSQuery, Certificate, dict]): The context to add (dict menas Ticket object)
@@ -3341,7 +3346,7 @@ class DetectionReport:
         """
         if context is None:
             mlog = logging_helper.Log(__name__)
-            mlog.warning("DetectionReport: add_context() - Context is None, skipping.")
+            mlog.warning("CaseFile: add_context() - Context is None, skipping.")
             return
 
         if not isinstance(context, dict) and not isinstance(context, pyotrs.Ticket):
@@ -3565,8 +3570,8 @@ class DetectionReport:
                 tries += 1
 
     def update_audit(self, audit: AuditLog, logger=None):
-        """Adds or updates the given audit element to the audit_trail of the report.
-           It will also update apropiate fields of the report if the playbook was executed successfully or has failed.
+        """Adds or updates the given audit element to the audit_trail of the case.
+           It will also update apropiate fields of the case if the playbook was executed successfully or has failed.
            Also the audit will be added to "audit.log" file (sorted by detection uuid).
 
         Args:
@@ -3600,7 +3605,7 @@ class DetectionReport:
         logging_helper.update_audit_log(self.uuid, audit, logger)
 
     def get_title(self):
-        """Returns the title of the report."""
+        """Returns the title of the case."""
         rules = []
         try:
             for detection in self.detections:
@@ -3613,21 +3618,21 @@ class DetectionReport:
         return self.detections[0].name
 
     def get_ticket_number(self):
-        """Returns the ticket number of the report."""
+        """Returns the ticket number of the case."""
         if self.ticket is not None:
             try:
                 return self.ticket["TicketNumber"]
             except:
                 return self.ticket.field_get("TicketNumber")
         else:
-            raise ValueError("The detection_report has no ticket.")
+            raise ValueError("The case_file has no ticket.")
 
     def get_ticket_id(self):
-        """Returns the ticket id of the report."""
+        """Returns the ticket id of the case."""
         if self.ticket is not None:
             try:
                 return self.ticket["TicketID"]
             except:
                 return self.ticket.field_get("TicketID")
         else:
-            raise ValueError("The detection_report has no ticket.")
+            raise ValueError("The case_file has no ticket.")

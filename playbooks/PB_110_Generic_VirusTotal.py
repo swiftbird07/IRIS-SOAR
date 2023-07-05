@@ -23,12 +23,8 @@ PB_ENABLED = True
 EDR_DETECTION_VENDORS = ["elastic_siem"]  # The vendors that are considered EDR detections.
 SIEM_DETECTION_VENDORS = ["IBM QRadar"]  # The vendors that are considered SIEM detections.
 
-EDR_SEARCH_DETECTION_REPORT = (
-    False  # If True, the playbook will search for all indicators if any of the detections is an EDR detection
-)
-SIEM_SEARCH_DETECTION_REPORT = (
-    True  # If True, the playbook will search for all indicators if any of the detections is a SIEM detection
-)
+EDR_SEARCH_case_file = False  # If True, the playbook will search for all indicators if any of the detections is an EDR detection
+SIEM_SEARCH_case_file = True  # If True, the playbook will search for all indicators if any of the detections is a SIEM detection
 
 WAIT_FOR_HASHES = False  # If True, the playbook will wait for the file/process hashes to be analyzed even if the API limit is reached. Not recommended on the free API, when many hashes are excpected (e.g. when using Elastic Integration)
 WAIT_FOR_NETWORK = (
@@ -39,7 +35,7 @@ import ipaddress
 from typing import Union, List
 
 import lib.logging_helper as logging_helper
-from lib.class_helper import DetectionReport, ContextProcess, AuditLog, Detection, ContextThreatIntel, DNSQuery, HTTP
+from lib.class_helper import CaseFile, ContextProcess, AuditLog, Detection, ContextThreatIntel, DNSQuery, HTTP
 from lib.config_helper import Config
 from lib.generic_helper import cast_to_ipaddress, format_results, is_local_tld
 
@@ -53,29 +49,29 @@ log_level_stdout = cfg["integrations"]["elastic_siem"]["logging"]["log_level_std
 mlog = logging_helper.Log("playbooks." + PB_NAME, log_level_file, log_level_stdout)
 
 
-def zs_can_handle_detection(detection_report: DetectionReport) -> bool:
+def zs_can_handle_detection(case_file: CaseFile) -> bool:
     """Checks if this playbook can handle the detection.
 
     Args:
-        detection_report (DetectionReport): The detection report
+        case_file (CaseFile): The detection case
 
     Returns:
         bool: True if the playbook can handle the detection, False if not
     """
-    # Check if any of the detecions of the detection report is an Elastic Alert
+    # Check if any of the detecions of the detection case is an Elastic Alert
     if PB_ENABLED == False:
         mlog.info(f"Playbook '{PB_NAME}' is disabled. Not handling anything.")
         return False
 
-    # Check if there is already a ticket for the detection report
+    # Check if there is already a ticket for the detection case
     try:
-        ticket_number = detection_report.get_ticket_number()
+        ticket_number = case_file.get_ticket_number()
     except ValueError:
-        mlog.info(f"Playbook '{PB_NAME}' cannot handle detection report '{detection_report.uuid}' as there is no ticket for it.")
+        mlog.info(f"Playbook '{PB_NAME}' cannot handle detection case '{case_file.uuid}' as there is no ticket for it.")
         return False
 
-    # Check if any of the detecions of the detection report has an indicator that is searchable in VirusTotal
-    for detection in detection_report.detections:
+    # Check if any of the detecions of the detection case has an indicator that is searchable in VirusTotal
+    for detection in case_file.detections:
         if (
             len(detection.indicators["ip"]) > 0
             or len(detection.indicators["domain"]) > 0
@@ -87,42 +83,42 @@ def zs_can_handle_detection(detection_report: DetectionReport) -> bool:
     return False
 
 
-def zs_handle_detection(detection_report: DetectionReport, TEST=False) -> DetectionReport:
+def zs_handle_detection(case_file: CaseFile, TEST=False) -> CaseFile:
     """Handles the detection.
 
     Args:
-        detection_report (DetectionReport): The detection report
+        case_file (CaseFile): The detection case
         TEST (bool): True if the playbook is run in test mode, False if not
 
     Returns:
-        DetectionReport: The updated detection report
+        CaseFile: The updated detection case
     """
     # Get all the indicators
     cfg = Config().cfg
     integration_config = cfg["integrations"]["virus_total"]
-    mlog.info(f"Handling detection report '{detection_report.uuid}'")
-    init_action = AuditLog(PB_NAME, 0, "Handling detection report", "Started handling detection report by getting indicators")
-    detection_report.update_audit(init_action, mlog)
+    mlog.info(f"Handling detection case '{case_file.uuid}'")
+    init_action = AuditLog(PB_NAME, 0, "Handling detection case", "Started handling detection case by getting indicators")
+    case_file.update_audit(init_action, mlog)
 
     indicators: List[str] = []
     network_contexts: List[ContextThreatIntel] = []
     process_contexts: List[ContextThreatIntel] = []
 
     try:
-        ticket_number = detection_report.get_ticket_number()
+        ticket_number = case_file.get_ticket_number()
     except (
         ValueError
-    ):  # Sanity check. Should not be raised, as zs_can_handle_detection() should have been called before to check if the detection report has a ticket number
+    ):  # Sanity check. Should not be raised, as zs_can_handle_detection() should have been called before to check if the detection case has a ticket number
         mlog.critical(
-            f"Could not get ticket number from detection report. A ticket for the detection report must be created by a previous playbook for this playbook to work."
+            f"Could not get ticket number from detection case. A ticket for the detection case must be created by a previous playbook for this playbook to work."
         )
-        detection_report.update_audit(
+        case_file.update_audit(
             init_action.set_error(
-                message="Could not get ticket number from detection report. A ticket for the detection report must be created by a previous playbook for this playbook to work."
+                message="Could not get ticket number from detection case. A ticket for the detection case must be created by a previous playbook for this playbook to work."
             ),
             mlog,
         )
-        return detection_report
+        return case_file
 
     #                                                                      #
     ## STEP 1 - Get the threat intel for the indicators of all detections ##
@@ -133,21 +129,21 @@ def zs_handle_detection(detection_report: DetectionReport, TEST=False) -> Detect
     urls = []
     hashes = []
 
-    if detection_report.detections[0].vendor_id in EDR_DETECTION_VENDORS and EDR_SEARCH_DETECTION_REPORT:
-        mlog.info(f"Searching for all indicators of detection report '{detection_report.uuid}' as it is an EDR detection.")
-        ips = detection_report.indicators["ip"]
-        domains = detection_report.indicators["domain"]
-        urls = detection_report.indicators["url"]
-        hashes = detection_report.indicators["hash"]
+    if case_file.detections[0].vendor_id in EDR_DETECTION_VENDORS and EDR_SEARCH_case_file:
+        mlog.info(f"Searching for all indicators of detection case '{case_file.uuid}' as it is an EDR detection.")
+        ips = case_file.indicators["ip"]
+        domains = case_file.indicators["domain"]
+        urls = case_file.indicators["url"]
+        hashes = case_file.indicators["hash"]
 
-    if detection_report.detections[0].vendor_id in SIEM_DETECTION_VENDORS and SIEM_SEARCH_DETECTION_REPORT:
-        mlog.info(f"Searching for all indicators of detection report '{detection_report.uuid}' as it is a SIEM detection.")
-        ips = detection_report.indicators["ip"]
-        domains = detection_report.indicators["domain"]
-        urls = detection_report.indicators["url"]
-        hashes = detection_report.indicators["hash"]
+    if case_file.detections[0].vendor_id in SIEM_DETECTION_VENDORS and SIEM_SEARCH_case_file:
+        mlog.info(f"Searching for all indicators of detection case '{case_file.uuid}' as it is a SIEM detection.")
+        ips = case_file.indicators["ip"]
+        domains = case_file.indicators["domain"]
+        urls = case_file.indicators["url"]
+        hashes = case_file.indicators["hash"]
 
-    for detection in detection_report.detections:
+    for detection in case_file.detections:
         mlog.info(f"Handling detection '{detection.name}' ({detection.uuid})")
 
         # Get the indicators
@@ -172,9 +168,9 @@ def zs_handle_detection(detection_report: DetectionReport, TEST=False) -> Detect
         hashes = list(set(hashes))
 
         if len(ips) > 0 or len(domains) > 0 or len(urls) > 0 or len(hashes) > 0:
-            detection_report.update_audit(init_action.set_successful("Got indicators", data=detection.indicators), mlog)
+            case_file.update_audit(init_action.set_successful("Got indicators", data=detection.indicators), mlog)
         else:
-            detection_report.update_audit(
+            case_file.update_audit(
                 init_action.set_warning(warning_message=f"No indicators were found for detection {detection.name}."), mlog
             )
             continue
@@ -182,7 +178,7 @@ def zs_handle_detection(detection_report: DetectionReport, TEST=False) -> Detect
         if len(ips) > 0:
             mlog.debug(f"Found IPs: {ips}. Handling them.")
             current_action = AuditLog(PB_NAME, 1, "Handling IPs", "Started handling IPs")
-            detection_report.update_audit(current_action, mlog)
+            case_file.update_audit(current_action, mlog)
             for ip in ips:
                 ip = cast_to_ipaddress(ip)
 
@@ -193,7 +189,7 @@ def zs_handle_detection(detection_report: DetectionReport, TEST=False) -> Detect
                 try:
                     nw_new = zs_provide_context_for_detections(
                         integration_config,
-                        detection_report,
+                        case_file,
                         required_type=ContextThreatIntel,
                         TEST=TEST,
                         search_type=type(ip),
@@ -205,12 +201,12 @@ def zs_handle_detection(detection_report: DetectionReport, TEST=False) -> Detect
                         network_contexts.append(nw_new)
                 except Exception as e:
                     mlog.error(f"Error while getting context for IP '{ip}': {e}")
-                    detection_report.update_audit(
+                    case_file.update_audit(
                         current_action.set_error(warning_message=f"Error while getting context for IP '{ip}': {e}", data=e), mlog
                     )
 
             if len(network_contexts) != 0:
-                detection_report.update_audit(
+                case_file.update_audit(
                     current_action.set_successful(
                         message=f"Got threat intel for {str(len(network_contexts))} out of {str(len(ips))} IPs", data=ips
                     ),
@@ -225,14 +221,14 @@ def zs_handle_detection(detection_report: DetectionReport, TEST=False) -> Detect
                         had_public_ips = True
                         break
                 if had_public_ips:
-                    detection_report.update_audit(
+                    case_file.update_audit(
                         current_action.set_warning(
                             warning_message=f"Could not get threat intel for any of the {str(len(ips))} IPs", data=ips
                         ),
                         mlog,
                     )
                 else:
-                    detection_report.update_audit(
+                    case_file.update_audit(
                         current_action.set_successful(
                             message=f"All {str(len(ips))} IPs were private. No threat intel search possible for them.", data=ips
                         ),
@@ -242,7 +238,7 @@ def zs_handle_detection(detection_report: DetectionReport, TEST=False) -> Detect
         if len(domains) > 0:
             mlog.debug(f"Found domains: {domains}. Handling them.")
             current_action = AuditLog(PB_NAME, 2, "Handling domains", "Started handling domains")
-            detection_report.update_audit(current_action, mlog)
+            case_file.update_audit(current_action, mlog)
             for domain in domains:
                 try:
                     if is_local_tld(domain):
@@ -250,7 +246,7 @@ def zs_handle_detection(detection_report: DetectionReport, TEST=False) -> Detect
                         continue
                     domain_new = zs_provide_context_for_detections(
                         integration_config,
-                        detection_report,
+                        case_file,
                         required_type=ContextThreatIntel,
                         TEST=TEST,
                         search_type=DNSQuery,
@@ -262,7 +258,7 @@ def zs_handle_detection(detection_report: DetectionReport, TEST=False) -> Detect
                         network_contexts.append(domain_new)
                 except Exception as e:
                     mlog.error(f"Error while getting context for domain '{domain}': {e}")
-                    detection_report.update_audit(
+                    case_file.update_audit(
                         current_action.set_error(
                             warning_message=f"Error while getting context for domain '{domain}': {e}", data=e
                         ),
@@ -270,7 +266,7 @@ def zs_handle_detection(detection_report: DetectionReport, TEST=False) -> Detect
                     )
 
             if len(network_contexts) != 0:
-                detection_report.update_audit(
+                case_file.update_audit(
                     current_action.set_successful(
                         message=f"Got threat intel for {str(len(network_contexts))} out of {str(len(domains))} domains",
                         data=domains,
@@ -278,7 +274,7 @@ def zs_handle_detection(detection_report: DetectionReport, TEST=False) -> Detect
                     mlog,
                 )
             else:
-                detection_report.update_audit(
+                case_file.update_audit(
                     current_action.set_warning(
                         warning_message=f"Could not get threat intel for any of the {str(len(domains))} domains", data=domains
                     ),
@@ -288,7 +284,7 @@ def zs_handle_detection(detection_report: DetectionReport, TEST=False) -> Detect
         if len(urls) > 0:
             mlog.debug(f"Found URLs: {urls}. Handling them.")
             current_action = AuditLog(PB_NAME, 3, "Handling URLs", "Started handling URLs")
-            detection_report.update_audit(current_action, mlog)
+            case_file.update_audit(current_action, mlog)
             for url in urls:
                 try:
                     if is_local_tld(url.split("/")[2]):
@@ -296,7 +292,7 @@ def zs_handle_detection(detection_report: DetectionReport, TEST=False) -> Detect
                         continue
                     url_new = zs_provide_context_for_detections(
                         integration_config,
-                        detection_report,
+                        case_file,
                         required_type=ContextThreatIntel,
                         TEST=TEST,
                         search_type=HTTP,
@@ -308,20 +304,20 @@ def zs_handle_detection(detection_report: DetectionReport, TEST=False) -> Detect
                         network_contexts.append(url_new)
                 except Exception as e:
                     mlog.error(f"Error while getting context for URL '{url}': {e}")
-                    detection_report.update_audit(
+                    case_file.update_audit(
                         current_action.set_error(warning_message=f"Error while getting context for URL '{url}': {e}", data=e),
                         mlog,
                     )
 
             if len(network_contexts) != 0:
-                detection_report.update_audit(
+                case_file.update_audit(
                     current_action.set_successful(
                         message=f"Got threat intel for {str(len(network_contexts))} out of {str(len(urls))} URLs", data=urls
                     ),
                     mlog,
                 )
             else:
-                detection_report.update_audit(
+                case_file.update_audit(
                     current_action.set_warning(
                         warning_message=f"Could not get threat intel for any of the {str(len(urls))} URLs", data=urls
                     ),
@@ -331,12 +327,12 @@ def zs_handle_detection(detection_report: DetectionReport, TEST=False) -> Detect
         if len(hashes) > 0:
             mlog.debug(f"Found hashes: {hashes}. Handling them.")
             current_action = AuditLog(PB_NAME, 4, "Handling hashes", "Started handling hashes")
-            detection_report.update_audit(current_action, mlog)
+            case_file.update_audit(current_action, mlog)
             for hash in hashes:
                 try:
                     pc_new = zs_provide_context_for_detections(
                         integration_config,
-                        detection_report,
+                        case_file,
                         required_type=ContextThreatIntel,
                         TEST=TEST,
                         search_type=ContextProcess,
@@ -348,20 +344,20 @@ def zs_handle_detection(detection_report: DetectionReport, TEST=False) -> Detect
                         process_contexts.append(pc_new)
                 except Exception as e:
                     mlog.error(f"Error while getting context for hash '{hash}': {e}")
-                    detection_report.update_audit(
+                    case_file.update_audit(
                         current_action.set_error(warning_message=f"Error while getting context for hash '{hash}': {e}", data=e),
                         mlog,
                     )
 
             if len(process_contexts) != 0:
-                detection_report.update_audit(
+                case_file.update_audit(
                     current_action.set_successful(
                         message=f"Got threat intel for {str(len(process_contexts))} out of {str(len(hashes))} hashes", data=hashes
                     ),
                     mlog,
                 )
             else:
-                detection_report.update_audit(
+                case_file.update_audit(
                     current_action.set_warning(
                         warning_message=f"Could not get threat intel for any of the {str(len(hashes))} hashes", data=hashes
                     ),
@@ -378,32 +374,32 @@ def zs_handle_detection(detection_report: DetectionReport, TEST=False) -> Detect
             )
 
     if not init_action.result_was_successful:
-        detection_report.update_audit(
+        case_file.update_audit(
             init_action.set_warning(warning_message="Did not find any indicator for any detection. Maybe something is wrong."),
             mlog,
         )
-        return detection_report
+        return case_file
 
-    # Add the context to the detection report
+    # Add the context to the detection case
     if len(network_contexts) > 0:
         for network_context in network_contexts:
-            detection_report.add_context(network_context)
+            case_file.add_context(network_context)
 
     if len(process_contexts) > 0:
         for process_context in process_contexts:
-            detection_report.add_context(process_context)
+            case_file.add_context(process_context)
 
     #                                                       #
-    ## Step 2 - Add note to ticket of the detection report ##
+    ## Step 2 - Add note to ticket of the detection case ##
     #
 
     detection_str = "detection"
-    if len(detection_report.detections) > 1:
+    if len(case_file.detections) > 1:
         detection_str += "s"
 
     if len(network_contexts) > 0 or len(process_contexts) > 0:
         current_action = AuditLog(PB_NAME, 5, "Adding note to ticket", "Started adding note to ticket")
-        detection_report.update_audit(current_action, mlog)
+        case_file.update_audit(current_action, mlog)
         try:
             note_title = f"Context: Threat Intel (VirusTotal)"
             hits_sus = []
@@ -439,15 +435,13 @@ def zs_handle_detection(detection_report: DetectionReport, TEST=False) -> Detect
 
             zs_add_note_to_ticket(ticket_number, "raw", TEST, note_title, note_body, "text/html")
             current_action.playbook_done = True
-            detection_report.update_audit(
-                current_action.set_successful(message=f"Added note to ticket", data=detection_report.detections), mlog
+            case_file.update_audit(
+                current_action.set_successful(message=f"Added note to ticket", data=case_file.detections), mlog
             )
         except Exception as e:
             mlog.error(f"Error while adding note to ticket: {e}")
-            detection_report.update_audit(
-                current_action.set_error(message=f"Error while adding note to ticket: {e}", data=e), mlog
-            )
+            case_file.update_audit(current_action.set_error(message=f"Error while adding note to ticket: {e}", data=e), mlog)
     else:
         mlog.info(f"No threat intel found for this {detection_str}. Not adding note to ticket.")
 
-    return detection_report
+    return case_file

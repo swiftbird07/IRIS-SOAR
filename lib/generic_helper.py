@@ -14,7 +14,7 @@ import datetime
 import ipaddress
 from typing import Union, List
 
-THRESHOLD_MAX_CONTEXTS = 1000  # The maximum number of contexts for each type that can be added to a detection report
+THRESHOLD_MAX_CONTEXTS = 1000  # The maximum number of contexts for each type that can be added to a detection case
 
 mlog = logging_helper.Log("lib.generic_helper")
 

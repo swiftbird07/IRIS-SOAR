@@ -32,7 +32,7 @@ from lib.class_helper import Rule, Detection, ContextProcess, ContextFlow, Conte
 
 # For context for detections:
 from lib.class_helper import (
-    DetectionReport,
+    CaseFile,
     ContextFlow,
     ContextLog,
     ContextProcess,
@@ -1235,7 +1235,7 @@ def zs_provide_new_detections(config, TEST="") -> List[Detection]:
 
 def zs_provide_context_for_detections(
     config,
-    detection_report: DetectionReport,
+    case_file: CaseFile,
     required_type: type,
     TEST=False,
     search_value=None,
@@ -1245,11 +1245,11 @@ def zs_provide_context_for_detections(
     search_start=None,
     search_end=None,
 ) -> Union[ContextFlow, ContextLog, ContextProcess]:
-    """Returns a DetectionReport object with context for the detections from the Elasic integration.
+    """Returns a CaseFile object with context for the detections from the Elasic integration.
 
     Args:
         config (dict): The configuration dictionary for this integration
-        detection (DetectionReport): The DetectionReport object to add context to
+        detection (CaseFile): The CaseFile object to add context to
         required_type (type): The type of context to return. Can be one of the following:
             [ContextFlow, ContextLog]
         test (bool, optional): If set to True, dummy context data will be returned. Defaults to False.
@@ -1261,12 +1261,12 @@ def zs_provide_context_for_detections(
         Union[ContextFlow, ContextLog]: The required context of type 'required_type'
     """
     mlog = init_logging(config)
-    detection_report_str = "'" + detection_report.get_title() + "' (" + str(detection_report.uuid) + ")"
+    case_file_str = "'" + case_file.get_title() + "' (" + str(case_file.uuid) + ")"
     uuid_str = ""
     if search_value is not None:
         uuid_str = " with UUID: " + str(search_value)
     mlog.info(
-        f"zs_provide_context_for_detections() called for detection report: {detection_report_str} and required_type: {required_type}"
+        f"zs_provide_context_for_detections() called for detection case: {case_file_str} and required_type: {required_type}"
         + uuid_str
     )
 
@@ -1278,8 +1278,8 @@ def zs_provide_context_for_detections(
     provided_types.append(ContextFile)
     provided_types.append(ContextRegistry)
 
-    detection_name = detection_report.detections[0].name
-    detection_id = detection_report.detections[0].uuid
+    detection_name = case_file.detections[0].name
+    detection_id = case_file.detections[0].uuid
 
     if required_type not in provided_types:
         mlog.error(
@@ -1291,23 +1291,23 @@ def zs_provide_context_for_detections(
         mlog.info("Running in test mode. Returning dummy data.")
         if required_type == ContextFlow:
             context_object = ContextFlow(
-                detection_report.uuid, datetime.datetime.now(), "Elastic-SIEM", "10.0.0.1", 123, "123.123.123.123", 80, "TCP"
+                case_file.uuid, datetime.datetime.now(), "Elastic-SIEM", "10.0.0.1", 123, "123.123.123.123", 80, "TCP"
             )
         elif required_type == ContextProcess:
             context_object = ContextProcess(
                 uuid.uuid4(),
                 datetime.datetime.now(),
-                detection_report.uuid,
+                case_file.uuid,
                 "test.exe",
                 123,
                 process_start_time=datetime.datetime.now(),
             )
         elif required_type == ContextLog:
             context_object = ContextLog(
-                detection_report.uuid, datetime.datetime.now(), "Some log message", "Elastic-SIEM", log_source_ip="10.0.0.3"
+                case_file.uuid, datetime.datetime.now(), "Some log message", "Elastic-SIEM", log_source_ip="10.0.0.3"
             )
         return_objects.append(context_object)
-        detection_example = detection_report.detections[0]
+        detection_example = case_file.detections[0]
         detection_id = detection_example.vendor_id
 
     # ...
@@ -1562,7 +1562,7 @@ def zs_provide_context_for_detections(
                     "zs_provide_context_for_detections() returned the following context: "
                     + str(context_object)
                     + " for detection: "
-                    + str(detection_report)
+                    + str(case_file)
                 )
         else:
             mlog.info(

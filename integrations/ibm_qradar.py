@@ -38,7 +38,7 @@ from lib.generic_helper import cast_to_ipaddress
 
 # For context for detections:
 from lib.class_helper import (
-    DetectionReport,
+    CaseFile,
     ContextFlow,
     ContextLog,
 )
@@ -883,7 +883,7 @@ def zs_provide_new_detections(config, TEST=False) -> List[Detection]:
 
 
 def zs_provide_context_for_detections(
-    detection_report: DetectionReport, required_type: type, TEST="", search_type=None, search_value=None
+    case_file: CaseFile, required_type: type, TEST="", search_type=None, search_value=None
 ) -> list:
     """
     This function is used to provide context to Z-SOAR.
@@ -980,7 +980,7 @@ def zs_provide_context_for_detections(
         body = response.json()
 
         mlog.info("Updating detection's description: " + repr(body["description"]))
-        detection: Detection = detection_report.detections[0]
+        detection: Detection = case_file.detections[0]
         detection.rules[0].description = body["description"]
 
         ## CONTEXT FLOW ##

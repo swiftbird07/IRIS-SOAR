@@ -24,7 +24,7 @@ import lib.logging_helper as logging_helper
 
 # For context for detections:
 from lib.class_helper import (
-    DetectionReport,
+    CaseFile,
     ThreatIntel,
     ContextThreatIntel,
     HTTP,
@@ -307,7 +307,7 @@ def handle_response(
 
 def zs_provide_context_for_detections(
     config,
-    detection_report: DetectionReport,
+    case_file: CaseFile,
     required_type: type,
     TEST=False,
     search_type=ipaddress.IPv4Address,
@@ -315,11 +315,11 @@ def zs_provide_context_for_detections(
     maxContext=50,
     wait_if_api_quota_exceeded=False,
 ) -> ContextThreatIntel:
-    """Returns a DetectionReport object with context for the detections from the Virus Total integration.
+    """Returns a CaseFile object with context for the detections from the Virus Total integration.
 
     Args:
         config (dict): The configuration dictionary for this integration
-        detection (DetectionReport): The DetectionReport object to add context to
+        detection (CaseFile): The CaseFile object to add context to
         required_type (type): The type of context to return. Can be one of the following:
             [ContextThreatIntel]
         TEST (bool, optional): If set to True, the function will return a test object. Defaults to False.
@@ -358,8 +358,8 @@ def zs_provide_context_for_detections(
         mlog.log_critical(f"Search value is not set.")
         raise ValueError(f"Search value is not set.")
 
-    detection_name = detection_report.detections[0].name
-    detection_id = detection_report.detections[0].uuid
+    detection_name = case_file.detections[0].name
+    detection_id = case_file.detections[0].uuid
 
     mlog.info(
         f"Providing context for detection '{detection_name}' with ID '{detection_id}'. Search indicator type is '{search_type}' and searched value is '{search_value}'."
@@ -437,7 +437,7 @@ def zs_provide_context_for_detections(
                     )
                     return None
 
-            elif dict_get(response.json(), "data.attributes.status") == "queued":
+            elif dict_get(response, "data.attributes.status") == "queued":
                 if tries > THRESHOLD_MAX_TRIES_QUEUED_SEARCH:
                     mlog.error(
                         f"VirusTotal API call for '{search_value}' queued search exceeded maximum number of tries ({THRESHOLD_MAX_TRIES_QUEUED_SEARCH})."

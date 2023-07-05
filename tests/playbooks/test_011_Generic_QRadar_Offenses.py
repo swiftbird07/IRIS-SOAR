@@ -5,7 +5,7 @@
 import datetime
 
 from playbooks.PB_011_Generic_QRadar_Offenses import zs_can_handle_detection, zs_handle_detection
-from lib.class_helper import DetectionReport, Detection, Rule
+from lib.class_helper import CaseFile, Detection, Rule
 
 detection = Detection(
     "IBM QRadar",
@@ -17,15 +17,15 @@ detection = Detection(
     host_name="test-host",
     uuid="1438",
 )
-detection_report = DetectionReport([detection])
+case_file = CaseFile([detection])
 
 
 def test_zs_can_handle_detection():
     # Test the function
-    can_handle = zs_can_handle_detection(detection_report)
-    assert can_handle == True, "zs_can_handle_detection() should return True for this detection report"
+    can_handle = zs_can_handle_detection(case_file)
+    assert can_handle == True, "zs_can_handle_detection() should return True for this detection case"
 
 
 def test_zs_handle_detection():
-    zs_handle_detection(detection_report, False)
+    zs_handle_detection(case_file, False)
     assert True == True, "zs_handle_detection() should not raise an exception"

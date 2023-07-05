@@ -2,7 +2,7 @@
 
 import pytest
 
-from lib.class_helper import Detection, DetectionReport, Rule, ContextProcess, ContextLog, ContextFlow, ContextFile
+from lib.class_helper import Detection, CaseFile, Rule, ContextProcess, ContextLog, ContextFlow, ContextFile
 from integrations.ibm_qradar import zs_provide_new_detections, zs_provide_context_for_detections
 import lib.logging_helper as logging_helper
 import lib.config_helper as config_helper
@@ -29,7 +29,7 @@ def test_zs_provide_context_for_detections():
     cfg = config_helper.Config().cfg
     integration_config = cfg["integrations"]["ibm_qradar"]
 
-    # Prepare a DetectionReport object
+    # Prepare a CaseFile object
     rule = Rule("123", "Some Rule", 0)
 
     ruleList = []
@@ -38,14 +38,14 @@ def test_zs_provide_context_for_detections():
 
     detectionList = []
     detectionList.append(detection)
-    detection_report = DetectionReport(detectionList)
+    case_file = CaseFile(detectionList)
     assert (
-        detection_report != None
-    ), "DetectionReport class could not be initialized"  # Sanity check - should be already tested by test_zsoar_lib.py -> test_class_helper()
+        case_file != None
+    ), "CaseFile class could not be initialized"  # Sanity check - should be already tested by test_zsoar_lib.py -> test_class_helper()
 
     # Get the context
     detectionArray = zs_provide_context_for_detections(
-        detection_report, ContextFlow, TEST=True, search_type="offense", search_value=OFFENSE_ID
+        case_file, ContextFlow, TEST=True, search_type="offense", search_value=OFFENSE_ID
     )
     assert type(detectionArray) == list, "zs_provide_context_for_detections() should return a list of ContextFlow objects"
     assert len(detectionArray) > 0, "zs_provide_context_for_detections() should return a list of ContextFlow objects"
@@ -55,7 +55,7 @@ def test_zs_provide_context_for_detections():
         ), "zs_provide_context_for_detections() found an invalid ContextFlow object in the list"
 
     detectionArray = zs_provide_context_for_detections(
-        detection_report, ContextLog, TEST=True, search_type="offense", search_value=OFFENSE_ID
+        case_file, ContextLog, TEST=True, search_type="offense", search_value=OFFENSE_ID
     )
     assert type(detectionArray) == list, "zs_provide_context_for_detections() should return a list of ContextLog objects"
     assert len(detectionArray) > 0, "zs_provide_context_for_detections() should return a list of ContextLog objects"
@@ -63,7 +63,7 @@ def test_zs_provide_context_for_detections():
         assert type(detection) == ContextLog, "zs_provide_context_for_detections() found an invalid ContextLog object in the list"
 
     detectionArray = zs_provide_context_for_detections(
-        detection_report, ContextFile, TEST=True, search_type="offense", search_value=OFFENSE_ID
+        case_file, ContextFile, TEST=True, search_type="offense", search_value=OFFENSE_ID
     )
     assert type(detectionArray) == list, "zs_provide_context_for_detections() should return a list of ContextFile objects"
     assert len(detectionArray) > 0, "zs_provide_context_for_detections() should return a list of ContextFile objects"

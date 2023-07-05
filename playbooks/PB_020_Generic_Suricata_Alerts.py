@@ -19,7 +19,7 @@ PB_AUTHOR = "Martin Offermann"
 PB_LICENSE = "MIT"
 PB_ENABLED = True
 
-from lib.class_helper import DetectionReport, AuditLog, Detection, ContextLog, ContextFlow, ContextFile, Rule
+from lib.class_helper import CaseFile, AuditLog, Detection, ContextLog, ContextFlow, ContextFile, Rule
 from lib.logging_helper import Log
 from lib.config_helper import Config
 from integrations.znuny_otrs import zs_add_note_to_ticket, zs_update_ticket_title
@@ -32,11 +32,11 @@ log_level_stdout = cfg["integrations"]["ibm_qradar"]["logging"]["log_level_stdou
 mlog = Log("playbooks." + PB_NAME, log_level_file, log_level_stdout)
 
 
-def zs_can_handle_detection(detection_report: DetectionReport) -> bool:
+def zs_can_handle_detection(case_file: CaseFile) -> bool:
     """Checks if this playbook can handle the detection.
 
     Args:
-        detection_report (DetectionReport): The detection report
+        case_file (CaseFile): The detection case
 
     Returns:
         bool: True if the playbook can handle the detection, False if not
@@ -45,10 +45,10 @@ def zs_can_handle_detection(detection_report: DetectionReport) -> bool:
         mlog.info(f"Playbook '{PB_NAME}' is disabled. Not handling detection.")
         return False
 
-    for detection in detection_report.detections:
-        # Check if any of the detecions of the detection report is a QRadar Offense
+    for detection in case_file.detections:
+        # Check if any of the detecions of the detection case is a QRadar Offense
         try:
-            detection_report.get_ticket_number()
+            case_file.get_ticket_number()
         except ValueError:
             mlog.info(
                 f"Playbook '{PB_NAME}' cannot handle detection '{detection.name}' ({detection.uuid}), as there is no ticket in it."
@@ -56,7 +56,7 @@ def zs_can_handle_detection(detection_report: DetectionReport) -> bool:
             return False
 
         if detection.vendor_id == "IBM QRadar":
-            for log in detection_report.context_logs:
+            for log in case_file.context_logs:
                 if dict_get(log.log_custom_fields, "Alert - Signature") != None:
                     mlog.info(f"Playbook '{PB_NAME}' can handle detection '{detection.name}' ({detection.uuid}).")
                     return True
@@ -64,26 +64,26 @@ def zs_can_handle_detection(detection_report: DetectionReport) -> bool:
     return False
 
 
-def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> DetectionReport:
+def zs_handle_detection(case_file: CaseFile, DRY_RUN=False) -> CaseFile:
     """Handles the detection.
 
     Args:
-        detection_report (DetectionReport): The detection report
+        case_file (CaseFile): The detection case
         DRY_RUN (bool, optional): If True, no external changes will be made. Defaults to False.
 
     Returns:
-        DetectionReport: The detection report with the context processes
+        CaseFile: The detection case with the context processes
     """
-    detection_title = detection_report.get_title()
+    detection_title = case_file.get_title()
     detections_to_handle = []
-    for detection in detection_report.detections:
+    for detection in case_file.detections:
         if detection.vendor_id == "IBM QRadar":
             mlog.debug(f"Adding detection: '{detection.name}' ({detection.uuid}) to list.")
             detections_to_handle.append(detection)
 
     if len(detections_to_handle) == 0:
-        mlog.critical("Found no detections in detection report to handle.")
-        return detection_report
+        mlog.critical("Found no detections in detection case to handle.")
+        return case_file
 
     detection: Detection = detections_to_handle[0]  # We primarily handle the first detection
 
@@ -94,7 +94,7 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
         "Adding suricata rule information to detection.",
         "Adding new rules to the detection by parsing the Suricata Alert fields from the gathered ContextLogs",
     )
-    detection_report.update_audit(current_action, logger=mlog)
+    case_file.update_audit(current_action, logger=mlog)
 
     rules_new = []
 
@@ -108,7 +108,7 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
     #            '"Alert - Signature"',
     #            '"Alert - Updated"',
 
-    for log in detection_report.context_logs:
+    for log in case_file.context_logs:
         custom_fields = log.log_custom_fields
         if dict_get(custom_fields, "Alert - Signature") != None:
             rule = Rule(
@@ -124,24 +124,22 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
             # TODO: Add 'query' of Suricata rules from external source
 
     detection.rules.append(rules_new)
-    detection_report.update_audit(current_action.set_successful(message="Successfully added rules to detection."), logger=mlog)
+    case_file.update_audit(current_action.set_successful(message="Successfully added rules to detection."), logger=mlog)
 
     # Add note to related ticket
     current_action = AuditLog(PB_NAME, 2, "Adding note to related ticket.", "Adding note with new Rules to related ticket.")
-    detection_report.update_audit(current_action, logger=mlog)
+    case_file.update_audit(current_action, logger=mlog)
 
-    ticket_number = detection_report.get_ticket_number()
+    ticket_number = case_file.get_ticket_number()
     if ticket_number is None:
-        mlog.critical("Could not find ticket number in detection report.")
-        detection_report.update_audit(
-            current_action.set_error(message="Could not find ticket number in detection report."), logger=mlog
-        )
-        return detection_report
+        mlog.critical("Could not find ticket number in detection case.")
+        case_file.update_audit(current_action.set_error(message="Could not find ticket number in detection case."), logger=mlog)
+        return case_file
 
     note_title = "Suricata Alert Rules"
     if len(rules_new) == 0:
         note_title += " (empty)"
-        detection_report.update_audit(
+        case_file.update_audit(
             current_action.set_warning(warning_message="No Suricata rules were found. Adding empty note."), logger=mlog
         )
 
@@ -153,11 +151,9 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
     article_id = zs_add_note_to_ticket(ticket_number, "raw", DRY_RUN, note_title, note_body, "text/html")
     if article_id is None:
         mlog.critical(f"Could not add note to ticket '{ticket_number}'.")
-        detection_report.update_audit(
-            current_action.set_error(message=f"Could not add note to ticket '{ticket_number}'."), logger=mlog
-        )
-        return detection_report
-    detection_report.update_audit(
+        case_file.update_audit(current_action.set_error(message=f"Could not add note to ticket '{ticket_number}'."), logger=mlog)
+        return case_file
+    case_file.update_audit(
         current_action.set_successful(message=f"Successfully added note to ticket '{ticket_number}'."), logger=mlog
     )
 
@@ -165,14 +161,14 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
     current_action = AuditLog(
         PB_NAME, 3, "Updating ticket title.", "Updating ticket title to include the Suricata Alert Signature."
     )
-    detection_report.update_audit(current_action, logger=mlog)
+    case_file.update_audit(current_action, logger=mlog)
 
     if len(rules_new) == 0:
         mlog.critical("Could not update ticket title, as there are no rules.")
-        detection_report.update_audit(
+        case_file.update_audit(
             current_action.set_error(message="Could not update ticket title, as there are no rules."), logger=mlog
         )
-        return detection_report
+        return case_file
 
     title = "[Z-SOAR] Suricata Alert: "
     title_rule = rules_new[0].name
@@ -190,7 +186,7 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
                 title += ", " + rule_name
 
     offender = []
-    for log in detection_report.context_logs:
+    for log in case_file.context_logs:
         if log.log_source_device is not None:
             offender.append(log.log_source_device.name)
 
@@ -204,15 +200,13 @@ def zs_handle_detection(detection_report: DetectionReport, DRY_RUN=False) -> Det
 
     mlog.info(f"Crafted new ticket title: '{title}'")
 
-    ticket_number = zs_update_ticket_title(detection_report, title)
+    ticket_number = zs_update_ticket_title(case_file, title)
     if ticket_number is None or type(ticket_number) == Exception:
         mlog.critical(f"Could not update ticket '{ticket_number}'.")
-        detection_report.update_audit(
-            current_action.set_error(message=f"Could not update ticket '{ticket_number}'."), logger=mlog
-        )
-        return detection_report
-    detection_report.update_audit(
+        case_file.update_audit(current_action.set_error(message=f"Could not update ticket '{ticket_number}'."), logger=mlog)
+        return case_file
+    case_file.update_audit(
         current_action.set_successful(message=f"Successfully updated ticket '{ticket_number}' title to '{title}'."), logger=mlog
     )
 
-    return detection_report
+    return case_file

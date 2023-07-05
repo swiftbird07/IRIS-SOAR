@@ -5,7 +5,7 @@
 import datetime
 
 from playbooks.PB_021_Advanced_Elastic_Context import zs_can_handle_detection, zs_handle_detection
-from lib.class_helper import DetectionReport, Detection, Rule, ContextDevice
+from lib.class_helper import CaseFile, Detection, Rule, ContextDevice
 from integrations.znuny_otrs import zs_create_ticket
 
 
@@ -21,21 +21,21 @@ def prepare_test():
         uuid="1438",
         device=ContextDevice("MacBook Pro von Martin 14'", "10.21.0.9"),
     )
-    detection_report = DetectionReport([detection])
+    case_file = CaseFile([detection])
     ticket = zs_create_ticket(
-        detection_report
+        case_file
     )  # if an error occurs here, check the zs_create_ticket() function in tests/integrations/test_znuny_otrs.py
-    return detection_report
+    return case_file
 
 
 def test_zs_can_handle_detection():
-    detection_report = prepare_test()
+    case_file = prepare_test()
     # Test the function
-    can_handle = zs_can_handle_detection(detection_report)
-    assert can_handle == True, "zs_can_handle_detection() should return True for this detection report"
+    can_handle = zs_can_handle_detection(case_file)
+    assert can_handle == True, "zs_can_handle_detection() should return True for this detection case"
 
 
 def test_zs_handle_detection():
-    detection_report = prepare_test()
-    zs_handle_detection(detection_report, False)
+    case_file = prepare_test()
+    zs_handle_detection(case_file, False)
     assert True == True, "zs_handle_detection() should not raise an exception"

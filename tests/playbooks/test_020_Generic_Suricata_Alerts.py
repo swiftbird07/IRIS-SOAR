@@ -5,7 +5,7 @@
 import datetime
 
 from playbooks.PB_020_Generic_Suricata_Alerts import zs_can_handle_detection, zs_handle_detection
-from lib.class_helper import DetectionReport, Detection, Rule, ContextLog
+from lib.class_helper import CaseFile, Detection, Rule, ContextLog
 from integrations.ibm_qradar import zs_provide_context_for_detections
 from integrations.znuny_otrs import zs_create_ticket
 
@@ -23,29 +23,29 @@ def prepare_test():
         host_name="test-host",
         uuid="1438",
     )
-    detection_report = DetectionReport([detection])
+    case_file = CaseFile([detection])
 
     ticket = zs_create_ticket(
-        detection_report
+        case_file
     )  # if an error occurs here, check the zs_create_ticket() function in tests/integrations/test_znuny_otrs.py
     detectionArray = zs_provide_context_for_detections(
-        detection_report, ContextLog, TEST=True, search_type="offense", search_value=OFFENSE_ID
+        case_file, ContextLog, TEST=True, search_type="offense", search_value=OFFENSE_ID
     )
     for log in detectionArray:
-        detection_report.context_logs.append(log)
-    return detection_report
+        case_file.context_logs.append(log)
+    return case_file
 
 
 def test_zs_can_handle_detection():
-    detection_report = prepare_test()
+    case_file = prepare_test()
 
     # Test the function
-    can_handle = zs_can_handle_detection(detection_report)
-    assert can_handle == True, "zs_can_handle_detection() should return True for this detection report"
+    can_handle = zs_can_handle_detection(case_file)
+    assert can_handle == True, "zs_can_handle_detection() should return True for this detection case"
 
 
 def test_zs_handle_detection():
-    detection_report = prepare_test()
+    case_file = prepare_test()
 
-    zs_handle_detection(detection_report, False)
+    zs_handle_detection(case_file, False)
     assert True == True, "zs_handle_detection() should not raise an exception"

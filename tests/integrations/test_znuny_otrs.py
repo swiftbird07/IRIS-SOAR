@@ -2,7 +2,7 @@
 
 import pytest
 
-from lib.class_helper import Detection, DetectionReport, Rule, ContextProcess, ContextLog, ContextFlow
+from lib.class_helper import Detection, CaseFile, Rule, ContextProcess, ContextLog, ContextFlow
 from integrations.znuny_otrs import (
     zs_create_ticket,
     zs_integration_setup,
@@ -42,7 +42,7 @@ def test_zs_create_ticket():
     # Prepare the config
     cfg = config_helper.Config().cfg
 
-    # Prepare a DetectionReport object
+    # Prepare a CaseFile object
     rule = Rule("123", "Some Rule", 0)
 
     ruleList = []
@@ -51,13 +51,13 @@ def test_zs_create_ticket():
 
     detectionList = []
     detectionList.append(detection)
-    detection_report = DetectionReport(detectionList)
+    case_file = CaseFile(detectionList)
     assert (
-        detection_report != None
-    ), "DetectionReport class could not be initialized"  # Sanity check - should be already tested by test_zsoar_lib.py -> test_class_helper()
+        case_file != None
+    ), "CaseFile class could not be initialized"  # Sanity check - should be already tested by test_zsoar_lib.py -> test_class_helper()
 
     # Test the function
-    ticket_id = zs_create_ticket(detection_report, not TEST_ONLINE)
+    ticket_id = zs_create_ticket(case_file, not TEST_ONLINE)
     if TEST_ONLINE:
         assert type(ticket_id) == str, "zs_create_ticket() should return a string with the ticket ID"
     else:

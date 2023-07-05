@@ -35,7 +35,7 @@ import traceback
 from lib.class_helper import Rule, Detection, ContextProcess, ContextFlow
 
 # For context for detections (remove unused types):
-from lib.class_helper import DetectionReport, ContextFlow, ContextLog, ContextProcess, AuditLog
+from lib.class_helper import CaseFile, ContextFlow, ContextLog, ContextProcess, AuditLog
 from lib.generic_helper import get_unique, format_results, del_none_from_dict
 
 PRE_TAG = "[ZSOAR]"  # Tag before the title of the ticket (without spaces)
@@ -171,7 +171,7 @@ def zs_provide_new_detections(config, TEST="") -> List[Detection]:
 
 
 def zs_provide_context_for_detections(
-    config, detection_report: DetectionReport, required_type: type, TEST=False, UUID=None, UUID_is_parent=False, maxContext=50
+    config, case_file: CaseFile, required_type: type, TEST=False, UUID=None, UUID_is_parent=False, maxContext=50
 ) -> Union[ContextFlow, ContextLog, ContextProcess]:
     return NotImplementedError  # TODO: Implement
 
@@ -264,17 +264,17 @@ def create_client_session() -> pyotrs.Client:
 
 
 def create_auto_detection(
-    mode, detection_report: DetectionReport, detection: Detection, playbook_name, playbook_step, DRY_RUN=False, ticket_number=None
+    mode, case_file: CaseFile, detection: Detection, playbook_name, playbook_step, DRY_RUN=False, ticket_number=None
 ):
     if mode == "existing_ticket" and not ticket_number:
         raise ValueError("Ticket number must be specified when using existing_ticket mode.")
 
     if mode == "new_ticket":
         current_action = AuditLog(playbook_name, playbook_step, "Create Ticket", "Creating ticket for detection.")
-        detection_report.update_audit(current_action, logger=mlog)
+        case_file.update_audit(current_action, logger=mlog)
     elif mode == "existing_ticket":
         current_action = AuditLog(playbook_name, playbook_step, "Update Ticket", "Updating ticket with a new detection.")
-        detection_report.update_audit(current_action, logger=mlog)
+        case_file.update_audit(current_action, logger=mlog)
     else:
         raise ValueError("Invalid mode specified.")
 
@@ -294,20 +294,20 @@ def create_auto_detection(
     if mode == "new_ticket":
         # Create ticket recursively by calling this function again with auto_detection_note set to False and init_note_title and init_note_body set to the parsed values.
         ticket_number = zs_create_ticket(
-            detection_report, DRY_RUN, auto_detection_note=False, init_note_title=init_title, init_note_body=init_body
+            case_file, DRY_RUN, auto_detection_note=False, init_note_title=init_title, init_note_body=init_body
         )
         if ticket_number is None or not ticket_number:
             mlog.error(f"Failed to create ticket for detection: '{detection.name}' ({detection.uuid})")
-            detection_report.update_audit(
+            case_file.update_audit(
                 current_action.set_error(message="Failed to create ticket for detection (No ticket_number returned)."),
                 logger=mlog,
             )
-            return detection_report
+            return case_file
         else:
             mlog.info(
                 f"Successfully created ticket for detection: '{detection.name}' ({detection.uuid}) with ticket number: {ticket_number}"
             )
-            detection_report.update_audit(
+            case_file.update_audit(
                 current_action.set_successful(
                     message=f"Successfully created ticket for detection with ticket number: {ticket_number}",
                     ticket_number=ticket_number,
@@ -338,7 +338,7 @@ def zs_get_ticket_by_number(ticket_number: str) -> pyotrs.Ticket:
 
 
 def zs_create_ticket(
-    detection_report: DetectionReport,
+    case_file: CaseFile,
     detection=None,
     DRY_RUN=False,
     priority=None,
@@ -356,7 +356,7 @@ def zs_create_ticket(
 
     Arguments:
         config {dict} -- The configuration dictionary.
-        detection_report {DetectionReport} -- The detection to create the ticket for.
+        case_file {CaseFile} -- The detection to create the ticket for.
         title {str} -- The title of the ticket. If not set, the title of the first detection will be used.
         priority {str} -- The priority of the ticket. If not set "normal" will be used.
         state {str} -- The state of the ticket. If not set "new" will be used.
@@ -384,23 +384,23 @@ def zs_create_ticket(
 
     mlog.info("Creating ticket in Znuny...")
 
-    # Fetching detection report for required information.
+    # Fetching detection case for required information.
 
-    length = len(detection_report.detections)
+    length = len(case_file.detections)
     if length == 0:
-        mlog.critical("The detection report is empty. Aborting ticket creation.")
-        return ValueError("The detection report is empty. Aborting ticket creation.")
+        mlog.critical("The detection case is empty. Aborting ticket creation.")
+        return ValueError("The detection case is empty. Aborting ticket creation.")
 
-    for detection in detection_report.detections:  # Check if all detections are of type Detection
+    for detection in case_file.detections:  # Check if all detections are of type Detection
         if not isinstance(detection, Detection):
-            mlog.critical("One of the detections of the detection report is not of type Detection. Aborting ticket creation.")
-            return TypeError("One of the detections of the detecion report is not of type Detection. Abortung ticket creation.")
+            mlog.critical("One of the detections of the detection case is not of type Detection. Aborting ticket creation.")
+            return TypeError("One of the detections of the detecion case is not of type Detection. Abortung ticket creation.")
 
-    # The first detection is used as the ticket will be created for the first detection in a report.
-    detection = detection_report.detections[0]
+    # The first detection is used as the ticket will be created for the first detection in a case.
+    detection = case_file.detections[0]
 
     timestamp = detection.timestamp
-    detection_title = detection_report.get_title()
+    detection_title = case_file.get_title()
     description = detection.description
     severity = detection.severity
     detection_uuid = detection.uuid
@@ -442,7 +442,7 @@ def zs_create_ticket(
     # If auto_detection_note is set, the detection information will be parsed and added to the ticket.
     if auto_detection_note:
         mode = "new_ticket"
-        ticket_number = create_auto_detection(mode, detection_report, detection, playbook_name, playbook_step, DRY_RUN)
+        ticket_number = create_auto_detection(mode, case_file, detection, playbook_name, playbook_step, DRY_RUN)
         return ticket_number
 
     note_title = PRE_TAG + " " + detection_title
@@ -468,7 +468,7 @@ def zs_create_ticket(
             return SystemError
         try:
             ticket_number = ticket["TicketNumber"]
-            detection_report.add_context(ticket)
+            case_file.add_context(ticket)
             return ticket_number
         except KeyError:
             mlog.critical(
@@ -486,7 +486,7 @@ def zs_add_note_to_ticket(
     raw_body_type="text/plain",
     playbook_name=None,
     playbook_step=None,
-    detection_report: DetectionReport = None,
+    case_file: CaseFile = None,
     detection: Detection = None,
     detection_contexts=None,
     other_contexts=None,
@@ -578,7 +578,7 @@ def zs_add_note_to_ticket(
     elif mode == "context_process":
         # Create a note for Process Context
         try:
-            if not playbook_name or not detection_report or not detection:
+            if not playbook_name or not case_file or not detection:
                 raise ValueError("Missing arguments for context_process note creation.")
 
             process_names = detection_contexts
@@ -588,11 +588,11 @@ def zs_add_note_to_ticket(
             current_action = AuditLog(
                 playbook_name, playbook_step, "Create Note - Process Context", "Creating note for processes in detection."
             )
-            detection_report.update_audit(current_action, logger=mlog)
+            case_file.update_audit(current_action, logger=mlog)
 
             if not detection.process and gather_type != "time range":
                 mlog.warning(f"Detection has no process. Skipping note creation.")
-                detection_report.update_audit(
+                case_file.update_audit(
                     current_action.set_warning(warning_message=f"Detection has no process. Skipping note creation."), logger=mlog
                 )
             else:
@@ -615,7 +615,7 @@ def zs_add_note_to_ticket(
                     body += f"Process Command Line: {detection.process.process_command_line}<br>"
                     body += f"Process SHA256: {detection.process.process_sha256}<br>"
 
-                    body += f"<br><br><h3>List of all reported process names: </h3><br><br>"
+                    body += f"<br><br><h3>List of all caseed process names: </h3><br><br>"
                     body += f"{get_unique(process_names)}"
 
                     body += f"<br><br><h3>Parent Processes:<br><br><h3>"
@@ -625,12 +625,12 @@ def zs_add_note_to_ticket(
                     body += "<br>" + format_results(children, "html", group_by="process_id")
 
                 body += "<br><br><h3>Complete Process Timeline:</h3><br>"
-                body += "<br>" + format_results(detection_report.context_processes, "html", group_by="")
+                body += "<br>" + format_results(case_file.context_processes, "html", group_by="")
 
                 note_id = zs_add_note_to_ticket(ticket_number, "raw", DRY_RUN, title, body, "text/html")
                 if type(note_id) is not int:
                     mlog.warning(f"Failed to create note for processes in detection.")
-                    detection_report.update_audit(
+                    case_file.update_audit(
                         current_action.set_error(
                             warning_message=f"Failed to create note for processes in detection (returned).", exception=note_id
                         ),
@@ -640,7 +640,7 @@ def zs_add_note_to_ticket(
                     mlog.info(
                         f"Successfully created note for processes in detection: '{detection.name}' ({detection.uuid}) with note id: {note_id}"
                     )
-                    detection_report.update_audit(
+                    case_file.update_audit(
                         current_action.set_successful(
                             message=f"Successfully created note for processes in detection with note id: {note_id}",
                             ticket_number=ticket_number,
@@ -652,7 +652,7 @@ def zs_add_note_to_ticket(
             mlog.error(
                 f"Failed to create note for processes in detection: '{detection.name}' ({detection.uuid}). Exception: {traceback.format_exc()}"
             )
-            detection_report.update_audit(
+            case_file.update_audit(
                 current_action.set_error(message=f"Failed to create note for processes in detection (catched).", exception=e),
                 logger=mlog,
             )
@@ -661,7 +661,7 @@ def zs_add_note_to_ticket(
     elif mode == "context_network":
         # Create a note for Network Context
         try:
-            if not playbook_name or not detection_report or not detection:
+            if not playbook_name or not case_file or not detection:
                 raise ValueError("Missing arguments for context_process note creation.")
 
             detected_process_flows = detection_contexts
@@ -678,7 +678,7 @@ def zs_add_note_to_ticket(
             current_action = AuditLog(
                 playbook_name, playbook_step, "Create Note - Network Context", "Creating note for network flows in the detection."
             )
-            detection_report.update_audit(current_action, logger=mlog)
+            case_file.update_audit(current_action, logger=mlog)
 
             note_title = "Context: Network Flows"
             if gather_type and gather_type == "time range":
@@ -687,8 +687,8 @@ def zs_add_note_to_ticket(
                 note_title += " [direct]"
 
             # Check if any network flows were found
-            if len(detected_process_flows) == 0 and len(context_process_flows) == 0 and len(detection_report.context_flows) == 0:
-                detection_report.update_audit(
+            if len(detected_process_flows) == 0 and len(context_process_flows) == 0 and len(case_file.context_flows) == 0:
+                case_file.update_audit(
                     current_action.set_warning(warning_message=f"Found no network flows for detection."), logger=mlog
                 )
                 note_title += " (empty)"
@@ -701,20 +701,20 @@ def zs_add_note_to_ticket(
                     body += f"<h3>Network Flows of Detection:</h3><br><br>"
                 body += format_results(detected_process_flows, "html", group_by="")
 
-                body += f"<br><br><h3>List of all reported IPs and domains: </h3><br><br>"
-                body += str(detection_report.indicators["ip"]) + "<br>" + str(detection_report.indicators["domain"]) + "<br><br>"
+                body += f"<br><br><h3>List of all caseed IPs and domains: </h3><br><br>"
+                body += str(case_file.indicators["ip"]) + "<br>" + str(case_file.indicators["domain"]) + "<br><br>"
 
                 if context_process_flows and len(context_process_flows) > 0:
                     body += f"<br><br><h3>Network Flows of other Processes (grouped by process):</h3><br><br>"
                     body += format_results(context_process_flows, "html", group_by="process_id")
 
             body += "<br><br><h3>Complete Network Timeline:</h3><br>"
-            body += "<br>" + format_results(detection_report.context_flows, "html", group_by="")
+            body += "<br>" + format_results(case_file.context_flows, "html", group_by="")
 
             note_id = zs_add_note_to_ticket(ticket_number, "raw", DRY_RUN, note_title, body, "text/html")
             if type(note_id) is not int:
                 mlog.warning(f"Failed to create note for network in detection.")
-                detection_report.update_audit(
+                case_file.update_audit(
                     current_action.set_error(
                         warning_message=f"Failed to create note for network in detection (returned).", exception=note_id
                     ),
@@ -725,7 +725,7 @@ def zs_add_note_to_ticket(
                     f"Successfully created note for network in detection: '{detection.name}' ({detection.uuid}) with note id: {note_id}"
                 )
                 current_action.playbook_done = True
-                detection_report.update_audit(
+                case_file.update_audit(
                     current_action.set_successful(
                         message=f"Successfully created note for network in detection with note id: {note_id}",
                         ticket_number=ticket_number,
@@ -736,7 +736,7 @@ def zs_add_note_to_ticket(
             mlog.error(
                 f"Failed to create note for network in detection: '{detection.name}' ({detection.uuid}). Exception: {traceback.format_exc()}"
             )
-            detection_report.update_audit(
+            case_file.update_audit(
                 current_action.set_error(message=f"Failed to create note for network in detection (catched).", exception=e),
                 logger=mlog,
             )
@@ -745,7 +745,7 @@ def zs_add_note_to_ticket(
     elif mode == "context_file":
         # Create a note for File Events
         try:
-            if not playbook_name or not detection_report or not detection:
+            if not playbook_name or not case_file or not detection:
                 raise ValueError("Missing arguments for context_process note creation.")
 
             detected_process_file_events = detection_contexts
@@ -762,7 +762,7 @@ def zs_add_note_to_ticket(
             current_action = AuditLog(
                 playbook_name, playbook_step, "Create Note - File Events", "Creating note for file events in the detection."
             )
-            detection_report.update_audit(current_action, logger=mlog)
+            case_file.update_audit(current_action, logger=mlog)
             note_title = "Context: File Events"
             if gather_type and gather_type == "time range":
                 note_title += " [time range]"
@@ -773,9 +773,9 @@ def zs_add_note_to_ticket(
             if (
                 len(detected_process_file_events) == 0
                 and len(context_processes_file_events) == 0
-                and len(detection_report.context_files) == 0
+                and len(case_file.context_files) == 0
             ):
-                detection_report.update_audit(
+                case_file.update_audit(
                     current_action.set_warning(warning_message=f"Found no file events for detection."), logger=mlog
                 )
                 note_title += " (empty)"
@@ -789,18 +789,18 @@ def zs_add_note_to_ticket(
                 body += format_results(detected_process_file_events, "html", group_by="")
 
                 if context_processes_file_events and len(context_processes_file_events) > 0:
-                    body += f"<br><br><h3>List of all reported files: </h3><br><br>"
+                    body += f"<br><br><h3>List of all caseed files: </h3><br><br>"
                     body += f"{get_unique(file_names)}"
                     body += f"<br><br><h3>File Events of other Processes (grouped by process):</h3><br><br>"
                     body += format_results(context_processes_file_events, "html", group_by="process_id")
 
             body += "<br><br><h3>Complete File Event Timeline:</h3><br>"
-            body += "<br>" + format_results(detection_report.context_files, "html", group_by="")
+            body += "<br>" + format_results(case_file.context_files, "html", group_by="")
 
             note_id = zs_add_note_to_ticket(ticket_number, "raw", DRY_RUN, note_title, body, "text/html")
             if type(note_id) is not int:
                 mlog.warning(f"Failed to create note for file events in detection.")
-                detection_report.update_audit(
+                case_file.update_audit(
                     current_action.set_error(
                         warning_message=f"Failed to create note for file events in detection (returned).", exception=note_id
                     ),
@@ -810,7 +810,7 @@ def zs_add_note_to_ticket(
                 mlog.info(
                     f"Successfully created note for file events in detection: '{detection.name}' ({detection.uuid}) with note id: {note_id}"
                 )
-                detection_report.update_audit(
+                case_file.update_audit(
                     current_action.set_successful(
                         message=f"Successfully created note for file events in detection with note id: {note_id}",
                         ticket_number=ticket_number,
@@ -821,7 +821,7 @@ def zs_add_note_to_ticket(
             mlog.error(
                 f"Failed to create note for file events in detection: '{detection.name}' ({detection.uuid}). Exception: {traceback.format_exc()}"
             )
-            detection_report.update_audit(
+            case_file.update_audit(
                 current_action.set_error(message=f"Failed to create note for file events in detection (catched).", exception=e),
                 logger=mlog,
             )
@@ -830,7 +830,7 @@ def zs_add_note_to_ticket(
     elif mode == "context_registry":
         # Create a note for Registry Events
         try:
-            if not playbook_name or not detection_report or not detection:
+            if not playbook_name or not case_file or not detection:
                 raise ValueError("Missing arguments for context_process note creation.")
 
             detected_process_registry_events = detection_contexts
@@ -849,7 +849,7 @@ def zs_add_note_to_ticket(
                 "Create Note - Registry Events",
                 "Creating note for registry events in the detection.",
             )
-            detection_report.update_audit(current_action, logger=mlog)
+            case_file.update_audit(current_action, logger=mlog)
             note_title = "Context: Registry Events"
             if gather_type and gather_type == "time range":
                 note_title += " [time range]"
@@ -860,10 +860,10 @@ def zs_add_note_to_ticket(
             if (
                 len(detected_process_registry_events) == 0
                 and len(context_processes_registry_events) == 0
-                and len(detection_report.context_registries) == 0
+                and len(case_file.context_registries) == 0
             ):
                 mlog.warning(f"Found no registry events for detection.")
-                detection_report.update_audit(
+                case_file.update_audit(
                     current_action.set_warning(warning_message=f"Found no registry events for detection."), logger=mlog
                 )
                 note_title += " (empty)"
@@ -878,12 +878,12 @@ def zs_add_note_to_ticket(
                 body += f"<br><br><h3>Registry Events of other Processes (grouped by process):</h3><br><br>"
                 body += format_results(context_processes_registry_events, "html", group_by="process_id")
             body += f"<br><br><h3>Complete Registry Event Timeline:</h3><br>"
-            body += "<br>" + format_results(detection_report.context_registries, "html", group_by="")
+            body += "<br>" + format_results(case_file.context_registries, "html", group_by="")
 
             note_id = zs_add_note_to_ticket(ticket_number, "raw", DRY_RUN, note_title, body, "text/html")
             if type(note_id) is not int:
                 mlog.warning(f"Failed to create note for registry events in detection.")
-                detection_report.update_audit(
+                case_file.update_audit(
                     current_action.set_error(
                         warning_message=f"Failed to create note for registry events in detection (returned).", exception=note_id
                     ),
@@ -894,7 +894,7 @@ def zs_add_note_to_ticket(
                     f"Successfully created note for registry events in detection: '{detection.name}' ({detection.uuid}) with note id: {note_id}"
                 )
                 current_action.playbook_done = True
-                detection_report.update_audit(
+                case_file.update_audit(
                     current_action.set_successful(
                         message=f"Successfully created note for registry events in detection with note id: {note_id}",
                         ticket_number=ticket_number,
@@ -906,7 +906,7 @@ def zs_add_note_to_ticket(
             mlog.error(
                 f"Failed to create note for registry events in detection: '{detection.name}' ({detection.uuid}). Exception: {traceback.format_exc()}"
             )
-            detection_report.update_audit(
+            case_file.update_audit(
                 current_action.set_error(
                     message=f"Failed to create note for registry events in detection (catched).", exception=e
                 ),
@@ -917,7 +917,7 @@ def zs_add_note_to_ticket(
     elif mode == "context_log":
         # Create a note for Log Events
         try:
-            if not playbook_name or not detection_report or not detection:
+            if not playbook_name or not case_file or not detection:
                 raise ValueError("Missing arguments for context_process note creation.")
 
             detected_process_log_events = detection_contexts
@@ -930,7 +930,7 @@ def zs_add_note_to_ticket(
                 "Create Note - Log Events",
                 "Creating note for log events in the detection.",
             )
-            detection_report.update_audit(current_action, logger=mlog)
+            case_file.update_audit(current_action, logger=mlog)
             note_title = "Context: Log Events"
             if gather_type and gather_type == "time range":
                 note_title += " [time range]"
@@ -941,10 +941,10 @@ def zs_add_note_to_ticket(
             if (
                 detected_process_log_events is None
                 and len(context_processes_log_events) == 0
-                and len(detection_report.context_logs) == 0
+                and len(case_file.context_logs) == 0
             ):
                 mlog.warning(f"Found no log events for detection.")
-                detection_report.update_audit(
+                case_file.update_audit(
                     current_action.set_warning(warning_message=f"Found no log events for detection."), logger=mlog
                 )
                 note_title += " (empty)"
@@ -962,12 +962,12 @@ def zs_add_note_to_ticket(
                     body += format_results(context_processes_log_events, "html", group_by="process_id")
 
             body += f"<br><br><h3>Complete Log Event Timeline:</h3><br>"
-            body += "<br>" + format_results(detection_report.context_logs, "html", group_by="")
+            body += "<br>" + format_results(case_file.context_logs, "html", group_by="")
 
             note_id = zs_add_note_to_ticket(ticket_number, "raw", DRY_RUN, note_title, body, "text/html")
             if type(note_id) is not int:
                 mlog.warning(f"Failed to create note for log events in detection.")
-                detection_report.update_audit(
+                case_file.update_audit(
                     current_action.set_error(
                         warning_message=f"Failed to create note for log events in detection (returned).", exception=note_id
                     ),
@@ -978,7 +978,7 @@ def zs_add_note_to_ticket(
                     f"Successfully created note for log events in detection: '{detection.name}' ({detection.uuid}) with note id: {note_id}"
                 )
                 current_action.playbook_done = True
-                detection_report.update_audit(
+                case_file.update_audit(
                     current_action.set_successful(
                         message=f"Successfully created note for log events in detection with note id: {note_id}",
                         ticket_number=ticket_number,
@@ -990,7 +990,7 @@ def zs_add_note_to_ticket(
             mlog.error(
                 f"Failed to create note for log events in detection: '{detection.name}' ({detection.uuid}). Exception: {traceback.format_exc()}"
             )
-            detection_report.update_audit(
+            case_file.update_audit(
                 current_action.set_error(message=f"Failed to create note for log events in detection (catched).", exception=e),
                 logger=mlog,
             )
@@ -1000,9 +1000,7 @@ def zs_add_note_to_ticket(
         return NotImplementedError("Analysis mode is not implemented yet.")
 
     elif mode == "detection":
-        create_auto_detection(
-            "existing_ticket", detection_report, detection, playbook_name, playbook_step, DRY_RUN, ticket_number
-        )
+        create_auto_detection("existing_ticket", case_file, detection, playbook_name, playbook_step, DRY_RUN, ticket_number)
         return 1
 
     article = pyotrs.Article(
@@ -1036,7 +1034,7 @@ def zs_add_note_to_ticket(
             return Exception("Note creation failed. Znuny did not return a note ID. Aborting note creation.")
 
 
-def zs_update_ticket_title(detection_report: DetectionReport, title, DRY_RUN=False):
+def zs_update_ticket_title(case_file: CaseFile, title, DRY_RUN=False):
     """Updates the title of a ticket.
 
     Args:
@@ -1051,8 +1049,8 @@ def zs_update_ticket_title(detection_report: DetectionReport, title, DRY_RUN=Fal
         mlog.warning(f"Ticket title '{title}' is longer than 200 characters. Truncating title to 197 characters + '...'.")
         title = title[:197] + "..."
 
-    ticket_number = detection_report.get_ticket_number()
-    ticket_id = detection_report.get_ticket_id()
+    ticket_number = case_file.get_ticket_number()
+    ticket_id = case_file.get_ticket_id()
 
     mlog.debug(f"Updating title of ticket {ticket_number} to '{title}'")
     # Create client and session
