@@ -202,7 +202,7 @@ def zs_handle_detection(case_file: CaseFile, TEST=False) -> CaseFile:
                 except Exception as e:
                     mlog.error(f"Error while getting context for IP '{ip}': {e}")
                     case_file.update_audit(
-                        current_action.set_error(warning_message=f"Error while getting context for IP '{ip}': {e}", data=e), mlog
+                        current_action.set_error(message=f"Error while getting context for IP '{ip}': {e}", data=e), mlog
                     )
 
             if len(network_contexts) != 0:
@@ -305,7 +305,7 @@ def zs_handle_detection(case_file: CaseFile, TEST=False) -> CaseFile:
                 except Exception as e:
                     mlog.error(f"Error while getting context for URL '{url}': {e}")
                     case_file.update_audit(
-                        current_action.set_error(warning_message=f"Error while getting context for URL '{url}': {e}", data=e),
+                        current_action.set_error(message=f"Error while getting context for URL '{url}': {e}", data=e),
                         mlog,
                     )
 
@@ -345,7 +345,7 @@ def zs_handle_detection(case_file: CaseFile, TEST=False) -> CaseFile:
                 except Exception as e:
                     mlog.error(f"Error while getting context for hash '{hash}': {e}")
                     case_file.update_audit(
-                        current_action.set_error(warning_message=f"Error while getting context for hash '{hash}': {e}", data=e),
+                        current_action.set_error(message=f"Error while getting context for hash '{hash}': {e}", data=e),
                         mlog,
                     )
 
