@@ -631,7 +631,7 @@ def zs_add_note_to_ticket(
                     mlog.warning(f"Failed to create note for processes in detection.")
                     case_file.update_audit(
                         current_action.set_error(
-                            warning_message=f"Failed to create note for processes in detection (returned).", exception=note_id
+                            message=f"Failed to create note for processes in detection (returned).", exception=note_id
                         ),
                         logger=mlog,
                     )
@@ -715,7 +715,7 @@ def zs_add_note_to_ticket(
                 mlog.warning(f"Failed to create note for network in detection.")
                 case_file.update_audit(
                     current_action.set_error(
-                        warning_message=f"Failed to create note for network in detection (returned).", exception=note_id
+                        message=f"Failed to create note for network in detection (returned).", exception=note_id
                     ),
                     logger=mlog,
                 )
@@ -801,7 +801,7 @@ def zs_add_note_to_ticket(
                 mlog.warning(f"Failed to create note for file events in detection.")
                 case_file.update_audit(
                     current_action.set_error(
-                        warning_message=f"Failed to create note for file events in detection (returned).", exception=note_id
+                        message=f"Failed to create note for file events in detection (returned).", exception=note_id
                     ),
                     logger=mlog,
                 )
@@ -884,7 +884,7 @@ def zs_add_note_to_ticket(
                 mlog.warning(f"Failed to create note for registry events in detection.")
                 case_file.update_audit(
                     current_action.set_error(
-                        warning_message=f"Failed to create note for registry events in detection (returned).", exception=note_id
+                        message=f"Failed to create note for registry events in detection (returned).", exception=note_id
                     ),
                     logger=mlog,
                 )
@@ -968,7 +968,7 @@ def zs_add_note_to_ticket(
                 mlog.warning(f"Failed to create note for log events in detection.")
                 case_file.update_audit(
                     current_action.set_error(
-                        warning_message=f"Failed to create note for log events in detection (returned).", exception=note_id
+                        message=f"Failed to create note for log events in detection (returned).", exception=note_id
                     ),
                     logger=mlog,
                 )
