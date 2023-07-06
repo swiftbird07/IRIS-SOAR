@@ -468,7 +468,6 @@ def zs_create_ticket(
             return SystemError
         try:
             ticket_number = ticket["TicketNumber"]
-            case_file.add_context(ticket)
             return ticket_number
         except KeyError:
             mlog.critical(
