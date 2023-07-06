@@ -257,7 +257,7 @@ def main(config, fromDaemon=False, debug=False):
                         ticket_number,
                         "raw",
                         False,
-                        "[Z-SOAR] Audit Log Trail",
+                        "(DEBUG) Audit Log Trail",
                         trail_str,
                         visible_for_customer=False,
                         raw_body_type="text/html",

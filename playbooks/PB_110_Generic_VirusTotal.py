@@ -44,8 +44,8 @@ from integrations.znuny_otrs import zs_add_note_to_ticket, zs_get_ticket_by_numb
 
 # Prepare the logger
 cfg = Config().cfg
-log_level_file = cfg["integrations"]["elastic_siem"]["logging"]["log_level_file"]
-log_level_stdout = cfg["integrations"]["elastic_siem"]["logging"]["log_level_stdout"]
+log_level_file = cfg["integrations"]["virus_total"]["logging"]["log_level_file"]
+log_level_stdout = cfg["integrations"]["virus_total"]["logging"]["log_level_stdout"]
 mlog = logging_helper.Log("playbooks." + PB_NAME, log_level_file, log_level_stdout)
 
 
