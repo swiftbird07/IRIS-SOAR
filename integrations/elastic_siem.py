@@ -1468,7 +1468,7 @@ def zs_provide_context_for_detections(
                         return None
 
                     for doc in docs:
-                        event_category = doc["_source"]["event"]["category"][0]
+                        event_category = doc["_source"]["event"]["category"][0]  # TODO: Fix Bug here: KeyError: 'event'
                         if event_category not in ["process"]:
                             mlog.info("Skipping adding event with category: " + event_category)
                             continue

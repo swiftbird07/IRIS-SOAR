@@ -23,8 +23,8 @@ PB_ENABLED = True
 EDR_DETECTION_VENDORS = ["elastic_siem"]  # The vendors that are considered EDR detections.
 SIEM_DETECTION_VENDORS = ["IBM QRadar"]  # The vendors that are considered SIEM detections.
 
-EDR_SEARCH_case_file = False  # If True, the playbook will search for all indicators if any of the detections is an EDR detection
-SIEM_SEARCH_case_file = True  # If True, the playbook will search for all indicators if any of the detections is a SIEM detection
+EDR_SEARCH_CASE_FILE = True  # If True, the playbook will search for all indicators if any of the detections is an EDR detection
+SIEM_SEARCH_CASE_FILE = True  # If True, the playbook will search for all indicators if any of the detections is a SIEM detection
 
 WAIT_FOR_HASHES = False  # If True, the playbook will wait for the file/process hashes to be analyzed even if the API limit is reached. Not recommended on the free API, when many hashes are excpected (e.g. when using Elastic Integration)
 WAIT_FOR_NETWORK = (
@@ -129,14 +129,14 @@ def zs_handle_detection(case_file: CaseFile, TEST=False) -> CaseFile:
     urls = []
     hashes = []
 
-    if case_file.detections[0].vendor_id in EDR_DETECTION_VENDORS and EDR_SEARCH_case_file:
+    if case_file.detections[0].vendor_id in EDR_DETECTION_VENDORS and EDR_SEARCH_CASE_FILE:
         mlog.info(f"Searching for all indicators of detection case '{case_file.uuid}' as it is an EDR detection.")
         ips = case_file.indicators["ip"]
         domains = case_file.indicators["domain"]
         urls = case_file.indicators["url"]
         hashes = case_file.indicators["hash"]
 
-    if case_file.detections[0].vendor_id in SIEM_DETECTION_VENDORS and SIEM_SEARCH_case_file:
+    if case_file.detections[0].vendor_id in SIEM_DETECTION_VENDORS and SIEM_SEARCH_CASE_FILE:
         mlog.info(f"Searching for all indicators of detection case '{case_file.uuid}' as it is a SIEM detection.")
         ips = case_file.indicators["ip"]
         domains = case_file.indicators["domain"]

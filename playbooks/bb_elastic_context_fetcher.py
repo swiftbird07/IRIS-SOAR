@@ -247,7 +247,8 @@ def bb_get_context_process_network_flows(playbook_name, playbook_step, mlog, cas
             f"Failed to get network flows for detection: '{detection.name}' ({detection.uuid}). Exception: {traceback.format_exc()}"
         )
         case_file.update_audit(
-            current_action.set_error(message=f"Failed to get network flows for detection.", exception=e), logger=mlog
+            current_action.set_error(message=f"Failed to get network flows for detection.", exception=traceback.format_exc()),
+            logger=mlog,
         )
 
     # Gather network flows from (other) context processes
@@ -299,7 +300,8 @@ def bb_get_context_process_network_flows(playbook_name, playbook_step, mlog, cas
             f"Failed to get network flows for detection: '{detection.name}' ({detection.uuid}). Exception: {traceback.format_exc()}"
         )
         case_file.update_audit(
-            current_action.set_error(message=f"Failed to get network flows for detection.", exception=e), logger=mlog
+            current_action.set_error(message=f"Failed to get network flows for detection.", exception=traceback.format_exc()),
+            logger=mlog,
         )
 
     case_file.update_audit(

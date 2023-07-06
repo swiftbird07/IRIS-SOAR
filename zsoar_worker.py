@@ -12,11 +12,15 @@
 # - If no playbook is able to handle the detection, it will be logged and the next detection will be checked
 
 import traceback
+import json
 
 import lib.config_helper as config_helper
 import lib.logging_helper as logging_helper
 import lib.class_helper as class_helper  # TODO: Implement class_helper.py
 from integrations.znuny_otrs import zs_add_note_to_ticket
+from lib.generic_helper import del_none_from_dict
+
+DEBUG_ADD_AUDIT_LOG_TO_TICKET = True  # Weither or not to add the audit log to the ticket when the worker is finished
 
 
 def check_module_exists(module_name, playbook=False):
@@ -86,7 +90,7 @@ def main(config, fromDaemon=False, debug=False):
     mlog.info("Started Z-SOAR worker script")
     mlog.info("Checking for new detections...")
     DetectionList = []
-    CaseFileList = []
+    CaseFileHistory = []
 
     for integration in integrations:
         module_name = integration
@@ -213,7 +217,8 @@ def main(config, fromDaemon=False, debug=False):
                 mlog.info(
                     f"Adding detection case for detection {detection_title} ({str(detection_id)}) to the detection case array."
                 )
-                CaseFileList.append(case_file_new)
+                case_file_new.playbooks.append(playbook_name)
+                CaseFileHistory.append(case_file_new)
             else:
                 mlog.info(f"Playbook can not handle the detection. Skipping.")
 
@@ -222,6 +227,44 @@ def main(config, fromDaemon=False, debug=False):
             mlog.warning("No playbook was able to handle the detection " + detection_title + " (" + str(detection_id) + ").")
         else:
             mlog.info("Detection " + detection_title + " (" + str(detection_id) + ") was handled successfully.")
+            case_file: class_helper.CaseFile
+            last_audit = class_helper.AuditLog(
+                "ZSOAR_WORKER",
+                99,
+                "Detection handled successfully.",
+                "The detection was handled successfully by at least one playbook.",
+            )
+            case_file.update_audit(last_audit, mlog)
+
+            if DEBUG_ADD_AUDIT_LOG_TO_TICKET:
+                mlog.debug("Adding audit log to ticket...")
+                try:
+                    trail_str = ""
+                    for audit in case_file.audit_trail:
+                        if audit.result_had_errors:
+                            trail_str += "<p style='color:red'>"
+                        elif audit.result_had_warnings:
+                            trail_str += "<p style='color:orange'>"
+                        else:
+                            trail_str += "<p style='color:green'>"
+                        trail_str += str(audit).replace("\n", "<br>") + "</p><br>"
+                    # Add to ticket
+                    ticket_number = case_file.get_ticket_number()
+                    if not ticket_number:
+                        mlog.warning("Could not add audit log to ticket because no ticket number was found.")
+                        continue
+                    ticket = zs_add_note_to_ticket(
+                        ticket_number,
+                        "raw",
+                        False,
+                        "[Z-SOAR] Audit Log Trail",
+                        trail_str,
+                        visible_for_customer=False,
+                        raw_body_type="text/html",
+                    )
+                    mlog.info("Added audit log to ticket " + str(ticket_number) + ".")
+                except Exception as e:
+                    mlog.error("Failed to add audit log to ticket " + str(ticket_number) + ". Error: " + traceback.format_exc())
 
     mlog.info("Finished worker script.")
 

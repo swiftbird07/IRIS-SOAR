@@ -268,3 +268,5 @@ def zs_handle_detection(case_file: CaseFile, TEST=False) -> CaseFile:
         case_file.update_audit(current_action.set_successful("Notified user"), mlog)
     else:
         case_file.update_audit(current_action.set_error(message="Failed to notify user."), mlog)
+
+    return case_file
