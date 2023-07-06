@@ -47,7 +47,7 @@ from lib.generic_helper import dict_get, get_from_cache, add_to_cache, default
 SEARCH_POLLING_INTERVAL = 1  # The interval in seconds to poll for the results of a QRadar search
 MAX_RESULTS_QRADAR_SEARCH = 5000  # The maximum number of results that can be returned by a QRadar search
 MAX_TRIES_QRADAR_SEARCH = 360  # The maximum number of tries to get the results of a QRadar search before giving up (time in seconds = MAX_TRIES_QRADAR_SEARCH * SEARCH_POLLING_INTERVAL)
-CONNECTION_TIMEOUT = 3  # The timeout in seconds for the connection to QRadar (set higher if you have a slow connection)
+CONNECTION_TIMEOUT = 10  # The timeout in seconds for the connection to QRadar (set higher if you have a slow connection)
 
 # This is a query used to gather an AQL query for custom fields for a specified log source.
 # Feel free to edit this log sources or custom fields to match your environment.
