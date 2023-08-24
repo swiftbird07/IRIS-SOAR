@@ -223,7 +223,17 @@ def zs_handle_detection(case_file: CaseFile, DRY_RUN=False) -> CaseFile:
             max_severity = int(rule.severity)
 
     if max_severity > 0:
-        detection.severity = max_severity * 10
+        if max_severity > 200:
+            detection.severity = 100
+        elif max_severity >= 150 and max_severity <= 200:
+            detection.severity = 75
+        elif max_severity >= 100 and max_severity <= 149:
+            detection.severity = 50
+        elif max_severity >= 50 and max_severity <= 99:
+            detection.severity = 25
+        elif max_severity >= 1 and max_severity <= 49:
+            detection.severity = 10
+
         case_file.detections[0] = detection
         case_file.update_audit(
             current_action.set_successful(message=f"Successfully updated detection severity to '{max_severity}'."), logger=mlog

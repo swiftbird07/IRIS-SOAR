@@ -139,6 +139,37 @@ QUERIES = {
             "WHERE": ("LOGSOURCENAME(logsourceid) MATCHES 'Suricata .*'",),
             "ORDER BY": ("devicetime ASC",),
         },
+        "NTOP-NG Alerts": {
+            "SELECT": (
+                "DATEFORMAT(devicetime, 'yyyy-MM-dd HH:mm:ss') AS 'Log Source Time'",
+                "LOGSOURCENAME(logsourceid) AS 'Log Source'",
+                "sourceip AS 'Source IP'",
+                "sourceport AS 'Source Port'",
+                "ASSETHOSTNAME(sourceip) AS 'Source Asset Name'",
+                "destinationip AS 'Destination IP'",
+                "destinationport AS 'Destination Port'",
+                "ASSETHOSTNAME(destinationip) AS 'Destination Asset Name'",
+                "CATEGORYNAME(category) AS 'Low Level Category'",
+                "QIDNAME(qid) as 'Event Name'",
+                "username AS 'Username'",
+                '"Alert - Created"',
+                '"Alert - Action"',
+                '"Alert - Category"',
+                '"Alert - Domain"',
+                '"Alert - SID"',
+                '"Alert - Severity"',
+                '"Alert - Signature"',
+                '"Alert - Updated"',
+                '"HTTP - Status"',
+                '"HTTP - Method"',
+                '"HTTP - User Agent"',
+                '"HTTP - URL"',
+                '"HTTP - Hostname"',
+            ),
+            "FROM": "events",
+            "WHERE": ("LOGSOURCENAME(logsourceid) MATCHES 'NTOP-NG.*'",),
+            "ORDER BY": ("devicetime ASC",),
+        },
         "FALLBACK": {
             "SELECT": (
                 "DATEFORMAT(devicetime, 'yyyy-MM-dd HH:mm:ss') AS 'Log Source Time'",
@@ -198,8 +229,8 @@ QUERIES = {
     },
 }
 # Define what Log Sources are for what purpose of context:
-FLOW_LOG_SOURCES = ["Firewall", "Suricata Traffic"]
-LOG_LOG_SOURCES = ["Suricata Alerts", "FALLBACK"]
+FLOW_LOG_SOURCES = ["Firewall", "Suricata Traffic", "NTOP-NG Alerts"]
+LOG_LOG_SOURCES = ["Suricata Alerts", "FALLBACK", "NTOP-NG Alerts"]
 FILE_LOG_SOURCES = ["Suricata Traffic"]
 
 
@@ -1033,7 +1064,7 @@ def zs_provide_context_for_detections(
             all_events = []
             for log_source in FLOW_LOG_SOURCES:
                 if not log_source in QUERIES[qradar_url]:
-                    mlog.warning("No query for flow conteext log source " + str(log_source) + " defined. Using fallback.")
+                    mlog.warning("No query for flow context log source " + str(log_source) + " defined. Using fallback.")
                     log_source = "FALLBACK"
 
                 aql = format_aql(QUERIES[qradar_url][log_source], search_value, start, stop)
