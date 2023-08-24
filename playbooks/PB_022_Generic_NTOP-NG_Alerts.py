@@ -2,10 +2,10 @@
 # Created by: Martin Offermann
 #
 # This is a playbook used by Z-SOAR
-# It is used to generally handle Suricata Alerts of IBM QRadar detections.
+# It is used to generally handle NTOP-NG Alerts of IBM QRadar detections.
 #
 # Acceptable Detections:
-#  - Detections from IBM QRadar that have a Suricata Alert
+#  - Detections from IBM QRadar that have a NTOP-NG Alert
 #
 # Gathered Context:
 # - ContextLog, ContextFlow
@@ -13,7 +13,7 @@
 # Actions:
 # - Add notes to related tickets
 #
-PB_NAME = "PB_020_Generic_Suricata_Alerts"
+PB_NAME = "PB_022_Generic_NTOP-NG_Alerts"
 PB_VERSION = "0.0.1"
 PB_AUTHOR = "Martin Offermann"
 PB_LICENSE = "MIT"
@@ -59,7 +59,7 @@ def zs_can_handle_detection(case_file: CaseFile) -> bool:
             for log in case_file.context_logs:
                 if (
                     dict_get(log.log_custom_fields, "Alert - Signature") != None
-                    and dict_get(log.log_custom_fields, "Alert - Action") != "store"
+                    and dict_get(log.log_custom_fields, "Alert - Action") == "store"
                 ):
                     mlog.info(f"Playbook '{PB_NAME}' can handle detection '{detection.name}' ({detection.uuid}).")
                     return True
@@ -94,14 +94,14 @@ def zs_handle_detection(case_file: CaseFile, DRY_RUN=False) -> CaseFile:
     current_action = AuditLog(
         PB_NAME,
         1,
-        "Adding suricata rule information to detection.",
-        "Adding new rules to the detection by parsing the Suricata Alert fields from the gathered ContextLogs",
+        "Adding NTOP-NG rule information to detection.",
+        "Adding new rules to the detection by parsing the NTOP-NG Alert fields from the gathered ContextLogs",
     )
     case_file.update_audit(current_action, logger=mlog)
 
     rules_new = []
 
-    # The following fields are parsed from the Suricata Alert:
+    # The following fields are parsed from the NTOP-NG Alert:
     #           '"Alert - Created"',
     #            '"Alert - Action"',
     #            '"Alert - Category"',
@@ -119,12 +119,12 @@ def zs_handle_detection(case_file: CaseFile, DRY_RUN=False) -> CaseFile:
                 custom_fields["Alert - Signature"],
                 custom_fields["Alert - Severity"],
                 description="Category: " + custom_fields["Alert - Category"],
-                tags=["Suricata", custom_fields["Alert - Category"]],
+                tags=["NTOP-NG", custom_fields["Alert - Category"]],
                 raw=str(custom_fields),
                 updated_at=dict_get(custom_fields, "Alert - Updated"),
             )
             rules_new.append(rule)
-            # TODO: Add 'query' of Suricata rules from external source
+            # TODO: Add 'query' of NTOP-NG rules from external source
 
     detection.rules.append(rules_new)
     case_file.update_audit(current_action.set_successful(message="Successfully added rules to detection."), logger=mlog)
@@ -139,15 +139,15 @@ def zs_handle_detection(case_file: CaseFile, DRY_RUN=False) -> CaseFile:
         case_file.update_audit(current_action.set_error(message="Could not find ticket number in detection case."), logger=mlog)
         return case_file
 
-    note_title = "Suricata Alert Rules"
+    note_title = "NTOP-NG Alert Rules"
     if len(rules_new) == 0:
         note_title += " (empty)"
         case_file.update_audit(
-            current_action.set_warning(warning_message="No Suricata rules were found. Adding empty note."), logger=mlog
+            current_action.set_warning(warning_message="No NTOP-NG rules were found. Adding empty note."), logger=mlog
         )
 
-    note_body = "<h2>Suricata Alert Rules</h2>"
-    note_body += "<p>These are the Suricata Alert Rules that were parsed from the ContextLogs:</p>"
+    note_body = "<h2>NTOP-NG Alert Rules</h2>"
+    note_body += "<p>These are the NTOP-NG Alert Rules that were parsed from the ContextLogs:</p>"
     note_body += "<br><br>"
     note_body += format_results(rules_new, "html", "")
 
@@ -160,9 +160,9 @@ def zs_handle_detection(case_file: CaseFile, DRY_RUN=False) -> CaseFile:
         current_action.set_successful(message=f"Successfully added note to ticket '{ticket_number}'."), logger=mlog
     )
 
-    # Update ticket title to include the Suricata Alert Signature
+    # Update ticket title to include the NTOP-NG Alert Signature
     current_action = AuditLog(
-        PB_NAME, 3, "Updating ticket title.", "Updating ticket title to include the Suricata Alert Signature."
+        PB_NAME, 3, "Updating ticket title.", "Updating ticket title to include the NTOP-NG Alert Signature."
     )
     case_file.update_audit(current_action, logger=mlog)
 
@@ -173,7 +173,7 @@ def zs_handle_detection(case_file: CaseFile, DRY_RUN=False) -> CaseFile:
         )
         return case_file
 
-    title = "[Z-SOAR] Suricata Alert: "
+    title = "[Z-SOAR] NTOP-NG Alert: "
     title_rule = rules_new[0].name
     title += title_rule
 
@@ -214,7 +214,7 @@ def zs_handle_detection(case_file: CaseFile, DRY_RUN=False) -> CaseFile:
 
     # Update Detection severity
     current_action = AuditLog(
-        PB_NAME, 4, "Updating detection severity.", "Updating detection severity based on Suricata Alert Severity."
+        PB_NAME, 4, "Updating detection severity.", "Updating detection severity based on NTOP-NG Alert Severity."
     )
     case_file.update_audit(current_action, logger=mlog)
     max_severity = 0

@@ -92,6 +92,8 @@ playbooks:
     enabled: true
   PB_021_Advanced_Elastic_Context:
     enabled: true
+  PB_022_Generic_NTOP-NG_Alerts:
+    enabled: true
   PB_110_Generic_VirusTotal:
     enabled: true
   PB_900_Classify_and_Notify:
