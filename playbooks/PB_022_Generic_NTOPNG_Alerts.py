@@ -13,7 +13,7 @@
 # Actions:
 # - Add notes to related tickets
 #
-PB_NAME = "PB_022_Generic_NTOP-NG_Alerts"
+PB_NAME = "PB_022_Generic_NTOPNG_Alerts"
 PB_VERSION = "0.0.1"
 PB_AUTHOR = "Martin Offermann"
 PB_LICENSE = "MIT"
