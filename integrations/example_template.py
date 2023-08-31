@@ -7,9 +7,9 @@
 # ## Copy below this line ##
 #
 #
-# Integration for Z-SOAR
+# Integration for IRIS-SOAR
 # Created by: YOUR NAME
-# This module is used to integrate Z-SOAR with XXX.
+# This module is used to integrate IRIS-SOAR with XXX.
 #
 # This module is capable of:
 # [ ] Providing new detections.

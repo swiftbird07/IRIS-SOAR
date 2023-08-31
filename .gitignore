@@ -140,4 +140,4 @@ lib/cache.json
 logs/
 
 # Config
-configs/zsoar_config.yml
+configs/isoar_config.yml

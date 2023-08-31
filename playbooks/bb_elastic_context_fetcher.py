@@ -1,7 +1,7 @@
-# Building Block for Z-SOAR Playbooks
+# Building Block for IRIS-SOAR Playbooks
 # Created by: Martin Offermann
 #
-# This is a building block used by Z-SOAR Playbooks
+# This is a building block used by IRIS-SOAR Playbooks
 # It is used to provide all available Elastic SIEM contexts for a given detection
 # This building block is itself dependent on the building block "BB_Elastic_Process_Context".
 #

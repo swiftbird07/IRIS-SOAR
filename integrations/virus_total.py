@@ -1,6 +1,6 @@
-# Integration for Z-SOAR
+# Integration for IRIS-SOAR
 # Created by: Martin Offermann
-# This module is used to integrate Z-SOAR with VirusTotal Threat Intelligence.
+# This module is used to integrate IRIS-SOAR with VirusTotal Threat Intelligence.
 #
 # This module is capable of:
 # [X] Providing context for detections of type [ContextThreatIntel]

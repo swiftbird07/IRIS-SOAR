@@ -1,6 +1,6 @@
-# Integration for Z-SOAR
+# Integration for IRIS-SOAR
 # Created by: Martin Offermann
-# This module is used to integrate Z-SOAR with Elastic-SIEM.
+# This module is used to integrate IRIS-SOAR with Elastic-SIEM.
 #
 # This module is capable of:
 # [X] Providing new detections.
@@ -71,7 +71,7 @@ def zs_integration_setup():
 
     intgr = "elastic_siem"
 
-    print("This script will setup the integration 'Elastic SIEM' for Z-SOAR.")
+    print("This script will setup the integration 'Elastic SIEM' for IRIS-SOAR.")
     print("Please enter the required information below.")
     print("")
 
@@ -123,7 +123,7 @@ def zs_integration_setup():
 
     print("")
     print("Setup finished.")
-    print("You can now use the integration in Z-SOAR!")
+    print("You can now use the integration in IRIS-SOAR!")
 
 
 def init_logging(config):

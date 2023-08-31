@@ -1,32 +1,32 @@
-Z-SOAR architecture
+IRIS-SOAR architecture
 ===================================
 
 File Overview:
 
-    The Z-SOAR core componets are:
+    The IRIS-SOAR core componets are:
 
-        zsoar.py
+        isoar.py
             The main program, which starts the other components and handles
             the communication between them.
 
-        zsoar_daemon.py (optional)
-            A daemon process that runs in the background and starts the main zsoar.py on a regular interval.
+        isoar_daemon.py (optional)
+            A daemon process that runs in the background and starts the main isoar.py on a regular interval.
 
-        zsoar_setup.py
+        isoar_setup.py
             Script that is used to install and/or configure the system.
 
     Modules:
 
         integrations/[INTEGRATION_NAME].py
             Integration modules that are used to communicate with the various
-            services that Z-SOAR integrates with.
+            services that IRIS-SOAR integrates with.
 
         playbooks/[PLAYBOOK_NAME].py
-            Playbook modules that are used to define the actions that Z-SOAR
+            Playbook modules that are used to define the actions that IRIS-SOAR
             takes when it detects an incident.
 
         configs/[CONFIG_NAME].yml
             Configuration files that are used to define the configuration
-            settings for the various integrations and Z-SOAR itself.
+            settings for the various integrations and IRIS-SOAR itself.
 
 

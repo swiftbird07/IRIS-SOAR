@@ -1,7 +1,7 @@
-# Playbook for Z-SOAR
+# Playbook for IRIS-SOAR
 # Created by: Martin Offermann
 #
-# This is a playbook used by Z-SOAR
+# This is a playbook used by IRIS-SOAR
 # It is used to generally handle IBM QRadar Offenses and add context to them.
 #
 # Acceptable Detections:

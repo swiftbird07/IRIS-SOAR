@@ -2,7 +2,7 @@
 
 # -- Project information
 
-project = "Z-SOAR"
+project = "IRIS-SOAR"
 copyright = "2023, Martin Offermann"
 author = "Martin Offermann"
 

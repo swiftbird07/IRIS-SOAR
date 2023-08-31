@@ -1,10 +1,10 @@
-# Z-SOAR
+# IRIS-SOAR
 # Created by: Martin Offermann
 # This test module is used to test the bb_elastic_process_context playbook
 
 
 import pytest
-import zsoar
+import isoar
 import os
 import datetime
 import json
@@ -41,7 +41,7 @@ detectionList.append(detection)
 case_file = CaseFile(detectionList)
 assert (
     case_file != None
-), "CaseFile class could not be initialized"  # Sanity check - should be already tested by test_zsoar_lib.py -> test_class_helper()
+), "CaseFile class could not be initialized"  # Sanity check - should be already tested by test_isoar_lib.py -> test_class_helper()
 
 
 def test_bb_get_complete_process_by_uuid():

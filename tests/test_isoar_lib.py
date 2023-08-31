@@ -1,10 +1,10 @@
-# Z-SOAR
+# IRIS-SOAR
 # Created by: Martin Offermann
-# This test module is used to test the zsoar.py module.
+# This test module is used to test the isoar.py module.
 # It will test if the prvided arguments are working as expected.
 
 import pytest
-import zsoar
+import isoar
 import datetime
 import ipaddress
 import uuid
@@ -20,7 +20,7 @@ def test_logger():
         None
     """
     try:
-        mlog = zsoar.logging_helper.Log("test_zsoar_lib", log_level_stdout="INFO")
+        mlog = isoar.logging_helper.Log("test_isoar_lib", log_level_stdout="INFO")
         mlog.info("Test message")
     except AttributeError as e:
         pytest.fail("The logger could not be initialized: {}".format(e))
@@ -38,7 +38,7 @@ def test_config_loading():
         None
     """
     try:
-        configObj = zsoar.config_helper.Config()
+        configObj = isoar.config_helper.Config()
         cfg = configObj.cfg
     except Exception as e:
         pytest.fail("The config could not be loaded: {}".format(e))
@@ -55,17 +55,17 @@ def test_config_loading():
         pytest.fail(f"The config was loaded, but is empty: {cfg}. {e}")
 
     # Test that invalid values are detected
-    mlog = zsoar.logging_helper.Log("test_zsoar_lib")
+    mlog = isoar.logging_helper.Log("test_isoar_lib")
     cfg["logging"]["log_level_file"] = "some_invalid_value"
-    assert zsoar.config_helper.check_config(cfg, mlog) == False, "The config is valid, but should not be (Value test)."
+    assert isoar.config_helper.check_config(cfg, mlog) == False, "The config is valid, but should not be (Value test)."
 
     # Reset the config
     cfg["logging"]["log_level_file"] = "debug"
-    assert zsoar.config_helper.check_config(cfg, mlog) == True, "The config is not valid after resetting."
+    assert isoar.config_helper.check_config(cfg, mlog) == True, "The config is not valid after resetting."
 
     # Test if invalid types are detected
     cfg["logging"]["log_level_stdout"] = True
-    assert zsoar.config_helper.check_config(cfg, mlog) == False, "The config is valid, but should not be (Type test)."
+    assert isoar.config_helper.check_config(cfg, mlog) == False, "The config is valid, but should not be (Type test)."
 
 
 def test_config_saving():
@@ -77,20 +77,20 @@ def test_config_saving():
     Returns:
         None
     """
-    configObj = zsoar.config_helper.Config()
+    configObj = isoar.config_helper.Config()
     cfg = configObj.cfg
-    assert zsoar.config_helper.save_config(cfg) == True, "Saving current config to file failed"
+    assert isoar.config_helper.save_config(cfg) == True, "Saving current config to file failed"
     tmp = cfg["logging"]["log_level_file"]
 
     cfg["logging"]["log_level_file"] = "some_invalid_value"
-    assert zsoar.config_helper.save_config(cfg) == False, "Saving invalid config to file did not fail"
+    assert isoar.config_helper.save_config(cfg) == False, "Saving invalid config to file did not fail"
 
     cfg["logging"]["log_level_file"] = "debug"
-    assert zsoar.config_helper.save_config(cfg) == True, "Saving valid new config to file failed"
+    assert isoar.config_helper.save_config(cfg) == True, "Saving valid new config to file failed"
 
     # Reset
     cfg["logging"]["log_level_file"] = tmp
-    assert zsoar.config_helper.save_config(cfg) == True, "Saving valid old config to file failed"
+    assert isoar.config_helper.save_config(cfg) == True, "Saving valid old config to file failed"
 
 
 def test_class_helper():
@@ -102,7 +102,7 @@ def test_class_helper():
     Returns:
         None
     """
-    mlog = zsoar.logging_helper.Log("test_zsoar_lib")
+    mlog = isoar.logging_helper.Log("test_isoar_lib")
     import lib.class_helper as class_helper
 
     # Test classes - Postivie tests #

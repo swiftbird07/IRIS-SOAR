@@ -1,6 +1,6 @@
-# Integration for Z-SOAR
+# Integration for IRIS-SOAR
 # Created by: Martin Offermann
-# This module is used to integrate Z-SOAR with IBM QRadar.
+# This module is used to integrate IRIS-SOAR with IBM QRadar.
 #
 # This module is capable of:
 # [ ] Providing new detections.
@@ -847,7 +847,7 @@ def create_files_from_events(mlog, offense_id, all_events):
 
 def zs_provide_new_detections(config, TEST=False) -> List[Detection]:
     """
-    This function is used to provide new detections to Z-SOAR.
+    This function is used to provide new detections to IRIS-SOAR.
     :param config: The configuration of the integration.
     :param TEST: If set to "TEST", the function will not acknowledge the offenses.
     :return: A list of detections.
@@ -955,7 +955,7 @@ def zs_provide_context_for_detections(
     case_file: CaseFile, required_type: type, TEST="", search_type=None, search_value=None
 ) -> list:
     """
-    This function is used to provide context to Z-SOAR.
+    This function is used to provide context to IRIS-SOAR.
     :param config: The configuration of the integration.
     :param TEST: If set to "TEST", the function will return a test context.
     :return: A list of contexts, an empty list if no context is available or an exception if an error occurred.

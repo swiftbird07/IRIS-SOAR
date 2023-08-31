@@ -1,6 +1,6 @@
-# Z-SOAR
+# IRIS-SOAR
 # Created by: Martin Offermann
-# This module is the worker script that handles the main logic of the Z-SOAR project.
+# This module is the worker script that handles the main logic of the IRIS-SOAR project.
 #
 # The main logic is as follows:
 #
@@ -8,7 +8,7 @@
 # - Loop through each of the detections and check if any playbook is able to handle it
 # - - If a playbook is able to handle the detection, it will be executed
 # - - If all playbooks are executed, the next detection will be checked
-# (Playbooks decide if a detection is a false positive or not and what action should be taken. A playbook can and should make use of the libraries and integrations provided by Z-SOAR.)
+# (Playbooks decide if a detection is a false positive or not and what action should be taken. A playbook can and should make use of the libraries and integrations provided by IRIS-SOAR.)
 # - If no playbook is able to handle the detection, it will be logged and the next detection will be checked
 
 import traceback
@@ -78,7 +78,7 @@ def main(config, fromDaemon=False, debug=False):
         None
     """
     # Get the logger
-    mlog = logging_helper.Log("zsoar_worker")
+    mlog = logging_helper.Log("isoar_worker")
 
     if debug:
         mlog.set_level("DEBUG")
@@ -87,7 +87,7 @@ def main(config, fromDaemon=False, debug=False):
     # Get every installed integration from config
     integrations = config["integrations"]  # TODO: Implement this in config_helper.py
 
-    mlog.info("Started Z-SOAR worker script")
+    mlog.info("Started IRIS-SOAR worker script")
     mlog.info("Checking for new detections...")
     DetectionList = []
     CaseFileHistory = []
@@ -229,7 +229,7 @@ def main(config, fromDaemon=False, debug=False):
             mlog.info("Detection " + detection_title + " (" + str(detection_id) + ") was handled successfully.")
             case_file: class_helper.CaseFile
             last_audit = class_helper.AuditLog(
-                "ZSOAR_WORKER",
+                "ISOAR_WORKER",
                 99,
                 "Detection handled successfully.",
                 "The detection was handled successfully by at least one playbook.",

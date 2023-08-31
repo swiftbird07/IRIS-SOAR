@@ -1,7 +1,7 @@
-Welcome to Z-SOAR's documentation!
+Welcome to IRIS-SOAR's documentation!
 ===================================
 
-**Z-SOAR** is a modular SOAR implementation written in Python. It is designed to be a companion to Znuny/OTRS that uses playbook automation and is able to load integrations to other services.
+**IRIS-SOAR** is a modular SOAR implementation written in Python. It is designed to be a companion to Znuny/OTRS that uses playbook automation and is able to load integrations to other services.
 
 
 Check out the :doc:`usage` section for information on how to setup and use the project.

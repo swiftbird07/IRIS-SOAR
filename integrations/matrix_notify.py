@@ -1,6 +1,6 @@
-# Integration for Z-SOAR
+# Integration for IRIS-SOAR
 # Created by: Martin Offermann
-# This module is used to integrate Z-SOAR with Matrix for notifications.
+# This module is used to integrate IRIS-SOAR with Matrix for notifications.
 #
 # This module is capable of:
 # [X] Notifications

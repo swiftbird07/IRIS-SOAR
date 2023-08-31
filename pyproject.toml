@@ -7,7 +7,7 @@ requires = ["setuptools>=40.8.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "ZSOARpkg"
+name = "ISOARpkg"
 authors = [{name = "Martin Offermann", email = "none@none.no"}]
 dynamic = ["version", "description"]
-#description = "Z-SOAR is a modular SOAR implementation written in Python. It is designed to be a companion to Znuny/OTRS that uses playbook automation and is able to load integrations to other services."
+#description = "IRIS-SOAR is a modular SOAR implementation written in Python. It is designed to be a companion to Znuny/OTRS that uses playbook automation and is able to load integrations to other services."

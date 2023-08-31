@@ -1,7 +1,7 @@
-# Playbook for Z-SOAR
+# Playbook for IRIS-SOAR
 # Created by: Martin Offermann
 #
-# This is a playbook used by Z-SOAR
+# This is a playbook used by IRIS-SOAR
 # It is used to generally handle detections to add VirusTotal context to them.
 # It is possible to differentiate between EDR and SIEM detections to extend the search for all context indicators for either case.
 #

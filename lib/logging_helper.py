@@ -1,4 +1,4 @@
-# Z-SOAR
+# IRIS-SOAR
 # Created by: Martin Offermann
 # This helper module is used to provide a Log() object that uses the python 'logger', but adds additional info, like the module name.
 
@@ -62,7 +62,7 @@ class Log:
                 if settings["logging"]["split_files_by_module"]:
                     path = "logs/" + module_name + ".log"
                 else:
-                    path = "logs/zsoar.log"
+                    path = "logs/isoar.log"
                 os.makedirs(
                     os.path.dirname(path), exist_ok=True
                 )  # According to documentation of logger, this is not needed, but that is not true

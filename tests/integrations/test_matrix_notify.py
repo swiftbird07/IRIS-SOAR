@@ -1,4 +1,4 @@
-# Z-SOAR
+# IRIS-SOAR
 # Created by: Martin Offermann
 # This test module is used to test the matrix_notify integration.
 from integrations.matrix_notify import zs_notify

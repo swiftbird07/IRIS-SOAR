@@ -1,6 +1,6 @@
-# Z-SOAR
+# IRIS-SOAR
 # Created by: Martin Offermann
-# This module is a helper module that privides important classes and functions for the Z-SOAR project.
+# This module is a helper module that privides important classes and functions for the IRIS-SOAR project.
 
 from typing import DefaultDict, Union, List
 import random
@@ -26,7 +26,7 @@ from lib.generic_helper import (
 DEFAULT_IP = ipaddress.ip_address("127.0.0.1")  # When no IP address is provided, this is used
 THRESHOLD_PROCESS_IO_BYTES = 100000  # Threshold for the process IO bytes (100 KB)
 
-# TODO: Implement all functions used by zsoar_worker.py and its modules
+# TODO: Implement all functions used by isoar_worker.py and its modules
 
 
 class Location:
@@ -3047,7 +3047,7 @@ class Detection:
 
 
 class AuditLog:
-    """The "AuditLog" class serves as a centralized mechanism to capture and document the actions performed by ZSOAR, particularly by its "Playbooks," that impact the detection cases.
+    """The "AuditLog" class serves as a centralized mechanism to capture and document the actions performed by ISOAR, particularly by its "Playbooks," that impact the detection cases.
        Generally a planned action is declared first as a new AuditLog, pushed to the audit trail, and then executed. The relevant AuditLog is then updated with the result of the action.
 
     Args:

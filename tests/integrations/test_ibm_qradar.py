@@ -41,7 +41,7 @@ def test_zs_provide_context_for_detections():
     case_file = CaseFile(detectionList)
     assert (
         case_file != None
-    ), "CaseFile class could not be initialized"  # Sanity check - should be already tested by test_zsoar_lib.py -> test_class_helper()
+    ), "CaseFile class could not be initialized"  # Sanity check - should be already tested by test_isoar_lib.py -> test_class_helper()
 
     # Get the context
     detectionArray = zs_provide_context_for_detections(

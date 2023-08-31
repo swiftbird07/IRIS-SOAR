@@ -1,13 +1,13 @@
-# Integration for Z-SOAR
+# Integration for IRIS-SOAR
 # Created by: Martin Offermann
 #
-# This module is used to integrate Z-SOAR with Znuny (formally known as 'OTRS', but from here only called 'Znuny') Webservices.
-# It enables Z-SOAR playbooks to use the Znuny Ticketsystem to create tickets and/or add notes to them.
+# This module is used to integrate IRIS-SOAR with Znuny (formally known as 'OTRS', but from here only called 'Znuny') Webservices.
+# It enables IRIS-SOAR playbooks to use the Znuny Ticketsystem to create tickets and/or add notes to them.
 #
-# Although this module is a core component of Z-SOAR (cause for the 'Z' in the first place), it is internally handled as an integration,
+# Although this module is a core component of IRIS-SOAR (cause for the 'Z' in the first place), it is internally handled as an integration,
 # because in the future it may be possible to use other ticket systems as well.
-# As this is also a 'normal' integration, it can be used to get new detections from Znuny into Z-SOAR and not only the other way around.
-# It is also posssible to get context from Znuny into Z-SOAR (e.g. ticket information or using the ITSM CMDB).
+# As this is also a 'normal' integration, it can be used to get new detections from Znuny into IRIS-SOAR and not only the other way around.
+# It is also posssible to get context from Znuny into IRIS-SOAR (e.g. ticket information or using the ITSM CMDB).
 #
 # Integration Version: 0.0.1
 #
@@ -38,7 +38,7 @@ from lib.class_helper import Rule, Detection, ContextProcess, ContextFlow
 from lib.class_helper import CaseFile, ContextFlow, ContextLog, ContextProcess, AuditLog
 from lib.generic_helper import get_unique, format_results, del_none_from_dict
 
-PRE_TAG = "[ZSOAR]"  # Tag before the title of the ticket (without spaces)
+PRE_TAG = "[ISOAR]"  # Tag before the title of the ticket (without spaces)
 
 TICKET_CONNECTOR_CONFIG_DEFAULT = {
     "Name": "GenericTicketConnectorREST",
@@ -70,7 +70,7 @@ def main():
         sys.exit(1)
 
 
-def zs_integration_setup(zsoar_main_call=False):
+def zs_integration_setup(isoar_main_call=False):
     # Import here because this is only needed for setup
     from lib.config_helper import setup_integration as set_int
     from lib.config_helper import setup_ask
@@ -78,8 +78,8 @@ def zs_integration_setup(zsoar_main_call=False):
 
     intgr = "znuny_otrs"
 
-    if not zsoar_main_call:
-        print("This script will setup the integration 'Znuny/OTRS' (from here called just 'Znuny') for Z-SOAR.")
+    if not isoar_main_call:
+        print("This script will setup the integration 'Znuny/OTRS' (from here called just 'Znuny') for IRIS-SOAR.")
         print("Please enter the required information below.")
         print("")
 
@@ -163,7 +163,7 @@ def zs_integration_setup(zsoar_main_call=False):
 
     print("")
     print("Setup finished.")
-    print("You can now use the integration in Z-SOAR!")
+    print("You can now use the integration in IRIS-SOAR!")
 
 
 def zs_provide_new_detections(config, TEST="") -> List[Detection]:

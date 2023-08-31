@@ -1,4 +1,4 @@
-# Z-SOAR
+# IRIS-SOAR
 # Created by: Martin Offermann
 # This test module is used to test the PB_021_Advanced_Elastic_Context playbook.
 # ! Be aware that this has to be an online test

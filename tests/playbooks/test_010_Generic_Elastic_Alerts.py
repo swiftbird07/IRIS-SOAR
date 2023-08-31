@@ -1,10 +1,10 @@
-# Z-SOAR
+# IRIS-SOAR
 # Created by: Martin Offermann
 # This test module is used to test the PB_010_Generic_Elastic_Alerts playbook
 
 
 import pytest
-import zsoar
+import isoar
 import os
 import datetime
 import json
@@ -46,7 +46,7 @@ def prepare_test():
 
     assert (
         case_file != None
-    ), "CaseFile class could not be initialized"  # Sanity check - should be already tested by test_zsoar_lib.py -> test_class_helper()
+    ), "CaseFile class could not be initialized"  # Sanity check - should be already tested by test_isoar_lib.py -> test_class_helper()
     return case_file
 
 

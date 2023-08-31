@@ -1,7 +1,7 @@
-# Building Block for Z-SOAR Playbooks
+# Building Block for IRIS-SOAR Playbooks
 # Created by: Martin Offermann
 #
-# This is a building block used by Z-SOAR Playbooks
+# This is a building block used by IRIS-SOAR Playbooks
 # It is used to provide all available IBM QRadar contexts for a given detection
 #
 # Acceptable Detections:

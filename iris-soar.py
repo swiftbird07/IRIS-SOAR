@@ -1,7 +1,7 @@
-# Z-SOAR
+# IRIS-SOAR
 # Created by: Martin Offermann
-# This module is the user interactive start point for the Z-SOAR project.
-# It will load the prvided arguments and either start the setup mode or start/stop/restart the main zsoar_worker.py or delegate this job to the daemon if enabled.
+# This module is the user interactive start point for the IRIS-SOAR project.
+# It will load the prvided arguments and either start the setup mode or start/stop/restart the main isoar_worker.py or delegate this job to the daemon if enabled.
 
 import subprocess
 import sys
@@ -12,13 +12,13 @@ import json
 
 import lib.config_helper as config_helper
 import lib.logging_helper as logging_helper
-import zsoar_daemon as zsoar_daemon
-import zsoar_worker as zsoar_worker
+import isoar_daemon as isoar_daemon
+import isoar_worker as isoar_worker
 
 TEST_CALL = True  # Stays True if the script is called by the test script
 case_ZOMBIE_PROCESSES = False  # If True, the script will case zombie processes when searching for the PID of a script. If you are using the developing, this should be set to False as tests from pytest will hang otherwise.
 ALLOW_MULTIPLE_INSTANCES = (
-    False  # If True, the script will allow multiple instances of Z-SOAR to run at the same time. This is not reccomended.
+    False  # If True, the script will allow multiple instances of IRIS-SOAR to run at the same time. This is not reccomended.
 )
 
 
@@ -31,18 +31,18 @@ def add_arguments():
     Returns:
         parser (argparse.ArgumentParser): The parser
     """
-    parser = argparse.ArgumentParser(description="Z-SOAR - Modular SOAR for Znuny/OTRS")
-    parser.add_argument("--version", action="store_true", help="Print the version of Z-SOAR")
+    parser = argparse.ArgumentParser(description="IRIS-SOAR - Modular SOAR for Znuny/OTRS")
+    parser.add_argument("--version", action="store_true", help="Print the version of IRIS-SOAR")
     parser.add_argument("--debug", action="store_true", help="Enable debug mode")
-    parser.add_argument("--setup", action="store_true", help="Install or Configure Z-SOAR")
-    parser.add_argument("--start", action="store_true", help="Start Z-SOAR")
-    parser.add_argument("--stop", action="store_true", help="Stop Z-SOAR")
-    parser.add_argument("--restart", action="store_true", help="Restart Z-SOAR")
-    parser.add_argument("--status", action="store_true", help="Show the status of Z-SOAR")
+    parser.add_argument("--setup", action="store_true", help="Install or Configure IRIS-SOAR")
+    parser.add_argument("--start", action="store_true", help="Start IRIS-SOAR")
+    parser.add_argument("--stop", action="store_true", help="Stop IRIS-SOAR")
+    parser.add_argument("--restart", action="store_true", help="Restart IRIS-SOAR")
+    parser.add_argument("--status", action="store_true", help="Show the status of IRIS-SOAR")
     parser.add_argument(
         "--allow-multiple-instances",
         action="store_true",
-        help="Allow multiple instances of Z-SOAR to run at the same time. This is not reccomended.",
+        help="Allow multiple instances of IRIS-SOAR to run at the same time. This is not reccomended.",
     )
 
     return parser
@@ -90,7 +90,7 @@ def startup(mlog, DEBUG, ALLOW_MULTIPLE_INSTANCES):
     Args:
         mlog (logging_helper.Log): The logger
         DEBUG (bool): If debug mode is enabled
-        ALLOW_MULTIPLE_INSTANCES (bool): If multiple instances of Z-SOAR should be allowed
+        ALLOW_MULTIPLE_INSTANCES (bool): If multiple instances of IRIS-SOAR should be allowed
 
     Returns:
         None
@@ -106,10 +106,10 @@ def startup(mlog, DEBUG, ALLOW_MULTIPLE_INSTANCES):
     if settings["daemon"]["enabled"]:
         mlog.info("Starting the daemon...")
         # Check if daemon is already running
-        if get_script_pid(mlog, "zsoar_daemon.py") > 0:
+        if get_script_pid(mlog, "isoar_daemon.py") > 0:
             if not ALLOW_MULTIPLE_INSTANCES:
                 mlog.critical(
-                    "Daemon is already running. Use 'zsoar.py --restart' to restart it or 'zsoar.py --stop' to stop it manually."
+                    "Daemon is already running. Use 'isoar.py --restart' to restart it or 'isoar.py --stop' to stop it manually."
                 )
                 raise SystemExit(1)
             else:
@@ -118,13 +118,13 @@ def startup(mlog, DEBUG, ALLOW_MULTIPLE_INSTANCES):
         # Start the daemon with or without debug mode
         if DEBUG:
             popen = subprocess.Popen(
-                [sys.executable, "zsoar_daemon.py", "--debug_module"],
+                [sys.executable, "isoar_daemon.py", "--debug_module"],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
             )
         else:
             popen = subprocess.Popen(
-                [sys.executable, "zsoar_daemon.py"],
+                [sys.executable, "isoar_daemon.py"],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
             )
@@ -136,20 +136,20 @@ def startup(mlog, DEBUG, ALLOW_MULTIPLE_INSTANCES):
         else:
             mlog.info("Daemon started")
     else:
-        mlog.info("Daemon disabled. Starting the main loop (zsoar_worker.py) directly...")
+        mlog.info("Daemon disabled. Starting the main loop (isoar_worker.py) directly...")
         # Check if worker is already running
-        if get_script_pid(mlog, "zsoar_worker.py") > 0:
+        if get_script_pid(mlog, "isoar_worker.py") > 0:
             mlog.critical(
-                "Worker is already running. Use 'zsoar.py --restart' to restart it or 'zsoar.py --stop' to stop it manually."
+                "Worker is already running. Use 'isoar.py --restart' to restart it or 'isoar.py --stop' to stop it manually."
             )
             raise SystemExit(1)
 
-        if get_script_pid(mlog, "zsoar_daemon.py") > 0:
-            mlog.critical("Daemon is still running. Use 'zsoar.py --stop' to stop it manually.")
+        if get_script_pid(mlog, "isoar_daemon.py") > 0:
+            mlog.critical("Daemon is still running. Use 'isoar.py --stop' to stop it manually.")
             raise SystemExit(1)
 
         # Start the worker manually
-        return_code = zsoar_worker.main(settings, debug=DEBUG)
+        return_code = isoar_worker.main(settings, debug=DEBUG)
 
         if return_code != None:
             mlog.critical("Could not start the worker: System call failed. Subprocess returned: {}".format(popen.returncode))
@@ -169,11 +169,11 @@ def stop(mlog):
     Raises:
         None
     """
-    mlog.info("Stopping Z-SOAR...")
+    mlog.info("Stopping IRIS-SOAR...")
     did_something = False
 
     # Check if daemons are running
-    while (daemon_pid := get_script_pid(mlog, "zsoar_daemon.py")) > 0:
+    while (daemon_pid := get_script_pid(mlog, "isoar_daemon.py")) > 0:
         # Kill the daemon
         mlog.info(f"Found running daemon (pid={daemon_pid}). Killing it...")
         if os.system(f"kill -9 {daemon_pid}"):
@@ -188,7 +188,7 @@ def stop(mlog):
         mlog.info("Daemon not running")
 
     # Check if worker is running
-    worker_pid = get_script_pid(mlog, "zsoar_worker.py")
+    worker_pid = get_script_pid(mlog, "isoar_worker.py")
     if worker_pid > 0:
         # Kill the worker
         mlog.info("Stopping the worker...")
@@ -205,7 +205,7 @@ def stop(mlog):
     if not did_something:
         mlog.warning("Nothing to stop!")
     else:
-        mlog.info("Z-SOAR stopped")
+        mlog.info("IRIS-SOAR stopped")
 
 
 def setup(step=0, continue_steps=True):
@@ -222,11 +222,11 @@ def setup(step=0, continue_steps=True):
 
     if settings["setup"]["setup_step"] == 0:
         # Start the setup
-        print("Welcome to the Z-SOAR setup!")
-        print("This setup will guide you through the installation and configuration of Z-SOAR.")
+        print("Welcome to the IRIS-SOAR setup!")
+        print("This setup will guide you through the installation and configuration of IRIS-SOAR.")
         print("Please note that this setup is not yet finished and will be extended in the future.")
         print("If you want to skip the setup, you can edit the config file manually.")
-        print("The config file is located at: " + os.path.join(os.getcwd(), "config", "zsoar.cfg.yml"))
+        print("The config file is located at: " + os.path.join(os.getcwd(), "config", "isoar.cfg.yml"))
         print(
             "\nYou can also continue the setup by running the setup mode again. To start from the beginning, delete the config file."
         )
@@ -259,7 +259,7 @@ def setup(step=0, continue_steps=True):
         # Ask for the interval of the daemon
         print("")
         print(
-            "Please enter the minimum interval between Z-SOAR worker processes in minutes used by the daemon (0 to immediatly start the next worker process if the last one exited):"
+            "Please enter the minimum interval between IRIS-SOAR worker processes in minutes used by the daemon (0 to immediatly start the next worker process if the last one exited):"
         )
         interval = setup_ask(5, available_responses_is_int_goe=0)
         if type(interval) == int and interval >= 0:
@@ -393,7 +393,7 @@ def setup(step=0, continue_steps=True):
 
     elif settings["setup"]["setup_step"] == 11 or step == 11:
         print("")
-        print("Setup finished. You can now start the daemon with the command 'zsoar.py --start'.")
+        print("Setup finished. You can now start the daemon with the command 'isoar.py --start'.")
         settings["setup"]["setup_step"] = 0
         config_helper.save_config(settings)
         if not TEST_CALL and not continue_steps:
@@ -416,7 +416,7 @@ def setup(step=0, continue_steps=True):
 
 
 def main():
-    """The main function of the zsoar.py script.
+    """The main function of the isoar.py script.
 
     Args:
         None
@@ -429,7 +429,7 @@ def main():
     args = parser.parse_args()
 
     # Create the module's logger
-    mlog = logging_helper.Log("zsoar")
+    mlog = logging_helper.Log("isoar")
 
     # Check if at least one argument is provided:
     if type(args) != argparse.Namespace or len(sys.argv) == 1:
@@ -441,8 +441,8 @@ def main():
     if parser.parse_args().version:
         import pkg_resources
 
-        version = pkg_resources.get_distribution("ZSOARpkg").version
-        print("Z-SOAR version: " + version)
+        version = pkg_resources.get_distribution("ISOARpkg").version
+        print("IRIS-SOAR version: " + version)
         if not TEST_CALL:
             sys.exit(0)
 
@@ -462,7 +462,7 @@ def main():
 
     if parser.parse_args().allow_multiple_instances:
         mlog.warning(
-            "You have enabled the option to allow multiple instances of Z-SOAR to run at the same time. This is not reccomended."
+            "You have enabled the option to allow multiple instances of IRIS-SOAR to run at the same time. This is not reccomended."
         )
         ALLOW_MULTIPLE_INSTANCES = True
     else:
@@ -470,7 +470,7 @@ def main():
 
     # Check if the start mode is enabled:
     if parser.parse_args().start:
-        mlog.info("Starting Z-SOAR")
+        mlog.info("Starting IRIS-SOAR")
         startup(mlog, DEBUG, ALLOW_MULTIPLE_INSTANCES)
         if not TEST_CALL:
             sys.exit(0)
@@ -483,7 +483,7 @@ def main():
 
     # Check if the restart mode is enabled:
     if parser.parse_args().restart:
-        mlog.info("Restarting Z-SOAR...")
+        mlog.info("Restarting IRIS-SOAR...")
         stop(mlog)
         startup(mlog, DEBUG, ALLOW_MULTIPLE_INSTANCES)
         if not TEST_CALL:
@@ -491,10 +491,10 @@ def main():
 
     # Check if the status mode is enabled:
     if parser.parse_args().status:
-        mlog.info("Checking the status of Z-SOAR...")
+        mlog.info("Checking the status of IRIS-SOAR...")
 
         # Check if daemons are running
-        daemon_pid = get_script_pid(mlog, "zsoar_daemon.py")
+        daemon_pid = get_script_pid(mlog, "isoar_daemon.py")
         if daemon_pid > 0:
             # Print the daemon
             mlog.info(f"Found running daemon (pid={daemon_pid}).")
@@ -514,7 +514,7 @@ def main():
             mlog.info("No running daemon found.")
 
         # Check if worker is running
-        worker_pid = get_script_pid(mlog, "zsoar_worker.py")
+        worker_pid = get_script_pid(mlog, "isoar_worker.py")
         if worker_pid > 0:
             mlog.info(f"Found running worker (pid={worker_pid}).")
             mlog.info("")
@@ -529,7 +529,7 @@ def main():
             mlog.info("No running worker found.")
 
         if daemon_pid == 0 and worker_pid == 0:
-            mlog.info("Z-SOAR is not running.")
+            mlog.info("IRIS-SOAR is not running.")
 
         if not TEST_CALL:
             sys.exit(0)

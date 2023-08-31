@@ -1,6 +1,6 @@
-# Z-SOAR
+# IRIS-SOAR
 # Created by: Martin Offermann
-# This helper module is used to provide a valid config object. To do that it will load the zsoar_config YAML file in the configs directory.
+# This helper module is used to provide a valid config object. To do that it will load the isoar_config YAML file in the configs directory.
 # It will also provide an explicit function to check if the config file is valid and a helper fumction for setup questions.
 
 import os
@@ -10,11 +10,11 @@ import re
 import getpass
 
 LOG_LEVEL = "CRITICAL"  # The log level of this config loader. This is not set by the config to prevent sending no message at all if the config file, which stores the log_lvel istself is not valid.
-FILE_PATH = "configs/zsoar_config.yml"
+FILE_PATH = "configs/isoar_config.yml"
 
 
 class Config:
-    """The Config() class is used to provide a valid config object. To do that it will load the zsoar_config YAML file in the configs directory.
+    """The Config() class is used to provide a valid config object. To do that it will load the isoar_config YAML file in the configs directory.
     It will also provide an explicit function to check if the config file is valid.
 
     Args:
@@ -60,7 +60,9 @@ class Config:
         try:
             mlog.set_level(self.cfg["logging"]["log_level_stdout"])
         except:
-            print("[CRITICAL] Could not load config file: logging_level_stdout not defined. Please check the config file and try again.")
+            print(
+                "[CRITICAL] Could not load config file: logging_level_stdout not defined. Please check the config file and try again."
+            )
             raise TypeError("The config file is not valid.")
 
         # Check if the config file is valid
@@ -241,7 +243,6 @@ def check_config(cfg, mlog, onload=True):
             return False
         if not check_config_log_level(cfg["integrations"]["znuny_otrs"]["logging"]["log_level_syslog"], mlog):
             return False
-        
 
         # integrations
 
@@ -250,7 +251,7 @@ def check_config(cfg, mlog, onload=True):
                 return False
             mlog.debug(f"Loaded integration: {integration}")
 
-        # cache        
+        # cache
         if not check_config_bool(cfg["cache"]["file"]["enabled"], mlog):
             return False
         if not check_config_int(cfg["cache"]["file"]["max_age_hours"], mlog):
@@ -263,7 +264,7 @@ def check_config(cfg, mlog, onload=True):
         except Exception as e:
             mlog.critical(f"Could not open cache file: {e}")
             return False
-    
+
         # virust_total
         if not check_config_bool(cfg["integrations"]["virus_total"]["enabled"], mlog):
             return False
@@ -275,7 +276,6 @@ def check_config(cfg, mlog, onload=True):
             return False
         if not check_config_log_level(cfg["integrations"]["virus_total"]["logging"]["log_level_syslog"], mlog):
             return False
-        
 
     except KeyError as e:
         mlog.critical("Could not load config file: Setting not found: {}. Please check the config file and try again.".format(e))
@@ -344,7 +344,13 @@ def save_config(cfg):
         return False
 
 
-def setup_ask(default_response, available_responses_list=[], available_responses_is_int_goe=-1, available_response_is_url=False, secret=False):
+def setup_ask(
+    default_response,
+    available_responses_list=[],
+    available_responses_is_int_goe=-1,
+    available_response_is_url=False,
+    secret=False,
+):
     """The setup_ask() function is used to ask the user for a config value, used for setup.
 
     Args:
@@ -366,7 +372,11 @@ def setup_ask(default_response, available_responses_list=[], available_responses
         ):
             print("Please enter your choice or press enter for default ({}): ".format(default_response))
         else:
-            print("Please enter your choice of either: [{}] or press enter for default ({}):".format(available_responses_list, default_response))
+            print(
+                "Please enter your choice of either: [{}] or press enter for default ({}):".format(
+                    available_responses_list, default_response
+                )
+            )
 
         if not secret:
             response = input()

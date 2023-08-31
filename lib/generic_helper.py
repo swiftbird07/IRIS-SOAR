@@ -1,6 +1,6 @@
-# Z-SOAR
+# IRIS-SOAR
 # Created by: Martin Offermann
-# This module is a helper module that provides multiple generic funtions that can be used all over Z-SOAR.
+# This module is a helper module that provides multiple generic funtions that can be used all over IRIS-SOAR.
 # These functions are not integration specific. For integration specific functions, please use the playbook building blocks (BB) in the playbooks folder.
 
 import lib.logging_helper as logging_helper

@@ -1,12 +1,12 @@
-# Z-SOAR
+# IRIS-SOAR
 # Created by: Martin Offermann
-# This module is the daemon for the Z-SOAR project. It is used to start the main zsoar_worker.py script on a regular interval.
+# This module is the daemon for the IRIS-SOAR project. It is used to start the main isoar_worker.py script on a regular interval.
 # The interval is defined in the config file.
 
 import time
 import lib.config_helper as config_helper
 import lib.logging_helper as logging_helper
-import zsoar_worker as zsoar_worker
+import isoar_worker as isoar_worker
 from argparse import ArgumentParser
 import traceback
 
@@ -23,7 +23,7 @@ def main(TEST_CALL):
         None
     """
     # Get the logger
-    mlog = logging_helper.Log("zsoar_daemon")
+    mlog = logging_helper.Log("isoar_daemon")
 
     if TEST_CALL or args.debug_module:
         mlog.set_level("DEBUG")
@@ -48,12 +48,12 @@ def main(TEST_CALL):
 
     # Start the main loop
     while True:
-        mlog.info("Starting zsoar_worker.py")
+        mlog.info("Starting isoar_worker.py")
         try:
-            zsoar_worker.main(cfg, fromDaemon=True, debug=args.debug_module)
-            mlog.info("zsoar_worker.py finished. Waiting for next run.")
+            isoar_worker.main(cfg, fromDaemon=True, debug=args.debug_module)
+            mlog.info("isoar_worker.py finished. Waiting for next run.")
         except Exception as e:
-            mlog.error("zsoar_worker.py failed. See the zsoar_worker logs for more information. Error: " + traceback.format_exc())
+            mlog.error("isoar_worker.py failed. See the isoar_worker logs for more information. Error: " + traceback.format_exc())
 
         # Reload config in case it was changed
         try:

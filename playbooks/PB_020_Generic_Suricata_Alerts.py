@@ -1,7 +1,7 @@
-# Playbook for Z-SOAR
+# Playbook for IRIS-SOAR
 # Created by: Martin Offermann
 #
-# This is a playbook used by Z-SOAR
+# This is a playbook used by IRIS-SOAR
 # It is used to generally handle Suricata Alerts of IBM QRadar detections.
 #
 # Acceptable Detections:
@@ -173,7 +173,7 @@ def zs_handle_detection(case_file: CaseFile, DRY_RUN=False) -> CaseFile:
         )
         return case_file
 
-    title = "[Z-SOAR] Suricata Alert: "
+    title = "[IRIS-SOAR] Suricata Alert: "
     title_rule = rules_new[0].name
     title += title_rule
 

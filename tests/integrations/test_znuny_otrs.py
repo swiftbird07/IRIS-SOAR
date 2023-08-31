@@ -54,7 +54,7 @@ def test_zs_create_ticket():
     case_file = CaseFile(detectionList)
     assert (
         case_file != None
-    ), "CaseFile class could not be initialized"  # Sanity check - should be already tested by test_zsoar_lib.py -> test_class_helper()
+    ), "CaseFile class could not be initialized"  # Sanity check - should be already tested by test_isoar_lib.py -> test_class_helper()
 
     # Test the function
     ticket_id = zs_create_ticket(case_file, not TEST_ONLINE)

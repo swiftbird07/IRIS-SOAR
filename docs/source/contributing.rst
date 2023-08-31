@@ -8,7 +8,7 @@ Contributing Code
 -----------------
 
 Before contributing make sure that the feature you want to add is not already 'in progress' on the GitHub projects page. If you are contributing in relation to an open issue or feature request, please state so in the pull request. You can contribute code by forking the project on GitHub and sending a pull request. Please make sure that you use the same coding style as the rest of the project. This means that you should use the same indentation, and the same variable names. If you are unsure about the coding style, please look at the existing code..
-Please test your code using 'pytest' before sending a pull request. First use the existing 'test_integration_full.py' test at the 'tests' directory for a full integration test. Also use the relevant core/module test in the respective sub-directory when editig an existing module or core Z-SOAR funtionality. Please provide new appropiate unit tests if you are contributing any new integration.
+Please test your code using 'pytest' before sending a pull request. First use the existing 'test_integration_full.py' test at the 'tests' directory for a full integration test. Also use the relevant core/module test in the respective sub-directory when editig an existing module or core IRIS-SOAR funtionality. Please provide new appropiate unit tests if you are contributing any new integration.
 
 Below I will specify on how to contribute a new integration or playbook:
 
@@ -24,7 +24,7 @@ Any integration MUST provide a config file in the 'configs' directory. This conf
     version: The version of the integration
     provides_new_detections: If the integration provides new detections, this field MUST be set to 'True'. If the integration does not provide new detections, this field MUST be set to 'False'.
     provides_context: If the integration provides context, this field MUST be set to 'True'. If the integration does not provide context, this field MUST be set to 'False'.
-    expects_result: If the integration expects a final result (true-positive/false-positive/unsure) from Z-SOAR, this field MUST be set to 'True'. If the integration does not expect a result, this field MUST be set to 'False'.
+    expects_result: If the integration expects a final result (true-positive/false-positive/unsure) from IRIS-SOAR, this field MUST be set to 'True'. If the integration does not expect a result, this field MUST be set to 'False'.
 
 
 
@@ -59,7 +59,7 @@ The integration itself must then be placed in the 'integrations' directory. The 
 
 .. code:: python
     def receive_result(Detection):
-    """" This function receives a result to a detection from Z-SOAR.
+    """" This function receives a result to a detection from IRIS-SOAR.
 
     Args:
         Detection: A valid object of type 'Detection'.
@@ -131,7 +131,7 @@ Contributing Bug Reports
 
 If you find any bugs, please report them on the GitHub issues page. Please make sure that you provide as much information as possible. This includes the following:
 
-- The version of Z-SOAR you are using.
+- The version of IRIS-SOAR you are using.
 - The version of Python you are using.
 - The version of the integration you are using (if applicable).
 - The version of the playbook you are using (if applicable).

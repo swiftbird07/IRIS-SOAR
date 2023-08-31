@@ -1,6 +1,6 @@
-# Z-SOAR
+# IRIS-SOAR
 # Created by: Martin Offermann
-# This test module is used to test the zsoar.py module.
+# This test module is used to test the isoar.py module.
 # It will test if the prvided arguments are working as expected.
 
 from asyncio import sleep
@@ -23,15 +23,15 @@ def test_import():
         None
     """
     try:
-        import zsoar
-        from zsoar import logging_helper
+        import isoar
+        from isoar import logging_helper
 
         return
     except ImportError:
         pytest.fail("The module can not be imported.")
 
 
-import zsoar
+import isoar
 
 
 def test_arg_parsing():
@@ -45,7 +45,7 @@ def test_arg_parsing():
     """
     # Test if the parser can be initialized
     try:
-        parser = zsoar.add_arguments()
+        parser = isoar.add_arguments()
     except Exception as e:
         pytest.fail("The parser can not be initialized: {}".format(e))
 
@@ -67,43 +67,43 @@ def test_setup():
     Returns:
         None
     """
-    cfg = zsoar.config_helper.Config().cfg
+    cfg = isoar.config_helper.Config().cfg
     tmp = copy.deepcopy(cfg)
 
-    zsoar.config_helper.save_config(cfg)
+    isoar.config_helper.save_config(cfg)
 
     # Following sub-test doesnt work, because a wrong input is ignored and the input is asked again. Therefore the test would hang:
 
     # with mock.patch.object(builtins, "input", lambda: "19"):
-    #     zsoar.setup(0)
-    # cfg = zsoar.config_helper.Config().cfg
+    #     isoar.setup(0)
+    # cfg = isoar.config_helper.Config().cfg
     # assert cfg["setup"]["setup_step"] == 0, "The setup step accepted an invalid input."
 
     # Test vaild input True/False:
 
     cfg["setup"]["setup_step"] = 1
     cfg["daemon"]["enabled"] = False
-    zsoar.config_helper.save_config(cfg)
+    isoar.config_helper.save_config(cfg)
 
     with mock.patch.object(builtins, "input", lambda: "y"):
-        zsoar.setup(1, continue_steps=False)
-    cfg = zsoar.config_helper.Config().cfg
+        isoar.setup(1, continue_steps=False)
+    cfg = isoar.config_helper.Config().cfg
     assert cfg["setup"]["setup_step"] == 2, "The setup step didn't progress after valid input (bool)."
     assert cfg["daemon"]["enabled"] == True, "The setup step didn't save new value (bool)."
 
     # Test vaild input Integer
     cfg["setup"]["setup_step"] = 2
     cfg["daemon"]["interval"] = 1
-    zsoar.config_helper.save_config(cfg)
+    isoar.config_helper.save_config(cfg)
 
     with mock.patch.object(builtins, "input", lambda: 12):
-        zsoar.setup(2, continue_steps=False)
-    cfg = zsoar.config_helper.Config().cfg
+        isoar.setup(2, continue_steps=False)
+    cfg = isoar.config_helper.Config().cfg
     assert cfg["daemon"]["interval"] == 12, "The setup step didn't save new value (int)."
     assert cfg["setup"]["setup_step"] == 3, "The setup step didn't progress after valid input (int)."
 
     # Reset to original config
-    assert zsoar.config_helper.save_config(tmp) == True, "Resetting config to original failed (test_setup)."
+    assert isoar.config_helper.save_config(tmp) == True, "Resetting config to original failed (test_setup)."
 
 
 def test_startup_daemon():
@@ -117,24 +117,24 @@ def test_startup_daemon():
     """
     # Stop daemon first if running
     try:
-        zsoar.stop(zsoar.logging_helper.Log("zsoar_test_core"))
+        isoar.stop(isoar.logging_helper.Log("isoar_test_core"))
     except:
         pass  # Stop errors not in scope of this test
 
     # Temporarily enable the daemon
-    cfg = zsoar.config_helper.Config().cfg
+    cfg = isoar.config_helper.Config().cfg
     tmp = copy.deepcopy(cfg)
 
     cfg["daemon"]["enabled"] = True
-    zsoar.config_helper.save_config(cfg)
+    isoar.config_helper.save_config(cfg)
 
     # Test if the daemon can be started
-    mlog = zsoar.logging_helper.Log("zsoar_test_core")
-    zsoar.startup(mlog, True, False)
-    assert zsoar.get_script_pid(mlog, "zsoar_daemon.py") > 0, "The daemon was not started."
+    mlog = isoar.logging_helper.Log("isoar_test_core")
+    isoar.startup(mlog, True, False)
+    assert isoar.get_script_pid(mlog, "isoar_daemon.py") > 0, "The daemon was not started."
 
     # Reset to original config
-    assert zsoar.config_helper.save_config(tmp) == True, "Resetting config to original failed (test_startup_daemon)."
+    assert isoar.config_helper.save_config(tmp) == True, "Resetting config to original failed (test_startup_daemon)."
 
 
 def test_stop():
@@ -146,13 +146,13 @@ def test_stop():
     Returns:
         None
     """
-    mlog = zsoar.logging_helper.Log("zsoar_test_core")
-    zsoar.stop(mlog)
-    assert zsoar.get_script_pid(mlog, "zsoar_daemon.py") == -1, "The daemon was not stopped."
+    mlog = isoar.logging_helper.Log("isoar_test_core")
+    isoar.stop(mlog)
+    assert isoar.get_script_pid(mlog, "isoar_daemon.py") == -1, "The daemon was not stopped."
 
 
 def test_daemon():
-    """Tests the daemon function. Note that this does not test the called zsoar_worker.
+    """Tests the daemon function. Note that this does not test the called isoar_worker.
 
     Args:
         None
@@ -161,7 +161,7 @@ def test_daemon():
         None
     """
     try:
-        zsoar.zsoar_daemon.main(TEST_CALL=True)
+        isoar.isoar_daemon.main(TEST_CALL=True)
     except Exception as e:
         pytest.fail("The daemon function failed: {}".format(e))
 
@@ -175,23 +175,23 @@ def test_worker():
     Returns:
         None
     """
-    config = zsoar.config_helper.Config().cfg
-    mlog = zsoar.logging_helper.Log("zsoar_test_core")
+    config = isoar.config_helper.Config().cfg
+    mlog = isoar.logging_helper.Log("isoar_test_core")
 
     try:
-        zsoar.zsoar_worker.main(config)
+        isoar.isoar_worker.main(config)
     except Exception as e:
         pytest.fail("The worker function failed: {}".format(e))
 
     # Test check_module_exists and check_module_has_function
-    assert zsoar.zsoar_worker.check_module_exists("elastic_siem") == True, "elastic_siem module 'does not exist'"
-    assert zsoar.zsoar_worker.check_module_exists("some_invalid_module") == False, "some_invalid_module module exists"
+    assert isoar.isoar_worker.check_module_exists("elastic_siem") == True, "elastic_siem module 'does not exist'"
+    assert isoar.isoar_worker.check_module_exists("some_invalid_module") == False, "some_invalid_module module exists"
     assert (
-        zsoar.zsoar_worker.check_module_has_function("elastic_siem", "zs_provide_new_detections", mlog) == True
+        isoar.isoar_worker.check_module_has_function("elastic_siem", "zs_provide_new_detections", mlog) == True
     ), "elastic_siem.zs_provide_new_detections does not exist"
     assert (
-        zsoar.zsoar_worker.check_module_has_function("elastic_siem", "some_invalid_function", mlog) == False
+        isoar.isoar_worker.check_module_has_function("elastic_siem", "some_invalid_function", mlog) == False
     ), "elastic_siem.some_invalid_function exists"
     assert (
-        zsoar.zsoar_worker.check_module_has_function("some_invalid_module", "some_invalid_function", mlog) == False
+        isoar.isoar_worker.check_module_has_function("some_invalid_module", "some_invalid_function", mlog) == False
     ), "some_invalid_module.some_invalid_function exists"

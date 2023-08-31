@@ -47,7 +47,7 @@ def test_zs_provide_context_for_detections():
     case_file = CaseFile(detectionList)
     assert (
         case_file != None
-    ), "CaseFile class could not be initialized"  # Sanity check - should be already tested by test_zsoar_lib.py -> test_class_helper()
+    ), "CaseFile class could not be initialized"  # Sanity check - should be already tested by test_isoar_lib.py -> test_class_helper()
 
     # Test the function
     flows = zs_provide_context_for_detections(integration_config, case_file, ContextFlow, TEST=True, search_value=86677)
@@ -128,7 +128,7 @@ def test_online_context_for_detections():
     case_file = CaseFile(detectionList)
     assert (
         case_file != None
-    ), "CaseFile class could not be initialized"  # Sanity check - should be already tested by test_zsoar_lib.py -> test_class_helper()
+    ), "CaseFile class could not be initialized"  # Sanity check - should be already tested by test_isoar_lib.py -> test_class_helper()
 
     flows = zs_provide_context_for_detections(integration_config, case_file, ContextFlow, TEST=False, search_value=ENTITY_ID)
     assert type(flows[0]) == ContextFlow, "zs_provide_context_for_detections() should return a ContextFlow object"
