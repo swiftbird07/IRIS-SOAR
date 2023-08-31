@@ -166,7 +166,11 @@ def test_daemon():
         pytest.fail("The daemon function failed: {}".format(e))
 
 
-def test_worker():
+def test_alert_collector():
+    pass  # TODO: Implement
+
+
+def test_case_worker():
     """Tests the worker function.
 
     Args:

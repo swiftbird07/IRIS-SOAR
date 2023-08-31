@@ -1215,6 +1215,7 @@ def zs_provide_new_detections(config, TEST="") -> List[Detection]:
             uuid=detection_id,
             device=device,
             severity=doc_dict["kibana.alert.risk_score"],
+            raw=doc_dict,
         )
         mlog.info("Created detection: " + str(detection))
         detections.append(detection)

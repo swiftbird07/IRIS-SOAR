@@ -10,19 +10,18 @@ daemon:
   interval_min: 1
 integrations:
   dfir-iris:
+    api_key: $ZS_INT_IRIS_API_KEY
     logging:
       log_level_file: info
       log_level_stdout: warning
       log_level_syslog: error
-    password: $ZS_INT_IRIS_PW
     iris-cases:
       default_priority: 3 normal
       default_type: Security Alert
       enabled: true
       target_queue: ISOAR Detections::Tests
       target_queue_escalation: ISOAR Detections::Tests
-    url: http://iris.pve.lan
-    username: zsoar
+    url: https://iris.pve.lan
     verify_certs: false
     version: 2.0.1
     webservice_name: ALERTELAST_API
