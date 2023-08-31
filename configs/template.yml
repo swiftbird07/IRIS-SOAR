@@ -32,4 +32,4 @@ logging:
 setup:
   load_enviroment_variables: true
   setup_step: 0
-znuny_otrs: null
+dfir-iris: null

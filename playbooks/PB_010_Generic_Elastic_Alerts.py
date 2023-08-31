@@ -11,8 +11,8 @@
 # - ContextProcess, ContextFile, ContextRegistry, ContextNetwork
 #
 # Actions:
-# - Create Ticket
-# - Add notes to related tickets
+# - Create IRIS Case
+# - Add notes to related iris-cases
 #
 PB_NAME = "PB_010_Generic_Elastic_Alerts"
 PB_VERSION = "0.2.0"
@@ -26,7 +26,7 @@ import lib.logging_helper as logging_helper
 from lib.class_helper import CaseFile, AuditLog, Detection
 from lib.config_helper import Config
 
-from integrations.znuny_otrs import zs_create_ticket, zs_add_note_to_ticket, zs_get_ticket_by_number
+from integrations.dfir-iris import zs_create_iris_case, zs_add_note_to_iris_case, zs_get_iris_case_by_number
 from playbooks.bb_elastic_context_fetcher import (
     bb_get_context_process_children,
     bb_get_context_process_parents,
@@ -104,12 +104,12 @@ def zs_handle_detection(case_file: CaseFile, DRY_RUN=False) -> CaseFile:
         return case_file
     case_file.update_audit(current_action.set_successful(message="Detection is not whitelisted."), logger=mlog)
 
-    # Create initial ticket for detection
-    ticket_number = zs_create_ticket(
+    # Create initialiris-casefor detection
+    iris_case_number = zs_create_iris_case(
         case_file, detection, False, auto_detection_note=True, playbook_name=PB_NAME, playbook_step=1
     )
-    if not ticket_number:
-        mlog.critical(f"Could not create ticket for detection: '{detection.name}' ({detection.uuid})")
+    if not iris_case_number:
+        mlog.critical(f"Could not createiris-casefor detection: '{detection.name}' ({detection.uuid})")
         return case_file
 
     # Create additional notes for each other detection in the detection case
@@ -117,8 +117,8 @@ def zs_handle_detection(case_file: CaseFile, DRY_RUN=False) -> CaseFile:
         sub_step = 1
         for other_detection in case_file.detections:
             if other_detection.uuid != detection.uuid:
-                zs_add_note_to_ticket(
-                    ticket_number,
+                zs_add_note_to_iris_case(
+                    iris_case_number,
                     case_file,
                     other_detection,
                     False,
@@ -128,12 +128,12 @@ def zs_handle_detection(case_file: CaseFile, DRY_RUN=False) -> CaseFile:
                 )
                 sub_step += 1
 
-    # Add ticket to detection (-case)
-    mlog.debug(f"Adding ticket to detection and detection case.")
+    # Addiris-caseto detection (-case)
+    mlog.debug(f"Addingiris-caseto detection and detection case.")
     if not DRY_RUN:
-        ticket = zs_get_ticket_by_number(ticket_number)
-        detection.ticket = ticket
-        case_file.add_context(ticket)
+       iris-case= zs_get_iris_case_by_number(iris_case_number)
+        detectioniris_case = iris-case
+        case_file.add_context(iris_case)
 
     # Gather process related contexts from BB_Elastic_Context_Fetcher:
     parents = []
@@ -151,8 +151,8 @@ def zs_handle_detection(case_file: CaseFile, DRY_RUN=False) -> CaseFile:
         process_names.append(f"{process.process_name} ({process.process_id})")
 
     # Create a note for Process Context
-    zs_add_note_to_ticket(
-        ticket_number,
+    zs_add_note_to_iris_case(
+        iris_case_number,
         "context_process",
         False,
         playbook_name=PB_NAME,
@@ -171,8 +171,8 @@ def zs_handle_detection(case_file: CaseFile, DRY_RUN=False) -> CaseFile:
     detected_process_flows, context_process_flows = bb_get_context_process_network_flows(PB_NAME, 6, mlog, case_file, detection)
 
     # Create a note for Network Flows
-    zs_add_note_to_ticket(
-        ticket_number,
+    zs_add_note_to_iris_case(
+        iris_case_number,
         "context_network",
         False,
         playbook_name=PB_NAME,
@@ -191,8 +191,8 @@ def zs_handle_detection(case_file: CaseFile, DRY_RUN=False) -> CaseFile:
     )
 
     # Create a note for File Events
-    zs_add_note_to_ticket(
-        ticket_number,
+    zs_add_note_to_iris_case(
+        iris_case_number,
         "context_file",
         False,
         playbook_name=PB_NAME,
@@ -212,8 +212,8 @@ def zs_handle_detection(case_file: CaseFile, DRY_RUN=False) -> CaseFile:
     )
 
     # Create a note for Registry Events
-    zs_add_note_to_ticket(
-        ticket_number,
+    zs_add_note_to_iris_case(
+        iris_case_number,
         "context_registry",
         False,
         playbook_name=PB_NAME,
@@ -232,5 +232,5 @@ def zs_handle_detection(case_file: CaseFile, DRY_RUN=False) -> CaseFile:
 # - Empty cache if too big
 # - Worker: Kill Playbook if stuck
 # - Audit log respecting timeline order
-# - Audit log to Ticket
+# - Audit log to IRIS Case
 # - Log / Audit Log to Syslog

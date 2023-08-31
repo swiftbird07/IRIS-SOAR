@@ -12,7 +12,7 @@
 # - VirusTotal context for the provided indicators
 #
 # Actions:
-# - Add notes to related tickets
+# - Add notes to related iris-cases
 #
 PB_NAME = "PB_010_Generic_VirusTotal"
 PB_VERSION = "0.1.0"
@@ -40,7 +40,7 @@ from lib.config_helper import Config
 from lib.generic_helper import cast_to_ipaddress, format_results, is_local_tld
 
 from integrations.virus_total import zs_provide_context_for_detections
-from integrations.znuny_otrs import zs_add_note_to_ticket, zs_get_ticket_by_number
+from integrations.dfir-iris import zs_add_note_to_iris_case, zs_get_iris_case_by_number
 
 # Prepare the logger
 cfg = Config().cfg
@@ -63,11 +63,11 @@ def zs_can_handle_detection(case_file: CaseFile) -> bool:
         mlog.info(f"Playbook '{PB_NAME}' is disabled. Not handling anything.")
         return False
 
-    # Check if there is already a ticket for the detection case
+    # Check if there is already airis-casefor the detection case
     try:
-        ticket_number = case_file.get_ticket_number()
+        iris_case_number = case_file.get_iris_case_number()
     except ValueError:
-        mlog.info(f"Playbook '{PB_NAME}' cannot handle detection case '{case_file.uuid}' as there is no ticket for it.")
+        mlog.info(f"Playbook '{PB_NAME}' cannot handle detection case '{case_file.uuid}' as there is noiris-casefor it.")
         return False
 
     # Check if any of the detecions of the detection case has an indicator that is searchable in VirusTotal
@@ -105,16 +105,16 @@ def zs_handle_detection(case_file: CaseFile, TEST=False) -> CaseFile:
     process_contexts: List[ContextThreatIntel] = []
 
     try:
-        ticket_number = case_file.get_ticket_number()
+        iris_case_number = case_file.get_iris_case_number()
     except (
         ValueError
-    ):  # Sanity check. Should not be raised, as zs_can_handle_detection() should have been called before to check if the detection case has a ticket number
+    ):  # Sanity check. Should not be raised, as zs_can_handle_detection() should have been called before to check if the detection case has airis-casenumber
         mlog.critical(
-            f"Could not get ticket number from detection case. A ticket for the detection case must be created by a previous playbook for this playbook to work."
+            f"Could not getiris-casenumber from detection case. Airis-casefor the detection case must be created by a previous playbook for this playbook to work."
         )
         case_file.update_audit(
             init_action.set_error(
-                message="Could not get ticket number from detection case. A ticket for the detection case must be created by a previous playbook for this playbook to work."
+                message="Could not getiris-casenumber from detection case. Airis-casefor the detection case must be created by a previous playbook for this playbook to work."
             ),
             mlog,
         )
@@ -390,7 +390,7 @@ def zs_handle_detection(case_file: CaseFile, TEST=False) -> CaseFile:
             case_file.add_context(process_context)
 
     #                                                       #
-    ## Step 2 - Add note to ticket of the detection case ##
+    ## Step 2 - Add note toiris-caseof the detection case ##
     #
 
     detection_str = "detection"
@@ -398,7 +398,7 @@ def zs_handle_detection(case_file: CaseFile, TEST=False) -> CaseFile:
         detection_str += "s"
 
     if len(network_contexts) > 0 or len(process_contexts) > 0:
-        current_action = AuditLog(PB_NAME, 5, "Adding note to ticket", "Started adding note to ticket")
+        current_action = AuditLog(PB_NAME, 5, "Adding note to iris-case", "Started adding note to iris-case")
         case_file.update_audit(current_action, mlog)
         try:
             note_title = f"Context: Threat Intel (VirusTotal)"
@@ -433,15 +433,15 @@ def zs_handle_detection(case_file: CaseFile, TEST=False) -> CaseFile:
             note_body += format_results(network_contexts, "html", "")
             note_body += "<br><br><br><br>"
 
-            zs_add_note_to_ticket(ticket_number, "raw", TEST, note_title, note_body, "text/html")
+            zs_add_note_to_iris_case(iris_case_number, "raw", TEST, note_title, note_body, "text/html")
             current_action.playbook_done = True
             case_file.update_audit(
-                current_action.set_successful(message=f"Added note to ticket", data=case_file.detections), mlog
+                current_action.set_successful(message=f"Added note to iris-case", data=case_file.detections), mlog
             )
         except Exception as e:
-            mlog.error(f"Error while adding note to ticket: {e}")
-            case_file.update_audit(current_action.set_error(message=f"Error while adding note to ticket: {e}", data=e), mlog)
+            mlog.error(f"Error while adding note to iris-case: {e}")
+            case_file.update_audit(current_action.set_error(message=f"Error while adding note to iris-case: {e}", data=e), mlog)
     else:
-        mlog.info(f"No threat intel found for this {detection_str}. Not adding note to ticket.")
+        mlog.info(f"No threat intel found for this {detection_str}. Not adding note to iris_case.")
 
     return case_file

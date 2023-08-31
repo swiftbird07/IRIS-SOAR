@@ -11,7 +11,7 @@
 # - ContextLog, ContextFlow
 #
 # Actions:
-# - Add notes to related tickets
+# - Add notes to related iris-cases
 #
 PB_NAME = "PB_022_Generic_NTOPNG_Alerts"
 PB_VERSION = "0.0.1"
@@ -22,7 +22,7 @@ PB_ENABLED = True
 from lib.class_helper import CaseFile, AuditLog, Detection, ContextLog, ContextFlow, ContextFile, Rule
 from lib.logging_helper import Log
 from lib.config_helper import Config
-from integrations.znuny_otrs import zs_add_note_to_ticket, zs_update_ticket_title
+from integrations.dfir-iris import zs_add_note_to_iris_case, zs_update_iris_case_title
 from lib.generic_helper import format_results, dict_get
 
 # Prepare the logger
@@ -48,10 +48,10 @@ def zs_can_handle_detection(case_file: CaseFile) -> bool:
     for detection in case_file.detections:
         # Check if any of the detecions of the detection case is a QRadar Offense
         try:
-            case_file.get_ticket_number()
+            case_file.get_iris_case_number()
         except ValueError:
             mlog.info(
-                f"Playbook '{PB_NAME}' cannot handle detection '{detection.name}' ({detection.uuid}), as there is no ticket in it."
+                f"Playbook '{PB_NAME}' cannot handle detection '{detection.name}' ({detection.uuid}), as there is noiris-casein it."
             )
             return False
 
@@ -129,14 +129,14 @@ def zs_handle_detection(case_file: CaseFile, DRY_RUN=False) -> CaseFile:
     detection.rules.append(rules_new)
     case_file.update_audit(current_action.set_successful(message="Successfully added rules to detection."), logger=mlog)
 
-    # Add note to related ticket
-    current_action = AuditLog(PB_NAME, 2, "Adding note to related ticket.", "Adding note with new Rules to related ticket.")
+    # Add note to related iris-case
+    current_action = AuditLog(PB_NAME, 2, "Adding note to related iris_case.", "Adding note with new Rules to related iris_case.")
     case_file.update_audit(current_action, logger=mlog)
 
-    ticket_number = case_file.get_ticket_number()
-    if ticket_number is None:
-        mlog.critical("Could not find ticket number in detection case.")
-        case_file.update_audit(current_action.set_error(message="Could not find ticket number in detection case."), logger=mlog)
+    iris_case_number = case_file.get_iris_case_number()
+    if iris_case_number is None:
+        mlog.critical("Could not findiris-casenumber in detection case.")
+        case_file.update_audit(current_action.set_error(message="Could not findiris-casenumber in detection case."), logger=mlog)
         return case_file
 
     note_title = "NTOP-NG Alert Rules"
@@ -151,25 +151,27 @@ def zs_handle_detection(case_file: CaseFile, DRY_RUN=False) -> CaseFile:
     note_body += "<br><br>"
     note_body += format_results(rules_new, "html", "")
 
-    article_id = zs_add_note_to_ticket(ticket_number, "raw", DRY_RUN, note_title, note_body, "text/html")
+    article_id = zs_add_note_to_iris_case(iris_case_number, "raw", DRY_RUN, note_title, note_body, "text/html")
     if article_id is None:
-        mlog.critical(f"Could not add note to ticket '{ticket_number}'.")
-        case_file.update_audit(current_action.set_error(message=f"Could not add note to ticket '{ticket_number}'."), logger=mlog)
+        mlog.critical(f"Could not add note toiris-case'{iris_case_number}'.")
+        case_file.update_audit(
+            current_action.set_error(message=f"Could not add note toiris-case'{iris_case_number}'."), logger=mlog
+        )
         return case_file
     case_file.update_audit(
-        current_action.set_successful(message=f"Successfully added note to ticket '{ticket_number}'."), logger=mlog
+        current_action.set_successful(message=f"Successfully added note toiris-case'{iris_case_number}'."), logger=mlog
     )
 
-    # Update ticket title to include the NTOP-NG Alert Signature
+    # Updateiris-casetitle to include the NTOP-NG Alert Signature
     current_action = AuditLog(
-        PB_NAME, 3, "Updating ticket title.", "Updating ticket title to include the NTOP-NG Alert Signature."
+        PB_NAME, 3, "Updatingiris-casetitle.", "Updatingiris-casetitle to include the NTOP-NG Alert Signature."
     )
     case_file.update_audit(current_action, logger=mlog)
 
     if len(rules_new) == 0:
-        mlog.critical("Could not update ticket title, as there are no rules.")
+        mlog.critical("Could not updateiris-casetitle, as there are no rules.")
         case_file.update_audit(
-            current_action.set_error(message="Could not update ticket title, as there are no rules."), logger=mlog
+            current_action.set_error(message="Could not updateiris-casetitle, as there are no rules."), logger=mlog
         )
         return case_file
 
@@ -201,15 +203,16 @@ def zs_handle_detection(case_file: CaseFile, DRY_RUN=False) -> CaseFile:
         offender = list(set(offender))
         title += " | Offender: " + ", ".join(offender)
 
-    mlog.info(f"Crafted new ticket title: '{title}'")
+    mlog.info(f"Crafted newiris-casetitle: '{title}'")
 
-    ticket_number = zs_update_ticket_title(case_file, title)
-    if ticket_number is None or type(ticket_number) == Exception:
-        mlog.critical(f"Could not update ticket '{ticket_number}'.")
-        case_file.update_audit(current_action.set_error(message=f"Could not update ticket '{ticket_number}'."), logger=mlog)
+    iris_case_number = zs_update_iris_case_title(case_file, title)
+    if iris_case_number is None or type(iris_case_number) == Exception:
+        mlog.critical(f"Could not updateiris-case'{iris_case_number}'.")
+        case_file.update_audit(current_action.set_error(message=f"Could not updateiris-case'{iris_case_number}'."), logger=mlog)
         return case_file
     case_file.update_audit(
-        current_action.set_successful(message=f"Successfully updated ticket '{ticket_number}' title to '{title}'."), logger=mlog
+        current_action.set_successful(message=f"Successfully updatediris-case'{iris_case_number}' title to '{title}'."),
+        logger=mlog,
     )
 
     # Update Detection severity

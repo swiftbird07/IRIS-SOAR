@@ -9,7 +9,7 @@ elasticsearch
 # For dev:
 mock
 pytest
-# For Znuny/OTRS integration
-pyotrs
+# For IRIS
+dfir_iris_client
 # For Matrix integration
 matrix_client

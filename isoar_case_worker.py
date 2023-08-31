@@ -17,10 +17,9 @@ import json
 import lib.config_helper as config_helper
 import lib.logging_helper as logging_helper
 import lib.class_helper as class_helper  # TODO: Implement class_helper.py
-from integrations.znuny_otrs import zs_add_note_to_ticket
 from lib.generic_helper import del_none_from_dict
 
-DEBUG_ADD_AUDIT_LOG_TO_TICKET = True  # Weither or not to add the audit log to the ticket when the worker is finished
+DEBUG_ADD_AUDIT_LOG_TO_IRIS_CASE = True  # Weither or not to add the audit log to theiris-casewhen the worker is finished
 
 
 def check_module_exists(module_name, playbook=False):
@@ -101,7 +100,7 @@ def main(config, fromDaemon=False, debug=False):
             mlog.warning("The module " + module_name + " is disabled. Skipping.")
             continue
 
-        if module_name == "znuny_otrs" and integration["detection_provider"]["enabled"] == False:
+        if module_name == "dfir-iris" and integration["detection_provider"]["enabled"] == False:
             mlog.warning("The module " + module_name + " has disabled the detection provider. Skipping.")
             continue
 
@@ -236,8 +235,8 @@ def main(config, fromDaemon=False, debug=False):
             )
             case_file.update_audit(last_audit, mlog)
 
-            if DEBUG_ADD_AUDIT_LOG_TO_TICKET:
-                mlog.debug("Adding audit log to ticket...")
+            if DEBUG_ADD_AUDIT_LOG_TO_ IRIS_CASE:
+                mlog.debug("Adding audit log to iris_case...")
                 try:
                     trail_str = ""
                     for audit in case_file.audit_trail:
@@ -248,13 +247,13 @@ def main(config, fromDaemon=False, debug=False):
                         else:
                             trail_str += "<p style='color:green'>"
                         trail_str += str(audit).replace("\n", "<br>") + "</p><br>"
-                    # Add to ticket
-                    ticket_number = case_file.get_ticket_number()
-                    if not ticket_number:
-                        mlog.warning("Could not add audit log to ticket because no ticket number was found.")
+                    # Add to iris-case
+                    iris_case_number = case_file.get_iris_case_number()
+                    if not iris_case_number:
+                        mlog.warning("Could not add audit log toiris-casebecause noiris-casenumber was found.")
                         continue
-                    ticket = zs_add_note_to_ticket(
-                        ticket_number,
+                   iris-case= zs_add_note_to_iris_case(
+                        iris_case_number,
                         "raw",
                         False,
                         "(DEBUG) Audit Log Trail",
@@ -262,9 +261,11 @@ def main(config, fromDaemon=False, debug=False):
                         visible_for_customer=False,
                         raw_body_type="text/html",
                     )
-                    mlog.info("Added audit log to ticket " + str(ticket_number) + ".")
+                    mlog.info("Added audit log toiris-case" + str(iris_case_number) + ".")
                 except Exception as e:
-                    mlog.error("Failed to add audit log to ticket " + str(ticket_number) + ". Error: " + traceback.format_exc())
+                    mlog.error(
+                        "Failed to add audit log toiris-case" + str(iris_case_number) + ". Error: " + traceback.format_exc()
+                    )
 
     mlog.info("Finished worker script.")
 

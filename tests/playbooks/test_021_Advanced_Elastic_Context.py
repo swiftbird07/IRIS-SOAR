@@ -6,7 +6,7 @@ import datetime
 
 from playbooks.PB_021_Advanced_Elastic_Context import zs_can_handle_detection, zs_handle_detection
 from lib.class_helper import CaseFile, Detection, Rule, ContextDevice
-from integrations.znuny_otrs import zs_create_ticket
+from integrations.dfir-iris import zs_create_iris_case
 
 
 def prepare_test():
@@ -22,9 +22,9 @@ def prepare_test():
         device=ContextDevice("MacBook Pro von Martin 14'", "10.21.0.9"),
     )
     case_file = CaseFile([detection])
-    ticket = zs_create_ticket(
+   iris-case= zs_create_iris_case(
         case_file
-    )  # if an error occurs here, check the zs_create_ticket() function in tests/integrations/test_znuny_otrs.py
+    )  # if an error occurs here, check the zs_create_iris_case() function in tests/integrations/test_dfir-iris.py
     return case_file
 
 

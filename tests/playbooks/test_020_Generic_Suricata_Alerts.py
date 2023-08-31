@@ -7,7 +7,7 @@ import datetime
 from playbooks.PB_020_Generic_Suricata_Alerts import zs_can_handle_detection, zs_handle_detection
 from lib.class_helper import CaseFile, Detection, Rule, ContextLog
 from integrations.ibm_qradar import zs_provide_context_for_detections
-from integrations.znuny_otrs import zs_create_ticket, zs_get_ticket_by_number
+from integrations.dfir-iris import zs_create_iris_case, zs_get_iris_case_by_number
 
 OFFENSE_ID = "1541"
 
@@ -25,10 +25,10 @@ def prepare_test():
     )
     case_file = CaseFile([detection])
 
-    ticket_number = zs_create_ticket(
+    iris_case_number = zs_create_iris_case(
         case_file
-    )  # if an error occurs here, check the zs_create_ticket() function in tests/integrations/test_znuny_otrs.py
-    case_file.add_context(zs_get_ticket_by_number(ticket_number))
+    )  # if an error occurs here, check the zs_create_iris_case() function in tests/integrations/test_dfir-iris.py
+    case_file.add_context(zs_get_iris_case_by_number(iris_case_number))
 
     detectionArray = zs_provide_context_for_detections(
         case_file, ContextLog, TEST=True, search_type="offense", search_value=OFFENSE_ID

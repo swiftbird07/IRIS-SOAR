@@ -2892,7 +2892,7 @@ class Detection:
         self.url = url
 
         self.uuid = uuid
-        self.ticket: pyotrs.Ticket = None
+        self.iris_case = None
 
         # Remove '*.' from domain indicators and replace with empty
         for domain in self.indicators["domain"]:
@@ -3056,14 +3056,14 @@ class AuditLog:
         title (str): The title of the audit log entry. This is the main description of the action (to be) performed.
         description (str, optional): The description of the audit log entry. Defaults to "".
         start_time (datetime, optional): The start time of the audit log entry. Defaults to datetime.datetime.now().
-        related_ticket_number (str, optional): The ticket number related to the audit log entry. Defaults to "".
-        is_ticket_related (bool, optional): Indicates whether the audit log entry is related to a ticket. Defaults to False.
+        related_iris_case_number (str, optional): Theiris-casenumber related to the audit log entry. Defaults to "".
+        is_iris_case_related (bool, optional): Indicates whether the audit log entry is related to a iris_case. Defaults to False.
         result_had_warnings (bool, optional): Indicates whether the audit log entry had warnings. Defaults to False.
         result_had_errors (bool, optional): Indicates whether the audit log entry had errors. Defaults to False.
         result_request_retry (bool, optional): Indicates whether the action should be retried. Defaults to False.
         result_message (str, optional): The result message of the action performed. Defaults to "".
         result_data (dict, optional): Additional relevant data of the action performed. Defaults to {}.
-        result_in_ticket (bool, optional): Indicates whether the result has been added to the ticket. Defaults to False.
+        result_in_iris_case (bool, optional): Indicates whether the result has been added to the iris_case. Defaults to False.
         result_time (datetime, optional): The time of the result. Defaults to None.
         stage_done (bool, optional): Indicates whether the action of this stage has been completed (in any way). Defaults to False.
         playbook_done (bool, optional): Indicates whether the playbook has been completed. Defaults to False.
@@ -3077,13 +3077,13 @@ class AuditLog:
         title: str,
         description: str = "",
         start_time: datetime = datetime.datetime.now(),
-        is_ticket_related: bool = False,
+        is_iris_case_related: bool = False,
         result_had_warnings: bool = False,
         result_had_errors: bool = False,
         result_request_retry: bool = False,
         result_message: str = "",
         result_data: dict = {},
-        result_in_ticket: bool = False,
+        result_in_iris_case: bool = False,
         result_time: datetime = None,
         playbook_done: bool = False,
         result_exception=None,
@@ -3094,35 +3094,35 @@ class AuditLog:
         self.title = title
         self.description = description
         self.start_time: datetime = start_time
-        self.related_ticket_number: str = ""
+        self.related_iris_case_number: str = ""
         self.result_was_successful: bool = result_was_successful
         self.result_had_warnings: bool = result_had_warnings
         self.result_had_errors: bool = result_had_errors
         self.result_request_retry: bool = result_request_retry
         self.result_message: str = result_message
         self.result_data: dict = result_data
-        self.result_in_ticket = result_in_ticket
+        self.result_in_iris_case = result_in_iris_case
         self.result_time: datetime = result_time if result_time is not None else datetime.datetime.now()
         self.result_exception: str = result_exception
         self.result_warning_messages: List = []
         self.stage_done: bool = False
         self.playbook_done: bool = playbook_done
 
-    def set_successful(self, message: str = "The action taken was successful.", data: dict = None, ticket_number=None) -> bool:
-        """Sets the audit log element as successful. If a ticket number is given, "result_in_ticket" is automatically set to True."""
+    def set_successful(self, message: str = "The action taken was successful.", data: dict = None, iris_case_number=None) -> bool:
+        """Sets the audit log element as successful. If airis-casenumber is given, "result_in_iris_case" is automatically set to True."""
         self.result_was_successful = True
         self.result_request_retry = False
         self.result_message = message
         self.result_data["success"] = data
         self.result_time = datetime.datetime.now()
-        if ticket_number is not None:
-            self.result_in_ticket = True
-            self.related_ticket_number = ticket_number
+        if iris_case_number is not None:
+            self.result_in_iris_case = True
+            self.related_iris_case_number = iris_case_number
         self.stage_done = True
         return self
 
     def set_warning(
-        self, in_ticket: bool = False, warning_message: str = "The action taken had warnings, but succeeded", data: dict = None
+        self, in_iris_case: bool = False, warning_message: str = "The action taken had warnings, but succeeded", data: dict = None
     ) -> bool:
         """Sets the audit log element as successful, but with warnings (no retry)."""
         self.result_had_warnings = True
@@ -3130,14 +3130,14 @@ class AuditLog:
         self.result_request_retry = False
         self.result_warning_messages.append(warning_message)
         self.result_data["warnings"] = data
-        self.result_in_ticket = in_ticket
+        self.result_in_iris_case = in_iris_case
         self.result_time = datetime.datetime.now()
         self.stage_done = True
         return self
 
     def set_error(
         self,
-        in_ticket: bool = False,
+        in_iris_case: bool = False,
         message: str = "The action taken had errors and failed. Requested retry.",
         data: dict = None,
         exception=None,
@@ -3147,7 +3147,7 @@ class AuditLog:
         self.result_request_retry = True
         self.result_message = message
         self.result_data["error"] = data
-        self.result_in_ticket = in_ticket
+        self.result_in_iris_case = in_iris_case
         self.result_time = datetime.datetime.now()
         self.result_exception = str(exception)
         self.stage_done = True
@@ -3164,7 +3164,7 @@ class AuditLog:
                 "title": self.title,
                 "description": self.description,
                 "start_time": str(self.start_time),
-                "related_ticket_number": self.related_ticket_number,
+                "related_iris_case_number": self.related_iris_case_number,
                 "result_was_successful": self.result_was_successful,
                 "result_had_warnings": self.result_had_warnings,
                 "result_had_errors": self.result_had_errors,
@@ -3173,7 +3173,7 @@ class AuditLog:
                 "result_data": str(self.result_data),
                 "result_exception": self.result_exception,
                 "result_warning_messages": self.result_warning_messages,
-                "result_in_ticket": self.result_in_ticket,
+                "result_in_iris_case": self.result_in_iris_case,
                 "result_time": str(self.result_time),
                 "playbook_done": self.playbook_done,
                 "stage_done": self.stage_done,
@@ -3185,7 +3185,7 @@ class AuditLog:
                 "title": self.title,
                 "description": self.description,
                 "start_time": str(self.start_time),
-                "related_ticket_number": self.related_ticket_number,
+                "related_iris_case_number": self.related_iris_case_number,
                 "playbook_done": self.playbook_done,
                 "stage_done": self.stage_done,
             }
@@ -3216,7 +3216,7 @@ class CaseFile:
         context_dns_requests (List[DNS]): The context dns requests of the case
         context_certificates (List[Certificate]): The context certificates of the case
         context_registries (List[Registry]): The context registries of the case
-        context_tickets (List[Ticket]): The context tickets of the case
+        context_iris_cases (List[IRIS Case]): The context iris-cases of the case
         uuid (str): The universal unique ID of the case (uuid4 - random if not set)
         indicators (Dict[str, List[str]]): The indicators of the case (key: indicator type, value: list of indicators)
 
@@ -3249,12 +3249,12 @@ class CaseFile:
                 title="Initializing CaseFile",
                 description="Initializing the CaseFile onject",
                 start_time=datetime.datetime.now(),
-                is_ticket_related=False,
+                is_iris_case_related=False,
             )
         ]
         self.handled_by_playbooks: List[str] = []
         self.playbooks_to_retry: List[str] = []
-        self.ticket: pyotrs.Ticket = None
+        self.iris_case = None
 
         # Context for every type of context
         self.context_logs: List[ContextLog] = []
@@ -3282,7 +3282,7 @@ class CaseFile:
         self.audit_trail[0].result_had_warnings = False
         self.audit_trail[0].result_had_errors = False
         self.audit_trail[0].result_request_retry = False
-        self.audit_trail[0].result_in_ticket = False
+        self.audit_trail[0].result_in_iris_case = False
         self.audit_trail[0].result_message = "Initializing CaseFile was successful."
         self.audit_trail[0].result_data = "CaseFile was initialized successfully."
 
@@ -3292,7 +3292,7 @@ class CaseFile:
             "detections": self.detections,
             "handled_by_playbooks": self.handled_by_playbooks,
             "action": self.action,
-            "ticket_number": self.get_ticket_number() if self.ticket else None,
+            "iris_case_number": self.get_iris_case_number() if self.iris_case else None,
             "action_result": self.action_result,
             "action_result_message": self.action_result_message,
             "action_result_data": self.action_result_data,
@@ -3338,7 +3338,7 @@ class CaseFile:
         """Adds a context to the detection case, respecting the timeline
 
         Args:
-            context (Union[ContextLog, ContextProcess, ContextFlow, ContextThreatIntel, Location, Device, Person, ContextFile, HTTP, DNSQuery, Certificate, dict]): The context to add (dict menas Ticket object)
+            context (Union[ContextLog, ContextProcess, ContextFlow, ContextThreatIntel, Location, Device, Person, ContextFile, HTTP, DNSQuery, Certificate, dict]): The context to add (dict menas IRIS Case object)
 
         Raises:
             ValueError: If the context object has no timestamp
@@ -3349,13 +3349,13 @@ class CaseFile:
             mlog.warning("CaseFile: add_context() - Context is None, skipping.")
             return
 
-        if not isinstance(context, dict) and not isinstance(context, pyotrs.Ticket):
+        if not isinstance(context, dict):
             try:
                 timestamp = context.timestamp
             except:
                 raise ValueError("Context object has no timestamp.")
         elif type(context) is dict:
-            timestamp = context["Ticket"]["Created"]
+            timestamp = context["IRIS Case"]["Created"]
         else:
             timestamp = context.field_get("Created")
 
@@ -3443,11 +3443,11 @@ class CaseFile:
             if context.file_sha256:
                 self.indicators["hash"].append(context.file_sha256)
 
-        elif isinstance(context, dict) or isinstance(context, pyotrs.Ticket):
-            if isinstance(context, pyotrs.Ticket) or context["Ticket"]:
-                self.ticket = context
+        elif isinstance(context, dict):
+            if context["IRIS Case"]:
+                self.iris_case = context
             else:
-                raise TypeError("Given dict was no valid ticket object.")
+                raise TypeError("Given dict was no validiris-caseobject.")
 
         else:
             raise TypeError("Unknown context type.")
@@ -3516,8 +3516,8 @@ class CaseFile:
                 if context.uuid == uuid:
                     return context
 
-        if filterType == pyotrs.Ticket or filterType is None:
-            for context in self.context_tickets:
+        if filterType is None:
+            for context in self.context_iris_cases:
                 if context.tid == uuid:
                     return context
 
@@ -3617,32 +3617,32 @@ class CaseFile:
             pass
         return self.detections[0].name
 
-    def get_ticket_number(self):
-        """Returns the ticket number of the case."""
-        if self.ticket is not None:
+    def get_iris_case_number(self):
+        """Returns theiris-casenumber of the case."""
+        if self.iris_case is not None:
             try:
-                return self.ticket["TicketNumber"]
+                return self.iris_case["IRIS CaseNumber"]
             except:
-                return self.ticket.field_get("TicketNumber")
+                return self.iris_case.field_get("IRIS CaseNumber")
         else:
-            raise ValueError("The case_file has no ticket.")
+            raise ValueError("The case_file has no iris_case.")
 
-    def get_ticket_id(self):
-        """Returns the ticket id of the case."""
-        if self.ticket is not None:
+    def get_iris_case_id(self):
+        """Returns theiris-caseid of the case."""
+        if self.iris_case is not None:
             try:
-                return self.ticket["TicketID"]
+                return self.iris_case["IRIS CaseID"]
             except:
-                return self.ticket.field_get("TicketID")
+                return self.iris_case.field_get("IRIS CaseID")
         else:
-            raise ValueError("The case_file has no ticket.")
+            raise ValueError("The case_file has no iris_case.")
 
-    def get_ticket_title(self):
-        """Returns the ticket title of the case."""
-        if self.ticket is not None:
+    def get_iris_case_title(self):
+        """Returns theiris-casetitle of the case."""
+        if self.iris_case is not None:
             try:
-                return self.ticket["Title"]
+                return self.iris_case["Title"]
             except:
-                return self.ticket.field_get("Title")
+                return self.iris_case.field_get("Title")
         else:
-            raise ValueError("The case_file has no ticket.")
+            raise ValueError("The case_file has no iris_case.")

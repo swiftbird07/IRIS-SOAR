@@ -22,7 +22,7 @@ TEST_PROCESS_UID = "YjExNmM1NTYtNGNmMi00NTc5LWEwOGQtODU5OTIwMjVmMjNmLTE5MjQ2ODUt
 def prepare_test():
     # Prepare the config
     cfg = Config().cfg
-    integration_config = cfg["integrations"]["znuny_otrs"]
+    integration_config = cfg["integrations"]["dfir-iris"]
 
     # Prepare the logger
     mlog = logging_helper.Log("test_PB_010_Generic_Elastic_Alerts")

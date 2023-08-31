@@ -13,7 +13,7 @@ import json
 import lib.config_helper as config_helper
 import lib.logging_helper as logging_helper
 import isoar_daemon as isoar_daemon
-import isoar_worker as isoar_worker
+import isoar_alert_collector as isoar_alert_collector
 
 TEST_CALL = True  # Stays True if the script is called by the test script
 case_ZOMBIE_PROCESSES = False  # If True, the script will case zombie processes when searching for the PID of a script. If you are using the developing, this should be set to False as tests from pytest will hang otherwise.
@@ -149,7 +149,7 @@ def startup(mlog, DEBUG, ALLOW_MULTIPLE_INSTANCES):
             raise SystemExit(1)
 
         # Start the worker manually
-        return_code = isoar_worker.main(settings, debug=DEBUG)
+        return_code = isoar_alert_collector.main(settings, debug=DEBUG)
 
         if return_code != None:
             mlog.critical("Could not start the worker: System call failed. Subprocess returned: {}".format(popen.returncode))
@@ -406,7 +406,7 @@ def setup(step=0, continue_steps=True):
 
 
 #
-# znuny_otrs:
+# dfir-iris:
 #    hostname:
 #    web_service_name:
 #    api_customer_user:

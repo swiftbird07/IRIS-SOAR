@@ -9,6 +9,23 @@ daemon:
   interval: 1
   interval_min: 1
 integrations:
+  dfir-iris:
+    logging:
+      log_level_file: info
+      log_level_stdout: warning
+      log_level_syslog: error
+    password: $ZS_INT_IRIS_PW
+    iris-cases:
+      default_priority: 3 normal
+      default_type: Security Alert
+      enabled: true
+      target_queue: ISOAR Detections::Tests
+      target_queue_escalation: ISOAR Detections::Tests
+    url: http://iris.pve.lan
+    username: zsoar
+    verify_certs: false
+    version: 2.0.1
+    webservice_name: ALERTELAST_API
   elastic_siem:
     elastic_password: $ZS_INT_ELASTIC_PW
     elastic_url: https://10.20.1.28:9200
@@ -47,30 +64,6 @@ integrations:
       log_level_stdout: warning
       log_level_syslog: error
     verify_certs: false
-  znuny_otrs:
-    context_provider:
-      enabled: false
-      itsm_customer: zsoar
-    detection_provider:
-      enabled: false
-      source_queue: T1
-    enabled: true
-    logging:
-      log_level_file: info
-      log_level_stdout: warning
-      log_level_syslog: error
-    password: $ZS_INT_ZNUNY_PW
-    ticketing:
-      default_priority: 3 normal
-      default_type: Security Alert
-      enabled: true
-      target_queue: ISOAR Detections::Tests
-      target_queue_escalation: ISOAR Detections::Tests
-    url: http://znuny.pve.lan
-    username: zsoar
-    verify_certs: false
-    version: 7.0.1
-    webservice_name: ALERTELAST_API
 logging:
   language: en
   log_file_rotate_size: 1

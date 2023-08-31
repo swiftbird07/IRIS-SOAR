@@ -6,7 +6,8 @@
 import time
 import lib.config_helper as config_helper
 import lib.logging_helper as logging_helper
-import isoar_worker as isoar_worker
+import isoar_alert_collector as isoar_alert_collector
+import isoar_case_worker as isoar_case_worker
 from argparse import ArgumentParser
 import traceback
 
@@ -48,12 +49,25 @@ def main(TEST_CALL):
 
     # Start the main loop
     while True:
-        mlog.info("Starting isoar_worker.py")
+        mlog.info("Starting isoar_alert_worker.py")
         try:
-            isoar_worker.main(cfg, fromDaemon=True, debug=args.debug_module)
-            mlog.info("isoar_worker.py finished. Waiting for next run.")
+            isoar_alert_collector.main(cfg, fromDaemon=True, debug=args.debug_module)
+            mlog.info("isoar_alert_worker.py finished. Waiting for next run.")
         except Exception as e:
-            mlog.error("isoar_worker.py failed. See the isoar_worker logs for more information. Error: " + traceback.format_exc())
+            mlog.error(
+                "isoar_alert_worker.py failed. See the isoar_alert_worker logs for more information. Error: "
+                + traceback.format_exc()
+            )
+
+        mlog.info("Starting isoar_case_worker.py")
+        try:
+            isoar_case_worker.main(cfg, fromDaemon=True, debug=args.debug_module)
+            mlog.info("isoar_case_worker.py finished. Waiting for next run.")
+        except Exception as e:
+            mlog.error(
+                "isoar_case_worker.py failed. See the isoar_case_worker logs for more information. Error: "
+                + traceback.format_exc()
+            )
 
         # Reload config in case it was changed
         try:

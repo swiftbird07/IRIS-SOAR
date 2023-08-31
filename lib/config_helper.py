@@ -10,7 +10,7 @@ import re
 import getpass
 
 LOG_LEVEL = "CRITICAL"  # The log level of this config loader. This is not set by the config to prevent sending no message at all if the config file, which stores the log_lvel istself is not valid.
-FILE_PATH = "configs/isoar_config.yml"
+FILE_PATH = "configs/config.yml"
 
 
 class Config:
@@ -228,26 +228,20 @@ def check_config(cfg, mlog, onload=True):
         if not check_config_bool(cfg["setup"]["load_enviroment_variables"], mlog):
             return False
 
-        # znuny_otrs
-        if not check_config_bool(cfg["integrations"]["znuny_otrs"]["ticketing"]["enabled"], mlog):
+        # dfir-iris
+        if not check_config_bool(cfg["integrations"]["dfir-iris"]["verify_certs"], mlog):
             return False
-        if not check_config_bool(cfg["integrations"]["znuny_otrs"]["detection_provider"]["enabled"], mlog):
+        if not check_config_log_level(cfg["integrations"]["dfir-iris"]["logging"]["log_level_file"], mlog):
             return False
-        if not check_config_bool(cfg["integrations"]["znuny_otrs"]["context_provider"]["enabled"], mlog):
+        if not check_config_log_level(cfg["integrations"]["dfir-iris"]["logging"]["log_level_stdout"], mlog):
             return False
-        if not check_config_bool(cfg["integrations"]["znuny_otrs"]["verify_certs"], mlog):
-            return False
-        if not check_config_log_level(cfg["integrations"]["znuny_otrs"]["logging"]["log_level_file"], mlog):
-            return False
-        if not check_config_log_level(cfg["integrations"]["znuny_otrs"]["logging"]["log_level_stdout"], mlog):
-            return False
-        if not check_config_log_level(cfg["integrations"]["znuny_otrs"]["logging"]["log_level_syslog"], mlog):
+        if not check_config_log_level(cfg["integrations"]["dfir-iris"]["logging"]["log_level_syslog"], mlog):
             return False
 
         # integrations
 
         for integration in cfg["integrations"]:
-            if not check_config_bool(cfg["integrations"][integration]["enabled"], mlog):
+            if not integration == "dfir-iris" and not check_config_bool(cfg["integrations"][integration]["enabled"], mlog):
                 return False
             mlog.debug(f"Loaded integration: {integration}")
 

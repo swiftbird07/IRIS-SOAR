@@ -11,7 +11,7 @@
 # - None
 #
 # Actions:
-# - Set priority of ticket
+# - Set priority of iris-case
 # - Notify user
 #
 PB_NAME = "PB_900_Classify_and_Notify"
@@ -20,7 +20,7 @@ PB_AUTHOR = "Martin Offermann"
 PB_LICENSE = "MIT"
 PB_ENABLED = True
 
-TICKET_URL_PATH = "/znuny/index.pl?Action=AgentTicketZoom;TicketID="  # The path to the ticket in the OTRS web interface
+ IRIS_CASE_URL_PATH = "/znuny/index.pl?Action=AgentIRIS CaseZoom;IRIS CaseID="  # The path to theiris-casein the OTRS web interface
 NOTIFY_RESOLVED_CASES = True  # If resolved cases should still be notified
 
 import lib.logging_helper as logging_helper
@@ -29,7 +29,7 @@ from lib.config_helper import Config
 from lib.generic_helper import handle_percentage
 
 from integrations.matrix_notify import zs_notify
-from integrations.znuny_otrs import zs_get_ticket_by_number, zs_update_ticket_priority, zs_update_ticket_state
+from integrations.dfir-iris import zs_get_iris_case_by_number, zs_update_iris_case_priority, zs_update_iris_case_state
 
 # Prepare the logger
 cfg = Config().cfg
@@ -75,11 +75,11 @@ def zs_can_handle_detection(case_file: CaseFile) -> bool:
         mlog.info(f"Playbook '{PB_NAME}' is disabled. Not handling anything.")
         return False
 
-    # Check if there is already a ticket for the detection case
+    # Check if there is already airis-casefor the detection case
     try:
-        ticket_number = case_file.get_ticket_number()
+        iris_case_number = case_file.get_iris_case_number()
     except ValueError:
-        mlog.info(f"Playbook '{PB_NAME}' cannot handle detection case '{case_file.uuid}' as there is no ticket for it.")
+        mlog.info(f"Playbook '{PB_NAME}' cannot handle detection case '{case_file.uuid}' as there is noiris-casefor it.")
         return False
     return True
 
@@ -132,24 +132,24 @@ def zs_handle_detection(case_file: CaseFile, TEST=False) -> CaseFile:
     except Exception:
         mlog.error(f"Could not handle percentage '{highest_severity}'")
         case_file.update_audit(init_action.set_error(message=f"Could not handle percentage '{highest_severity}'"), mlog)
-    # Set the case title based on the ticket title
-    case_file.title = case_file.get_ticket_title()
+    # Set the case title based on theiris-casetitle
+    case_file.title = case_file.get_iris_case_title()
 
-    # Set the priority of the ticket
+    # Set the priority of the iris-case
     current_action = AuditLog(
         PB_NAME,
         1,
-        "Setting ticket priority",
-        "Setting the priority of the ticket based on the newly gathered threat level.",
+        "Settingiris-casepriority",
+        "Setting the priority of theiris-casebased on the newly gathered threat level.",
     )
     case_file.update_audit(current_action, mlog)
 
-    # Get the ticket
-    ticket_number = case_file.get_ticket_number()
-    ticket = zs_get_ticket_by_number(ticket_number)
-    if ticket == None:
-        mlog.error(f"Could not get ticket '{ticket_number}'")
-        case_file.update_audit(current_action.set_error(message=f"Could not get ticket '{ticket_number}'"), mlog)
+    # Get the iris-case
+    iris_case_number = case_file.get_iris_case_number()
+   iris-case= zs_get_iris_case_by_number(iris_case_number)
+    ifiris-case== None:
+        mlog.error(f"Could not getiris-case'{iris_case_number}'")
+        case_file.update_audit(current_action.set_error(message=f"Could not getiris-case'{iris_case_number}'"), mlog)
         return case_file
 
     # Set the priority according to the threat level
@@ -164,37 +164,37 @@ def zs_handle_detection(case_file: CaseFile, TEST=False) -> CaseFile:
     elif case_file.threat_level == "critical":
         priority = "1 very high"
     else:
-        mlog.error(f"Could not set priority of ticket '{ticket_number}' to a valid priority, as the threat level is invalid")
+        mlog.error(f"Could not set priority ofiris-case'{iris_case_number}' to a valid priority, as the threat level is invalid")
         case_file.update_audit(
             current_action.set_error(
-                message=f"Could not set priority of ticket '{ticket_number}' to a valid priority, as the threat level is invalid"
+                message=f"Could not set priority ofiris-case'{iris_case_number}' to a valid priority, as the threat level is invalid"
             ),
             mlog,
         )
         return case_file
 
-    mlog.info(f"Setting priority of ticket '{ticket_number}' to '{priority}'")
+    mlog.info(f"Setting priority ofiris-case'{iris_case_number}' to '{priority}'")
     if TEST == False:
-        if zs_update_ticket_priority(case_file, priority) == False:
-            mlog.error(f"Could not set priority of ticket '{ticket_number}' to '{priority}'")
+        if zs_update_iris_case_priority(case_file, priority) == False:
+            mlog.error(f"Could not set priority ofiris-case'{iris_case_number}' to '{priority}'")
             case_file.update_audit(
-                current_action.set_failed(f"Could not set priority of ticket '{ticket_number}' to '{priority}'"), mlog
+                current_action.set_failed(f"Could not set priority ofiris-case'{iris_case_number}' to '{priority}'"), mlog
             )
             return case_file
-    case_file.update_audit(current_action.set_successful(f"Set priority of ticket '{ticket_number}' to '{priority}'"), mlog)
+    case_file.update_audit(current_action.set_successful(f"Set priority ofiris-case'{iris_case_number}' to '{priority}'"), mlog)
 
-    # Close ticket if case status is "resolved"
+    # Closeiris-caseif case status is "resolved"
     if case_file.status == "resolved":
-        current_action = AuditLog(PB_NAME, 2, "Closing ticket", "Closing the ticket as the case is resolved.")
+        current_action = AuditLog(PB_NAME, 2, "Closing iris-case", "Closing theiris-caseas the case is resolved.")
         case_file.update_audit(current_action, mlog)
         if TEST == False:
-            if zs_update_ticket_state(case_file, "closed successful") == False:
-                mlog.error(f"Could not close ticket '{ticket_number}'")
-                case_file.update_audit(current_action.set_failed(f"Could not close ticket '{ticket_number}'"), mlog)
+            if zs_update_iris_case_state(case_file, "closed successful") == False:
+                mlog.error(f"Could not closeiris-case'{iris_case_number}'")
+                case_file.update_audit(current_action.set_failed(f"Could not closeiris-case'{iris_case_number}'"), mlog)
                 return case_file
-        case_file.update_audit(current_action.set_successful(f"Closed ticket '{ticket_number}'"), mlog)
+        case_file.update_audit(current_action.set_successful(f"Closediris-case'{iris_case_number}'"), mlog)
     else:
-        mlog.info(f"Case '{case_file.uuid}' is not resolved, so the ticket '{ticket_number}' will not be closed.")
+        mlog.info(f"Case '{case_file.uuid}' is not resolved, so theiris-case'{iris_case_number}' will not be closed.")
 
     # Notify the user
     if case_file.status == "resolved" and not NOTIFY_RESOLVED_CASES:
@@ -203,9 +203,9 @@ def zs_handle_detection(case_file: CaseFile, TEST=False) -> CaseFile:
 
     current_action = AuditLog(PB_NAME, 2, "Notifying user", "Notifying the user about the detection using Matrix.")
     case_file.update_audit(current_action, mlog)
-    ticket_url = cfg["integrations"]["znuny_otrs"]["url"]
-    ticket_url += TICKET_URL_PATH
-    ticket_url += str(case_file.get_ticket_id())
+    iris_case_url = cfg["integrations"]["dfir-iris"]["url"]
+    iris_case_url += IRIS-CASE_URL_PATH
+    iris_case_url += str(case_file.get_iris_case_id())
 
     emoji = "ℹ️"  # default emoji (undetermined)
     if case_file.status == "resolved":
@@ -215,7 +215,7 @@ def zs_handle_detection(case_file: CaseFile, TEST=False) -> CaseFile:
 
     # Firat format a message like this:
     #
-    # #### ⚠️ New `UNRESOLVED` `ALERT` ticket was created in Znuny.
+    # #### ⚠️ New `UNRESOLVED` `ALERT`iris-casewas created in Znuny.
     #
     # #### Title
     #
@@ -251,7 +251,7 @@ def zs_handle_detection(case_file: CaseFile, TEST=False) -> CaseFile:
         + len(case_file.context_threat_intel)
     )
 
-    message = f"<h4>{emoji} New <code>{case_file.status.upper()}</code> <code>{case_file.result.upper()}</code> ticket was created in Znuny.</h4>\n\n"
+    message = f"<h4>{emoji} New <code>{case_file.status.upper()}</code> <code>{case_file.result.upper()}</code>iris-casewas created in Znuny.</h4>\n\n"
     message += f"<h4>Title</h4>\n\n<p><code>{case_file.title}</code></p>\n\n"
     message += f"<h4>Threat Type</h4>\n\n<p><code>{case_file.threat_type}</code></p>\n\n"
     message += f"<h4>Threat Level</h4>\n\n<p><code>{case_file.threat_level.capitalize()} {get_emoji_for_threat_level(case_file.threat_level)}</code></p>\n\n"
@@ -261,7 +261,7 @@ def zs_handle_detection(case_file: CaseFile, TEST=False) -> CaseFile:
         if case_file.status == "resolved"
         else f"<h4>Resolved?</h4>\n\n<ul>\n  <li><code>No</code></li>\n</ul>\n\n"
     )
-    message += f"<h4>Ticket URL</h4>\n\n<p>{ticket_url}</p>\n\n"
+    message += f"<h4>IRIS Case URL</h4>\n\n<p>{iris_case_url}</p>\n\n"
 
     # Then send the message
     if zs_notify(cfg["integrations"]["matrix_notify"], message, TEST):

@@ -11,8 +11,8 @@
 # - ContextLog, ContextFlow, ContextFile
 #
 # Actions:
-# - Create Ticket
-# - Add notes to related tickets
+# - Create IRIS Case
+# - Add notes to related iris-cases
 #
 PB_NAME = "PB_011_Generic_QRadar_Offenses"
 PB_VERSION = "0.0.1"
@@ -23,7 +23,7 @@ PB_ENABLED = True
 from lib.class_helper import CaseFile, AuditLog, Detection, ContextLog, ContextFlow, ContextFile
 from lib.logging_helper import Log
 from lib.config_helper import Config
-from integrations.znuny_otrs import zs_create_ticket, zs_add_note_to_ticket, zs_get_ticket_by_number
+from integrations.dfir-iris import zs_create_iris_case, zs_add_note_to_iris_case, zs_get_iris_case_by_number
 from integrations.ibm_qradar import zs_provide_context_for_detections
 
 # Prepare the logger
@@ -90,24 +90,24 @@ def zs_handle_detection(case_file: CaseFile, DRY_RUN=False) -> CaseFile:
         return case_file
     case_file.update_audit(current_action.set_successful(message="Detection is not whitelisted."), logger=mlog)
 
-    current_action = AuditLog(PB_NAME, 1, f"Creating ticket", f"Creating ticket for detection '{detection_title}'")
-    # Create initial ticket for detection
-    ticket_number = zs_create_ticket(
+    current_action = AuditLog(PB_NAME, 1, f"Creating iris-case", f"Creatingiris-casefor detection '{detection_title}'")
+    # Create initialiris-casefor detection
+    iris_case_number = zs_create_iris_case(
         case_file, detection, False, auto_detection_note=True, playbook_name=PB_NAME, playbook_step=1
     )
-    if not ticket_number:
-        mlog.critical(f"Could not create ticket for detection: '{detection.name}' ({detection.uuid})")
-        case_file.update_audit(current_action.set_error(message=f"Could not create ticket."), logger=mlog)
+    if not iris_case_number:
+        mlog.critical(f"Could not createiris-casefor detection: '{detection.name}' ({detection.uuid})")
+        case_file.update_audit(current_action.set_error(message=f"Could not create iris_case."), logger=mlog)
         return case_file
-    case_file.update_audit(current_action.set_successful(message=f"Created ticket '{ticket_number}'."), logger=mlog)
+    case_file.update_audit(current_action.set_successful(message=f"Creatediris-case'{iris_case_number}'."), logger=mlog)
 
     # Create additional notes for each other detection in the detection case
     if len(case_file.detections) > 1:
         sub_step = 1
         for other_detection in case_file.detections:
             if other_detection.uuid != detection.uuid:
-                zs_add_note_to_ticket(
-                    ticket_number,
+                zs_add_note_to_iris_case(
+                    iris_case_number,
                     case_file,
                     other_detection,
                     False,
@@ -117,12 +117,12 @@ def zs_handle_detection(case_file: CaseFile, DRY_RUN=False) -> CaseFile:
                 )
                 sub_step += 1
 
-    # Add ticket to detection (-case)
-    mlog.debug(f"Adding ticket to detection and detection case.")
+    # Addiris-caseto detection (-case)
+    mlog.debug(f"Addingiris-caseto detection and detection case.")
     if not DRY_RUN:
-        ticket = zs_get_ticket_by_number(ticket_number)
-        detection.ticket = ticket
-        case_file.add_context(ticket)
+       iris-case= zs_get_iris_case_by_number(iris_case_number)
+        detectioniris_case = iris-case
+        case_file.add_context(iris_case)
 
     # Gather offense related context
     current_action = AuditLog(
@@ -187,11 +187,13 @@ def zs_handle_detection(case_file: CaseFile, DRY_RUN=False) -> CaseFile:
             logger=mlog,
         )
 
-    current_action = AuditLog(PB_NAME, 4, f"Adding context to ticket '{ticket_number}'", "Started adding context to ticket.")
+    current_action = AuditLog(
+        PB_NAME, 4, f"Adding context toiris-case'{iris_case_number}'", "Started adding context to iris_case."
+    )
 
     # Create a note for each context
-    note_id_1 = zs_add_note_to_ticket(
-        ticket_number,
+    note_id_1 = zs_add_note_to_iris_case(
+        iris_case_number,
         "context_network",
         False,
         playbook_name=PB_NAME,
@@ -200,8 +202,8 @@ def zs_handle_detection(case_file: CaseFile, DRY_RUN=False) -> CaseFile:
         detection=detection,
         detection_contexts=flows,
     )
-    note_id_2 = zs_add_note_to_ticket(
-        ticket_number,
+    note_id_2 = zs_add_note_to_iris_case(
+        iris_case_number,
         "context_log",
         False,
         playbook_name=PB_NAME,
@@ -210,8 +212,8 @@ def zs_handle_detection(case_file: CaseFile, DRY_RUN=False) -> CaseFile:
         detection=detection,
         detection_contexts=logs,
     )
-    note_id_3 = zs_add_note_to_ticket(
-        ticket_number,
+    note_id_3 = zs_add_note_to_iris_case(
+        iris_case_number,
         "context_file",
         False,
         playbook_name=PB_NAME,
@@ -223,19 +225,19 @@ def zs_handle_detection(case_file: CaseFile, DRY_RUN=False) -> CaseFile:
 
     if not note_id_1 or type(note_id_1) is Exception:
         case_file.update_audit(
-            current_action.set_error(message=f"Could not add context network to ticket '{ticket_number}'. Error: {note_id_1}"),
+            current_action.set_error(message=f"Could not add context network toiris-case'{iris_case_number}'. Error: {note_id_1}"),
             logger=mlog,
         )
 
     if not note_id_2 or type(note_id_2) is Exception:
         case_file.update_audit(
-            current_action.set_error(message=f"Could not add context log to ticket '{ticket_number}'. Error: {note_id_2}"),
+            current_action.set_error(message=f"Could not add context log toiris-case'{iris_case_number}'. Error: {note_id_2}"),
             logger=mlog,
         )
 
     if not note_id_3 or type(note_id_3) is Exception:
         case_file.update_audit(
-            current_action.set_error(message=f"Could not add context file to ticket '{ticket_number}'. Error: {note_id_3}"),
+            current_action.set_error(message=f"Could not add context file toiris-case'{iris_case_number}'. Error: {note_id_3}"),
             logger=mlog,
         )
 
@@ -248,14 +250,14 @@ def zs_handle_detection(case_file: CaseFile, DRY_RUN=False) -> CaseFile:
         and type(note_id_3) is not Exception
     ):
         case_file.update_audit(
-            current_action.set_successful(message=f"Successfully added all offense contexts to ticket '{ticket_number}'."),
+            current_action.set_successful(message=f"Successfully added all offense contexts toiris-case'{iris_case_number}'."),
             logger=mlog,
         )
 
-    # Add ticket to detection (-case)
-    mlog.debug(f"Adding ticket to detection and detection case.")
-    ticket = zs_get_ticket_by_number(ticket_number)
-    detection.ticket = ticket
-    case_file.add_context(ticket)
+    # Addiris-caseto detection (-case)
+    mlog.debug(f"Addingiris-caseto detection and detection case.")
+   iris-case= zs_get_iris_case_by_number(iris_case_number)
+    detectioniris_case = iris-case
+    case_file.add_context(iris_case)
 
     return case_file
