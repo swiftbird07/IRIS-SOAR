@@ -2,10 +2,10 @@
 
 import pytest
 
-from lib.class_helper import Detection, CaseFile, Rule, ContextProcess, ContextLog, ContextFlow
+from lib.class_helper import Alert, CaseFile, Rule, ContextProcess, ContextLog, ContextFlow
 from integrations.elastic_siem import (
-    zs_provide_new_detections,
-    zs_provide_context_for_detections,
+    irsoar_provide_new_alerts,
+    irsoar_provide_context_for_alerts,
     acknowledge_alert,
     search_entity_by_id,
 )
@@ -18,18 +18,18 @@ ENTITY_ID = "YjExNmM1NTYtNGNmMi00NTc5LWEwOGQtODU5OTIwMjVmMjNmLTE5MjQ2ODUtMTY4ODA
 ENTITY_TYPE = "process"
 
 
-def test_zs_provide_new_detections():
+def test_irsoar_provide_new_alerts():
     # Prepare the config
     cfg = config_helper.Config().cfg
     integration_config = cfg["integrations"]["elastic_siem"]
 
-    detectionArray = zs_provide_new_detections(integration_config, TEST="OFFLINE")
-    assert type(detectionArray) == list, "zs_provide_new_detections() should return a list of Detection objects"
-    for detection in detectionArray:
-        assert type(detection) == Detection, "zs_provide_new_detections() found an invalid Detection object in the list"
+    alertArray = irsoar_provide_new_alerts(integration_config, TEST="OFFLINE")
+    assert type(alertArray) == list, "irsoar_provide_new_alerts() should return a list of Alert objects"
+    for alert in alertArray:
+        assert type(alert) == Alert, "irsoar_provide_new_alerts() found an invalid Alert object in the list"
 
 
-def test_zs_provide_context_for_detections():
+def test_irsoar_provide_context_for_alerts():
     mlog = logging_helper.Log("test_elastic_siem")
     # Prepare the config
     cfg = config_helper.Config().cfg
@@ -40,24 +40,24 @@ def test_zs_provide_context_for_detections():
 
     ruleList = []
     ruleList.append(rule)
-    detection = Detection("456", "Some Detection", ruleList, datetime.datetime.now())
+    alert = Alert("456", "Some Alert", ruleList, datetime.datetime.now())
 
-    detectionList = []
-    detectionList.append(detection)
-    case_file = CaseFile(detectionList)
+    alertList = []
+    alertList.append(alert)
+    case_file = CaseFile(alertList)
     assert (
         case_file != None
     ), "CaseFile class could not be initialized"  # Sanity check - should be already tested by test_isoar_lib.py -> test_class_helper()
 
     # Test the function
-    flows = zs_provide_context_for_detections(integration_config, case_file, ContextFlow, TEST=True, search_value=86677)
-    assert type(flows[0]) == ContextFlow, "zs_provide_context_for_detections() should return a ContextFlow object"
+    flows = irsoar_provide_context_for_alerts(integration_config, case_file, ContextFlow, TEST=True, search_value=86677)
+    assert type(flows[0]) == ContextFlow, "irsoar_provide_context_for_alerts() should return a ContextFlow object"
 
-    processes = zs_provide_context_for_detections(integration_config, case_file, ContextProcess, TEST=True)
-    assert type(processes[0]) == ContextProcess, "zs_provide_context_for_detections() should return a ContextProcess object"
+    processes = irsoar_provide_context_for_alerts(integration_config, case_file, ContextProcess, TEST=True)
+    assert type(processes[0]) == ContextProcess, "irsoar_provide_context_for_alerts() should return a ContextProcess object"
 
-    events = zs_provide_context_for_detections(integration_config, case_file, ContextLog, TEST=True)
-    assert type(events[0]) == ContextLog, "zs_provide_context_for_detections() should return a ContextLog object"
+    events = irsoar_provide_context_for_alerts(integration_config, case_file, ContextLog, TEST=True)
+    assert type(events[0]) == ContextLog, "irsoar_provide_context_for_alerts() should return a ContextLog object"
 
     # Print the results
     mlog.info("Process context:")
@@ -100,18 +100,18 @@ def test_search_entity_by_entity_id():
 # Omline tests
 
 
-def test_online_new_detections():
+def test_online_new_alerts():
     # Prepare the config
     cfg = config_helper.Config().cfg
     integration_config = cfg["integrations"]["elastic_siem"]
 
-    detectionArray = zs_provide_new_detections(integration_config, TEST="ONLINE")
-    assert type(detectionArray) == list, "zs_provide_new_detections() should return a list of Detection objects"
-    for detection in detectionArray:
-        assert type(detection) == Detection, "zs_provide_new_detections() found an invalid Detection object in the list"
+    alertArray = irsoar_provide_new_alerts(integration_config, TEST="ONLINE")
+    assert type(alertArray) == list, "irsoar_provide_new_alerts() should return a list of Alert objects"
+    for alert in alertArray:
+        assert type(alert) == Alert, "irsoar_provide_new_alerts() found an invalid Alert object in the list"
 
 
-def test_online_context_for_detections():
+def test_online_context_for_alerts():
     # Prepare the config
     cfg = config_helper.Config().cfg
     integration_config = cfg["integrations"]["elastic_siem"]
@@ -121,17 +121,17 @@ def test_online_context_for_detections():
 
     ruleList = []
     ruleList.append(rule)
-    detection = Detection("456", "Some Detection", ruleList, datetime.datetime.now())
+    alert = Alert("456", "Some Alert", ruleList, datetime.datetime.now())
 
-    detectionList = []
-    detectionList.append(detection)
-    case_file = CaseFile(detectionList)
+    alertList = []
+    alertList.append(alert)
+    case_file = CaseFile(alertList)
     assert (
         case_file != None
     ), "CaseFile class could not be initialized"  # Sanity check - should be already tested by test_isoar_lib.py -> test_class_helper()
 
-    flows = zs_provide_context_for_detections(integration_config, case_file, ContextFlow, TEST=False, search_value=ENTITY_ID)
-    assert type(flows[0]) == ContextFlow, "zs_provide_context_for_detections() should return a ContextFlow object"
+    flows = irsoar_provide_context_for_alerts(integration_config, case_file, ContextFlow, TEST=False, search_value=ENTITY_ID)
+    assert type(flows[0]) == ContextFlow, "irsoar_provide_context_for_alerts() should return a ContextFlow object"
 
 
-# test_online_new_detections()
+# test_online_new_alerts()

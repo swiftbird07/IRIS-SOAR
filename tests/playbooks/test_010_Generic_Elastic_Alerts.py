@@ -10,10 +10,10 @@ import datetime
 import json
 
 import lib.logging_helper as logging_helper
-from lib.class_helper import CaseFile, Detection, Rule, ContextProcess
+from lib.class_helper import CaseFile, Alert, Rule, ContextProcess
 from lib.config_helper import Config
-from playbooks.PB_010_Generic_Elastic_Alerts import zs_can_handle_detection, zs_handle_detection
-from playbooks.bb_elastic_process_context import bb_get_all_processes_by_uuid
+from case_playbooks.PB_010_Generic_Elastic_Alerts import irsoar_can_handle_alert, irsoar_handle_alert
+from case_playbooks.bb_elastic_process_context import bb_get_all_processes_by_uuid
 
 TEST_ONLINE = True  # Set this to True to make changes to Znuny while testing
 TEST_PROCESS_UID = "YjExNmM1NTYtNGNmMi00NTc5LWEwOGQtODU5OTIwMjVmMjNmLTE5MjQ2ODUtMTY4ODA2MTkxOA=="
@@ -32,17 +32,17 @@ def prepare_test():
 
     ruleList = []
     ruleList.append(rule)
-    detection = Detection("010 Detection", "Some Detection", ruleList, datetime.datetime.now())
-    detection.vendor_id = "elastic_siem"
+    alert = Alert("010 Alert", "Some Alert", ruleList, datetime.datetime.now())
+    alert.vendor_id = "elastic_siem"
 
-    detectionList = []
-    detectionList.append(detection)
-    case_file = CaseFile(detectionList)
+    alertList = []
+    alertList.append(alert)
+    case_file = CaseFile(alertList)
 
     process = bb_get_all_processes_by_uuid(case_file, TEST_PROCESS_UID)
 
     case_file.add_context(process)
-    detection.process = process
+    alert.process = process
 
     assert (
         case_file != None
@@ -50,14 +50,14 @@ def prepare_test():
     return case_file
 
 
-def test_zs_can_handle_detection():
+def test_irsoar_can_handle_alert():
     case_file = prepare_test()
     # Test the function
-    can_handle = zs_can_handle_detection(case_file)
-    assert can_handle == True, "zs_can_handle_detection() should return True for this detection case"
+    can_handle = irsoar_can_handle_alert(case_file)
+    assert can_handle == True, "irsoar_can_handle_alert() should return True for this alert case"
 
 
-def test_zs_handle_detection():
+def test_irsoar_handle_alert():
     case_file = prepare_test()
-    zs_handle_detection(case_file, not TEST_ONLINE)
-    assert True == True, "zs_handle_detection() should not raise an exception"
+    irsoar_handle_alert(case_file, not TEST_ONLINE)
+    assert True == True, "irsoar_handle_alert() should not raise an exception"

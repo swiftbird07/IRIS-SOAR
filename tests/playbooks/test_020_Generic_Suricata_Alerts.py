@@ -4,16 +4,16 @@
 # ! Be aware that this has to be an online test
 import datetime
 
-from playbooks.PB_020_Generic_Suricata_Alerts import zs_can_handle_detection, zs_handle_detection
-from lib.class_helper import CaseFile, Detection, Rule, ContextLog
-from integrations.ibm_qradar import zs_provide_context_for_detections
-from integrations.dfir-iris import zs_create_iris_case, zs_get_iris_case_by_number
+from case_playbooks.PB_020_Generic_Suricata_Alerts import irsoar_can_handle_alert, irsoar_handle_alert
+from lib.class_helper import CaseFile, Alert, Rule, ContextLog
+from integrations.ibm_qradar import irsoar_provide_context_for_alerts
+from integrations.dfir-iris import irsoar_create_iris_case, irsoar_get_iris_case_by_number
 
 OFFENSE_ID = "1541"
 
 
 def prepare_test():
-    detection = Detection(
+    alert = Alert(
         "IBM QRadar",
         "QRadar Offense Test",
         [Rule("1438", "Test Rule")],
@@ -23,31 +23,31 @@ def prepare_test():
         host_name="test-host",
         uuid="1438",
     )
-    case_file = CaseFile([detection])
+    case_file = CaseFile([alert])
 
-    iris_case_number = zs_create_iris_case(
+    iris_case_number = irsoar_create_iris_case(
         case_file
-    )  # if an error occurs here, check the zs_create_iris_case() function in tests/integrations/test_dfir-iris.py
-    case_file.add_context(zs_get_iris_case_by_number(iris_case_number))
+    )  # if an error occurs here, check the irsoar_create_iris_case() function in tests/integrations/test_dfir-iris.py
+    case_file.add_context(irsoar_get_iris_case_by_number(iris_case_number))
 
-    detectionArray = zs_provide_context_for_detections(
+    alertArray = irsoar_provide_context_for_alerts(
         case_file, ContextLog, TEST=True, search_type="offense", search_value=OFFENSE_ID
     )
-    for log in detectionArray:
+    for log in alertArray:
         case_file.context_logs.append(log)
     return case_file
 
 
-def test_zs_can_handle_detection():
+def test_irsoar_can_handle_alert():
     case_file = prepare_test()
 
     # Test the function
-    can_handle = zs_can_handle_detection(case_file)
-    assert can_handle == True, "zs_can_handle_detection() should return True for this detection case"
+    can_handle = irsoar_can_handle_alert(case_file)
+    assert can_handle == True, "irsoar_can_handle_alert() should return True for this alert case"
 
 
-def test_zs_handle_detection():
+def test_irsoar_handle_alert():
     case_file = prepare_test()
 
-    zs_handle_detection(case_file, False)
-    assert True == True, "zs_handle_detection() should not raise an exception"
+    irsoar_handle_alert(case_file, False)
+    assert True == True, "irsoar_handle_alert() should not raise an exception"

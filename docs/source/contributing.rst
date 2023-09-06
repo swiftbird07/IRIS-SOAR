@@ -22,7 +22,7 @@ Any integration MUST provide a config file in the 'configs' directory. This conf
     author: The author of the integration
     description: A short description of the integration
     version: The version of the integration
-    provides_new_detections: If the integration provides new detections, this field MUST be set to 'True'. If the integration does not provide new detections, this field MUST be set to 'False'.
+    provides_new_alerts: If the integration provides new alerts, this field MUST be set to 'True'. If the integration does not provide new alerts, this field MUST be set to 'False'.
     provides_context: If the integration provides context, this field MUST be set to 'True'. If the integration does not provide context, this field MUST be set to 'False'.
     expects_result: If the integration expects a final result (true-positive/false-positive/unsure) from IRIS-SOAR, this field MUST be set to 'True'. If the integration does not expect a result, this field MUST be set to 'False'.
 
@@ -33,13 +33,13 @@ Besides these config parameters, the integration can make use of any additional 
 The integration itself must then be placed in the 'integrations' directory. The integration MUST be named 'integration_name.py' and MUST contain the respective functions if it is enabled in the above section:
 
 .. code:: python
-    def provide_detections():
-    """" This function returns the new detections.
+    def provide_alerts():
+    """" This function returns the new alerts.
     Args:
         None
 
     Returns:
-        A list of detections. Each detection has to be a valid object of type 'Detection'.
+        A list of alerts. Each alert has to be a valid object of type 'Alert'.
 
     Raises:
         None
@@ -47,22 +47,22 @@ The integration itself must then be placed in the 'integrations' directory. The 
 
 
 .. code:: python
-    def provide_context(DetectionReport):
-    """" This function returns context of a given detection report.
+    def provide_context(AlertReport):
+    """" This function returns context of a given alert report.
 
     Args:
-        DetectionReport: A valid object of type 'DetectionReport'.
+        AlertReport: A valid object of type 'AlertReport'.
 
     Returns:
-        The enriched DetectionReport object.
+        The enriched AlertReport object.
     """
 
 .. code:: python
-    def receive_result(Detection):
-    """" This function receives a result to a detection from IRIS-SOAR.
+    def receive_result(Alert):
+    """" This function receives a result to a alert from IRIS-SOAR.
 
     Args:
-        Detection: A valid object of type 'Detection'.
+        Alert: A valid object of type 'Alert'.
 
     Returns:
         True if the result was successfully received, False otherwise.
@@ -75,16 +75,16 @@ The integration itself must then be placed in the 'integrations' directory. The 
 New Playbook
 ~~~~~~~~~~~~
 
-A playbook MUST implement a function called 'check_applicable' which returns a boolean value. This function MUST check if the playbook is applicable to the given detection report. If the playbook is applicable, the function MUST return 'True'. If the playbook is not applicable, the function MUST return 'False'.
+A playbook MUST implement a function called 'check_applicable' which returns a boolean value. This function MUST check if the playbook is applicable to the given alert report. If the playbook is applicable, the function MUST return 'True'. If the playbook is not applicable, the function MUST return 'False'.
 
-A playbook MUST implement a function called 'execute' which returns a boolean value. This function MUST execute the playbook on the given detection report. The updated detection report must be returned.
+A playbook MUST implement a function called 'execute' which returns a boolean value. This function MUST execute the playbook on the given alert report. The updated alert report must be returned.
 
 .. code:: python
-    def check_applicable(DetectionReport):
-    """" This function checks if the playbook is applicable to the given detection report.
+    def check_applicable(AlertReport):
+    """" This function checks if the playbook is applicable to the given alert report.
 
     Args:
-        DetectionReport: A valid object of type 'DetectionReport'.
+        AlertReport: A valid object of type 'AlertReport'.
 
     Returns:
         True if the playbook is applicable, False otherwise.
@@ -92,14 +92,14 @@ A playbook MUST implement a function called 'execute' which returns a boolean va
     """"
 
 .. code:: python
-    def execute(DetectionReport):
-    """" This function executes the playbook on the given detection report.
+    def execute(AlertReport):
+    """" This function executes the playbook on the given alert report.
 
     Args:
-        DetectionReport: A valid object of type 'DetectionReport'.
+        AlertReport: A valid object of type 'AlertReport'.
 
     Returns:
-        The updated DetectionReport object.
+        The updated AlertReport object.
 
     """"
 

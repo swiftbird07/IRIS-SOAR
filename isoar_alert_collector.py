@@ -4,12 +4,12 @@
 #
 # The main logic is as follows:
 #
-# - Loop through every installed integration for getting new detection alerts
-# - Loop through each of the detections and check if any playbook is able to handle it
-# - - If a playbook is able to handle the detection, it will be executed
-# - - If all playbooks are executed, the next detection will be checked
-# (Playbooks decide if a detection is a false positive or not and what action should be taken. A playbook can and should make use of the libraries and integrations provided by IRIS-SOAR.)
-# - If no playbook is able to handle the detection, it will be logged and the next detection will be checked
+# - Loop through every installed integration for getting new alert alerts
+# - Loop through each of the alerts and check if any playbook is able to handle it
+# - - If a playbook is able to handle the alert, it will be executed
+# - - If all playbooks are executed, the next alert will be checked
+# (Playbooks decide if a alert is a false positive or not and what action should be taken. A playbook can and should make use of the libraries and integrations provided by IRIS-SOAR.)
+# - If no playbook is able to handle the alert, it will be logged and the next alert will be checked
 
 import traceback
 import json
@@ -88,8 +88,8 @@ def main(config, fromDaemon=False, debug=False):
     integrations = config["integrations"]  # TODO: Implement this in config_helper.py
 
     mlog.info("Started IRIS-SOAR collector script")
-    mlog.info("Checking for new detections...")
-    DetectionList = []
+    mlog.info("Checking for new alerts...")
+    AlertList = []
     alertFileHistory = []
 
     for integration in integrations:
@@ -105,8 +105,8 @@ def main(config, fromDaemon=False, debug=False):
             mlog.warning("The module " + module_name + " is disabled. Skipping.")
             continue
 
-        if module_name == "dfir-iris" and integration["detection_provider"]["enabled"] == False:
-            mlog.warning("The module " + module_name + " has disabled the detection provider. Skipping.")
+        if module_name == "dfir-iris" and integration["alert_provider"]["enabled"] == False:
+            mlog.warning("The module " + module_name + " has disabled the alert provider. Skipping.")
             continue
 
         # Check if the module exists
@@ -114,10 +114,10 @@ def main(config, fromDaemon=False, debug=False):
             mlog.error("The module " + module_name + " does not exist. Skipping.")
             continue
 
-        # Check if module provides getting new detections
-        if not check_module_has_function(module_name, "zs_provide_new_detections", mlog):
+        # Check if module provides getting new alerts
+        if not check_module_has_function(module_name, "irsoar_provide_new_alerts", mlog):
             mlog.debug(
-                "The module " + module_name + " does not provide the function zs_provide_new_detections. Skipping Integration."
+                "The module " + module_name + " does not provide the function irsoar_provide_new_alerts. Skipping Integration."
             )
             continue
 
@@ -127,44 +127,44 @@ def main(config, fromDaemon=False, debug=False):
             module_import = __import__("integrations." + module_name)
             module_import = getattr(module_import, module_name)
             integration_config = config["integrations"][module_name]
-            new_detections = module_import.zs_provide_new_detections(integration_config)
+            new_alerts = module_import.irsoar_provide_new_alerts(integration_config)
         except Exception as e:
             mlog.warning(
                 "The module "
                 + module_name
-                + " had an unhandled error when trying to provide new detections. Error: "
+                + " had an unhandled error when trying to provide new alerts. Error: "
                 + traceback.format_exc()
                 + ". Skipping Integration."
             )
             continue
 
         # Check if the returned type is valid
-        if type(new_detections) is not list:
-            mlog.warning("The module " + module_name + " provided invalid detection(s). Skipping Integration.")
+        if type(new_alerts) is not list:
+            mlog.warning("The module " + module_name + " provided invalid alert(s). Skipping Integration.")
             continue
 
-        # Check if the module provided any detections
-        if not new_detections or len(new_detections) == 0:
-            mlog.info("The module " + module_name + " did not provide any detections.")
+        # Check if the module provided any alerts
+        if not new_alerts or len(new_alerts) == 0:
+            mlog.info("The module " + module_name + " did not provide any alerts.")
             continue
         else:
-            mlog.info("The module " + module_name + " provided " + str(len(new_detections)) + " new detections.")
+            mlog.info("The module " + module_name + " provided " + str(len(new_alerts)) + " new alerts.")
 
-        for detection in new_detections:
-            if not isinstance(detection, class_helper.Detection):
-                mlog.warning("The module " + module_name + " provided an invalid detection. Skipping.")
+        for alert in new_alerts:
+            if not isinstance(alert, class_helper.Alert):
+                mlog.warning("The module " + module_name + " provided an invalid alert. Skipping.")
             else:
-                mlog.info("Adding new detection " + detection.name + " (" + str(detection.uuid) + ") to the detection array.")
+                mlog.info("Adding new alert " + alert.name + " (" + str(alert.uuid) + ") to the alert array.")
 
-                DetectionList.append(detection)
+                AlertList.append(alert)
 
-    # Loop through each detection
-    for detection_alert in DetectionList:
-        detection_title = detection_alert.name
-        detection_id = detection_alert.uuid
-        detectionHandled = False
+    # Loop through each alert
+    for alert_alert in AlertList:
+        alert_title = alert_alert.name
+        alert_id = alert_alert.uuid
+        alertHandled = False
 
-        mlog.info("Pushing detection " + detection_title + " (" + str(detection_id) + ") to IRIS as alert.")
+        mlog.info("Pushing alert " + alert_title + " (" + str(alert_id) + ") to IRIS as alert.")
 
         # Initiate a session with our API key and host. Session stays the same during all the script run.
         session = ClientSession(
@@ -177,8 +177,8 @@ def main(config, fromDaemon=False, debug=False):
 
         # Try to expand fill context dict fields:
         try:
-            if detection.dns_request:
-                dns_query = detection.dns_request
+            if alert.dns_request:
+                dns_query = alert.dns_request
 
                 if dns_query is not None and dns_query != "None":
                     dns_query = dns_query.query
@@ -189,8 +189,8 @@ def main(config, fromDaemon=False, debug=False):
                     if dns_query_response is not None:
                         alert_context_dict["dns_response"] = dns_query_response
 
-            if detection.http_request:
-                http = detection.http_request
+            if alert.http_request:
+                http = alert.http_request
 
                 if http is not None and http != "None":
                     http_url = http.full_url
@@ -233,8 +233,8 @@ def main(config, fromDaemon=False, debug=False):
                     if http_body is not None and http_body != "None":
                         alert_context_dict["response_body"] = http_body
 
-            if detection.device:
-                device = detection.device
+            if alert.device:
+                device = alert.device
 
                 if device is not None and device != "None":
                     device_name = device.name
@@ -249,7 +249,7 @@ def main(config, fromDaemon=False, debug=False):
                     if device_os is not None:
                         alert_context_dict["device_os"] = device_os
 
-            process = detection.process
+            process = alert.process
             if process is not None and process != "None":
                 process_name = process.process_name
                 pass
@@ -285,7 +285,7 @@ def main(config, fromDaemon=False, debug=False):
                     alert_context_dict["process_signature"] = process_signature
 
                 # Flow data
-                flow = detection.flow
+                flow = alert.flow
                 if flow is not None and flow != "None":
                     flow_protocol = flow.protocol
                     if flow_protocol is not None:
@@ -328,29 +328,29 @@ def main(config, fromDaemon=False, debug=False):
 
         # Add the IOCs
         iocs = []
-        if detection_alert.indicators["ip"]:
-            for ip in detection_alert.indicators["ip"]:
+        if alert_alert.indicators["ip"]:
+            for ip in alert_alert.indicators["ip"]:
                 iocs.append({"ioc_type_id": 79, "ioc_value": str(ip), "ioc_tlp_id": 1})
-        if detection_alert.indicators["domain"]:
-            for domain in detection_alert.indicators["domain"]:
+        if alert_alert.indicators["domain"]:
+            for domain in alert_alert.indicators["domain"]:
                 iocs.append({"ioc_type_id": 20, "ioc_value": domain, "ioc_tlp_id": 1})
-        if detection_alert.indicators["url"]:
-            for url in detection_alert.indicators["url"]:
+        if alert_alert.indicators["url"]:
+            for url in alert_alert.indicators["url"]:
                 iocs.append({"ioc_type_id": 141, "ioc_value": url, "ioc_tlp_id": 1})
-        if detection_alert.indicators["hash"]:
-            for hash in detection_alert.indicators["hash"]:
+        if alert_alert.indicators["hash"]:
+            for hash in alert_alert.indicators["hash"]:
                 iocs.append({"ioc_type_id": 90, "ioc_value": hash, "ioc_tlp_id": 1})
-        if detection_alert.indicators["email"]:
-            for email in detection_alert.indicators["email"]:
+        if alert_alert.indicators["email"]:
+            for email in alert_alert.indicators["email"]:
                 iocs.append({"ioc_type_id": 22, "ioc_value": email, "ioc_tlp_id": 1})
-        if detection_alert.indicators["countries"]:
-            for country in detection_alert.indicators["countries"]:
+        if alert_alert.indicators["countries"]:
+            for country in alert_alert.indicators["countries"]:
                 iocs.append({"ioc_type_id": 96, "ioc_value": country, "ioc_tlp_id": 1})
-        if detection_alert.indicators["registry"]:
-            for registry in detection_alert.indicators["registry"]:
+        if alert_alert.indicators["registry"]:
+            for registry in alert_alert.indicators["registry"]:
                 iocs.append({"ioc_type_id": 109, "ioc_value": registry, "ioc_tlp_id": 1})
-        if detection_alert.indicators["other"]:
-            for other in detection_alert.indicators["other"]:
+        if alert_alert.indicators["other"]:
+            for other in alert_alert.indicators["other"]:
                 iocs.append({"ioc_type_id": 96, "ioc_value": other, "ioc_tlp_id": 1})
 
         alert_severity = 2  # TODO: Implement severity calculation
@@ -358,45 +358,45 @@ def main(config, fromDaemon=False, debug=False):
         # Craft asset_id:
         asset_id = 3
 
-        if detection.device.type == "host":
-            if detection.device.os_family == "windows":
+        if alert.device.type == "host":
+            if alert.device.os_family == "windows":
                 asset_id = 9
-            elif detection.device.os_family == "linux":
+            elif alert.device.os_family == "linux":
                 asset_id = 4
-            elif detection.device.os_family == "macos":
+            elif alert.device.os_family == "macos":
                 asset_id = 6
-            elif detection.device.os_family == "ios":
+            elif alert.device.os_family == "ios":
                 asset_id = 8
-            elif detection.device.os_family == "android":
+            elif alert.device.os_family == "android":
                 asset_id = 7
         else:
-            if detection.device.os_family == "windows":
+            if alert.device.os_family == "windows":
                 asset_id = 10
-            elif detection.device.os_family == "linux":
+            elif alert.device.os_family == "linux":
                 asset_id = 3
 
         # Craft the alert data
         alert_data = {
-            "alert_title": detection_title,
-            "alert_description": detection.description,
-            "alert_source": detection.vendor_id.upper(),
-            "alert_source_ref": str(detection.uuid),
-            "alert_source_link": detection.url,
-            "alert_source_content": detection.raw,
+            "alert_title": alert_title,
+            "alert_description": alert.description,
+            "alert_source": alert.vendor_id.upper(),
+            "alert_source_ref": str(alert.uuid),
+            "alert_source_link": alert.url,
+            "alert_source_content": alert.raw,
             "alert_severity_id": alert_severity,
             "alert_status_id": 2,  # new
             "alert_context": alert_context_dict,
-            "alert_source_event_time": str(detection.timestamp),
-            "alert_note": "This alert was created by IRIS-SOAR.",
+            "alert_source_event_time": str(alert.timestamp),
+            "alert_note": "This alert was collected by IRIS-SOAR.",
             "alert_tags": "IRIS-SOAR,Security",
             "alert_iocs": iocs,
             "alert_assets": [
                 {
-                    "asset_name": detection.device.name if detection.device.name else "Unknown",
+                    "asset_name": alert.device.name if alert.device.name else "Unknown",
                     "asset_type_id": asset_id,
-                    "asset_description": detection.device.description if detection.device.description else None,
-                    "asset_ip": str(detection.device.local_ip) if detection.device.local_ip else None,
-                    "asset_tags": detection.device.tags if detection.device.tags else None,
+                    "asset_description": alert.device.description if alert.device.description else None,
+                    "asset_ip": str(alert.device.local_ip) if alert.device.local_ip else None,
+                    "asset_tags": alert.device.tags if alert.device.tags else None,
                 }
             ],
             "alert_customer_id": 1,

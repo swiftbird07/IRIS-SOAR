@@ -3,12 +3,12 @@
 # This module is used to integrate IRIS-SOAR with Elastic-SIEM.
 #
 # This module is capable of:
-# [X] Providing new detections.
-# [X] Providing context for detections of type [ContextFlow | ContextProcess | ContextFile | ContextRegistry]
+# [X] Providing new alerts.
+# [X] Providing context for alerts of type [ContextFlow | ContextProcess | ContextFile | ContextRegistry]
 # [X] User interactive setup.
 #
 # Integration Version: 0.1.0
-# Currently limited to process related detections and contexts.
+# Currently limited to process related alerts and contexts.
 
 import logging
 from typing import Union, List
@@ -27,10 +27,10 @@ import time
 
 import lib.logging_helper as logging_helper
 
-# For new detections:
-from lib.class_helper import Rule, Detection, ContextProcess, ContextFlow, ContextDevice
+# For new alerts:
+from lib.class_helper import Rule, Alert, ContextProcess, ContextFlow, ContextDevice
 
-# For context for detections:
+# For context for alerts:
 from lib.class_helper import (
     CaseFile,
     ContextFlow,
@@ -56,14 +56,14 @@ LOOKBACK_DAYS = 7  # Number of days to look back for search results
 def main():
     # Check if argumemnt 'setup' was passed to the script
     if len(sys.argv) > 1 and sys.argv[1] == "--setup":
-        zs_integration_setup()
+        IRSOAR_INTegration_setup()
     elif len(sys.argv) > 1:
         print("Unknown argument: " + sys.argv[1])
         print("Usage: python3 " + sys.argv[0] + " --setup")
         sys.exit(1)
 
 
-def zs_integration_setup():
+def IRSOAR_INTegration_setup():
     # Import here because this is only needed for setup
     from lib.config_helper import setup_integration as set_int
     from lib.config_helper import setup_ask
@@ -109,7 +109,7 @@ def zs_integration_setup():
     test_now = setup_ask("y", available_responses_list=["y", "n"])
     if test_now == "y":
         print("Testing the integration...")
-        result = test_elastic_siem.test_zs_provide_new_detections()
+        result = test_elastic_siem.test_irsoar_provide_new_alerts()
         if result:
             print("Test successful!")
         else:
@@ -170,7 +170,7 @@ def get_host_ip_from_doc(doc_dict):
     return host_ip, global_ip
 
 
-def create_flow_from_doc(mlog, doc_dict, detection_id):
+def create_flow_from_doc(mlog, doc_dict, alert_id):
     """Creates a ContextFlow object from an Elastic-SIEM document.
        Will also add DNS or HTTP objects to flow if available.
 
@@ -178,7 +178,7 @@ def create_flow_from_doc(mlog, doc_dict, detection_id):
         mlog (logging_helper.Log): The logging object
         doc_id (str): The Elastic-SIEM document ID
         doc_dict (dict): The Elastic-SIEM document as a dictionary
-        detection_id (str): The detection ID
+        alert_id (str): The alert ID
 
     Returns:
         ContextFlow: The ContextFlow object
@@ -308,7 +308,7 @@ def create_flow_from_doc(mlog, doc_dict, detection_id):
                 dns_type = "AAAA"
 
             dns = DNSQuery(
-                detection_id,
+                alert_id,
                 type=dns_type,
                 query=dict_get(doc_dict, "dns.question.name"),
                 has_response=has_resp,
@@ -334,7 +334,7 @@ def create_flow_from_doc(mlog, doc_dict, detection_id):
         )
 
     flow = ContextFlow(
-        detection_id,
+        alert_id,
         dict_get(doc_dict, "@timestamp"),
         "Elastic-SIEM",
         src_ip,
@@ -360,7 +360,7 @@ def create_flow_from_doc(mlog, doc_dict, detection_id):
         destination_location=dst_location,
         http=http,
         dns_query=dns,
-        detection_relevance=50,
+        alert_relevance=50,
         firewall_action=dict_get(doc_dict, "event.action") if dict_get(doc_dict, "event.action") else "Unknown",
         firewall_rule_id=dict_get(doc_dict, "rule.ruleset"),
     )
@@ -370,7 +370,7 @@ def create_flow_from_doc(mlog, doc_dict, detection_id):
     return flow
 
 
-def create_process_from_doc(mlog, doc_dict, detectionOnly=True):
+def create_process_from_doc(mlog, doc_dict, alertOnly=True):
     """Creates a ContextProcess object from a Elastic-SIEM document."""
     mlog.debug("Creating ContextProcess object from Elastic-SIEM document.")
 
@@ -419,7 +419,7 @@ def create_process_from_doc(mlog, doc_dict, detectionOnly=True):
     # Create the process object
     process = ContextProcess(
         timestamp=dict_get(doc_dict, "@timestamp"),
-        related_detection_uuid=dict_get(doc_dict, "kibana.alert.uuid"),
+        related_alert_uuid=dict_get(doc_dict, "kibana.alert.uuid"),
         process_name=dict_get(doc_dict, "process.name"),
         process_id=dict_get(doc_dict, "process.pid"),
         parent_process_name=dict_get(doc_dict, "process.parent.name"),
@@ -455,7 +455,7 @@ def create_process_from_doc(mlog, doc_dict, detectionOnly=True):
     return process
 
 
-def create_file_from_doc(mlog, doc_dict, detection_id):
+def create_file_from_doc(mlog, doc_dict, alert_id):
     """Creates a ContextFile object from a Elastic-SIEM document."""
     mlog.debug("Creating ContextFile object from Elastic-SIEM document.")
 
@@ -470,7 +470,7 @@ def create_file_from_doc(mlog, doc_dict, detection_id):
 
     # Create the file object
     file = ContextFile(
-        detection_id,
+        alert_id,
         timestamp=dict_get(doc_dict, "@timestamp"),
         action=dict_get(doc_dict, "event.action"),
         file_name=dict_get(doc_dict, "file.name"),
@@ -488,13 +488,113 @@ def create_file_from_doc(mlog, doc_dict, detection_id):
     return file
 
 
-def create_registry_from_doc(mlog, doc_dict, detection_id):
+def create_alert_from_doc(mlog, doc):
+    # Iterate the nested dictionaries inside the ["hits"]["hits"] list
+
+    # print the document ID
+    if dict_get(doc, "_id") is not None:
+        mlog.debug("Document ID: {}".format(doc["_id"]))
+        # print the document source
+        mlog.debug("Document source: {}".format(doc["_source"]))
+        # print the document score
+        mlog.debug("Document score: {}".format(doc["_score"]))
+        # print the document index
+        mlog.debug("Document index: {}".format(doc["_index"]))
+
+        # Create a new alert object
+        rule_list = []
+        doc_dict = doc["_source"]
+    else:
+        doc_dict = doc
+    rule_list = []
+
+    rule_list.append(
+        Rule(
+            doc_dict["kibana.alert.rule.uuid"],
+            doc_dict["kibana.alert.rule.name"],
+            doc_dict["kibana.alert.severity"],
+            description=doc_dict["kibana.alert.rule.description"],
+            tags=doc_dict["kibana.alert.rule.tags"],
+            known_false_positives=doc_dict["kibana.alert.rule.false_positives"],
+            query=dict_get(doc_dict, "kibana.alert.rule.parameters.query"),
+            mitre_references=dict_get(doc_dict, "kibana.alert.rule.parameters.threat.technique.referencee"),
+            risk_score=doc_dict["kibana.alert.risk_score"],
+        )
+    )
+    mlog.debug("Created rules: " + str(rule_list))
+
+    # Get the most relevant IP address of the host
+    host_ip = None
+    global_ip = None
+
+    host_ip, global_ip = get_host_ip_from_doc(doc_dict)
+
+    mlog.debug("Decided host IP: " + str(host_ip))
+    alert_id = doc_dict["kibana.alert.uuid"]
+
+    # Most EDR alerts are process related so check if a ContextProcess context can be created
+    process = None
+    if dict_get(doc_dict, "process.entity_id") is not None:
+        process = create_process_from_doc(mlog, doc_dict)
+
+    flow = None
+    if dict_get(doc_dict, "source.ip") is not None and dict_get(doc_dict, "destination.ip") is not None:
+        flow = create_flow_from_doc(mlog, doc_dict, alert_id)
+
+    file = None
+    if dict_get(doc_dict, "file.path") is not None:
+        file = create_file_from_doc(mlog, doc_dict, alert_id)
+
+    registry = None
+    if dict_get(doc_dict, "registry.path") is not None:
+        registry = create_registry_from_doc(mlog, doc_dict, alert_id)
+
+    device = None
+    if dict_get(doc_dict, "host.hostname") is not None:
+        device = ContextDevice(
+            name=dict_get(doc_dict, "host.hostname"),
+            local_ip=host_ip,
+            global_ip=global_ip,
+            ips=dict_get(doc_dict, "host.ip"),
+            mac=dict_get(doc_dict, "host.mac"),
+            os_family=dict_get(doc_dict, "ost.os.Ext.variant"),
+            os=dict_get(doc_dict, "host.os.name"),
+            kernel=dict_get(doc_dict, "host.os.kernel"),
+            os_version=dict_get(doc_dict, "host.os.version"),
+            in_scope=True,
+        )
+
+    # Create the alert object
+    alert = Alert(
+        "elastic_siem",
+        doc_dict["kibana.alert.rule.name"],
+        rule_list,
+        doc_dict["@timestamp"],
+        description=doc_dict["kibana.alert.rule.description"],
+        tags=doc_dict["kibana.alert.rule.tags"],
+        host_name=dict_get(doc_dict, "host.hostname"),
+        host_ip=host_ip,
+        process=process,
+        flow=flow,
+        file=file,
+        registry=registry,
+        uuid=alert_id,
+        device=device,
+        severity=doc_dict["kibana.alert.risk_score"],
+        raw=doc_dict,
+    )
+    mlog.info("Created alert: " + str(alert))
+    return alert
+    # Done with this alert
+
+
+def create_registry_from_doc(mlog, doc_dict, alert_id):
     """Creates a ContextRegistry object from a Elastic-SIEM document."""
     mlog.debug("Creating ContextRegistry object from Elastic-SIEM document.")
 
     # Create the registry object
     registry = ContextRegistry(
-        detection_id,
+        alert_id,
         timestamp=dict_get(doc_dict, "@timestamp"),
         action=dict_get(doc_dict, "event.action"),
         registry_key=dict_get(doc_dict, "registry.key"),
@@ -973,7 +1073,7 @@ def search_entity_by_id(
     # Save entity to cache
     if (
         entity_type == "process"
-    ):  # Other entity types are not cached as it is unlikely that they will be searched for again for another detection
+    ):  # Other entity types are not cached as it is unlikely that they will be searched for again for another alert
         add_to_cache("elastic_siem", "entities", entity_id, entity)
 
     # Save index name to cache
@@ -1038,27 +1138,48 @@ def acknowledge_alert(mlog, config, alert_id, index):
 
 
 ############################################
-#### zs_provide_new_detections ####
+#### irsoar_transform_alert_to_alert ####
 ############################################
 
 
-def zs_provide_new_detections(config, TEST="") -> List[Detection]:
-    """Returns a list of new detections.
+def irsoar_transform_alert_to_alert(config, alert) -> Alert:
+    """Transforms an alert into a Alert object.
+
+    Args:
+        config (dict): The configuration dictionary for this integration
+        alert (dict): The alert to transform
+
+    Returns:
+        Alert: The transformed alert
+    """
+    mlog = init_logging(config)
+    mlog.info("irsoar_transform_alert_to_alert() called.")
+    doc = alert["alert_source_content"]
+    return create_alert_from_doc(mlog, doc)
+
+
+############################################
+#### irsoar_provide_new_alerts ####
+############################################
+
+
+def irsoar_provide_new_alerts(config, TEST="") -> List[Alert]:
+    """Returns a list of new alerts.
 
     Args:
         config (dict): The configuration dictionary for this integration
         test_return_dummy_data (bool, optional): If set to True, dummy data will be returned. Defaults to False.
 
     Returns:
-        List[Detection]: A list of new detections
+        List[Alert]: A list of new alerts
     """
 
     # TODO: Search for kibana.alert.group.id if it exists, as some elastic signals by itself dont provide any context
 
     mlog = init_logging(config)
-    mlog.info("zs_provide_new_detections() called.")
+    mlog.info("irsoar_provide_new_alerts() called.")
 
-    detections = []
+    alerts = []
     global ELASTIC_MAX_RESULTS
 
     if TEST == "OFFLINE":  # When called from offline tests, return dummy data. Can be removed in production.
@@ -1066,16 +1187,16 @@ def zs_provide_new_detections(config, TEST="") -> List[Detection]:
         rule = Rule("123", "Some Rule", 0)
         ruleList = []
         ruleList.append(rule)
-        detection1 = Detection("456", "Some Detection", ruleList, datetime.datetime.now())
-        detections.append(detection1)
-        detection2 = Detection("789", "Some Detection", ruleList, datetime.datetime.now())
-        detections.append(detection2)
-        return detections
+        alert1 = Alert("456", "Some Alert", ruleList, datetime.datetime.now())
+        alerts.append(alert1)
+        alert2 = Alert("789", "Some Alert", ruleList, datetime.datetime.now())
+        alerts.append(alert2)
+        return alerts
 
     # ...
     # Begin main logic
     # ...
-    detections = []
+    alerts = []
 
     try:
         elastic_url = config["elastic_url"]
@@ -1084,7 +1205,7 @@ def zs_provide_new_detections(config, TEST="") -> List[Detection]:
         elastic_verify_certs = config["elastic_verify_certs"]
     except KeyError as e:
         mlog.critical("Missing config parameters: " + e)
-        return detections
+        return alerts
 
     requests.packages.urllib3.disable_warnings()
 
@@ -1115,135 +1236,45 @@ def zs_provide_new_detections(config, TEST="") -> List[Detection]:
         )
     except AuthenticationException:
         mlog.critical("Elasticsearch authentication with user '" + elastic_user + "' failed. Check your config. Aborting.")
-        return detections
+        return alerts
     except ConnectionError as e:
         mlog.critical("Elasticsearch connection failed with error: " + e + ". Aborting.")
-        return detections
+        return alerts
 
     # See how many "hits" it returned using the len() function
     hits = result["hits"]["hits"]
     mlog.info("Found " + str(len(hits)) + " hits.")
 
     if len(hits) == 0:
-        mlog.info("No new detections found.")
-        return detections
+        mlog.info("No new alerts found.")
+        return alerts
 
-    # Iterate the nested dictionaries inside the ["hits"]["hits"] list
     for num, doc in enumerate(hits):
-        # print the document ID
-        mlog.debug("Document ID: {}".format(doc["_id"]))
-        # print the document source
-        mlog.debug("Document source: {}".format(doc["_source"]))
-        # print the document score
-        mlog.debug("Document score: {}".format(doc["_score"]))
-        # print the document index
-        mlog.debug("Document index: {}".format(doc["_index"]))
-
-        # Create a new detection object
-        rule_list = []
-        doc_dict = doc["_source"]
-        rule_list.append(
-            Rule(
-                doc_dict["kibana.alert.rule.uuid"],
-                doc_dict["kibana.alert.rule.name"],
-                doc_dict["kibana.alert.severity"],
-                description=doc_dict["kibana.alert.rule.description"],
-                tags=doc_dict["kibana.alert.rule.tags"],
-                known_false_positives=doc_dict["kibana.alert.rule.false_positives"],
-                query=dict_get(doc_dict, "kibana.alert.rule.parameters.query"),
-                mitre_references=dict_get(doc_dict, "kibana.alert.rule.parameters.threat.technique.referencee"),
-                risk_score=doc_dict["kibana.alert.risk_score"],
-            )
-        )
-        mlog.debug("Created rules: " + str(rule_list))
-
-        # Get the most relevant IP address of the host
-        host_ip = None
-        global_ip = None
-
-        host_ip, global_ip = get_host_ip_from_doc(doc_dict)
-
-        mlog.debug("Decided host IP: " + str(host_ip))
-        detection_id = doc_dict["kibana.alert.uuid"]
-
-        # Most EDR detections are process related so check if a ContextProcess context can be created
-        process = None
-        if dict_get(doc_dict, "process.entity_id") is not None:
-            process = create_process_from_doc(mlog, doc_dict)
-
-        flow = None
-        if dict_get(doc_dict, "source.ip") is not None and dict_get(doc_dict, "destination.ip") is not None:
-            flow = create_flow_from_doc(mlog, doc_dict, detection_id)
-
-        file = None
-        if dict_get(doc_dict, "file.path") is not None:
-            file = create_file_from_doc(mlog, doc_dict, detection_id)
-
-        registry = None
-        if dict_get(doc_dict, "registry.path") is not None:
-            registry = create_registry_from_doc(mlog, doc_dict, detection_id)
-
-        device = None
-        if dict_get(doc_dict, "host.hostname") is not None:
-            device = ContextDevice(
-                name=dict_get(doc_dict, "host.hostname"),
-                local_ip=host_ip,
-                global_ip=global_ip,
-                ips=dict_get(doc_dict, "host.ip"),
-                mac=dict_get(doc_dict, "host.mac"),
-                os_family=dict_get(doc_dict, "ost.os.Ext.variant"),
-                os=dict_get(doc_dict, "host.os.name"),
-                kernel=dict_get(doc_dict, "host.os.kernel"),
-                os_version=dict_get(doc_dict, "host.os.version"),
-                in_scope=True,
-            )
-
-        # Create the detection object
-        detection = Detection(
-            "elastic_siem",
-            doc_dict["kibana.alert.rule.name"],
-            rule_list,
-            doc_dict["@timestamp"],
-            description=doc_dict["kibana.alert.rule.description"],
-            tags=doc_dict["kibana.alert.rule.tags"],
-            host_name=dict_get(doc_dict, "host.hostname"),
-            host_ip=host_ip,
-            process=process,
-            flow=flow,
-            file=file,
-            registry=registry,
-            uuid=detection_id,
-            device=device,
-            severity=doc_dict["kibana.alert.risk_score"],
-            raw=doc_dict,
-        )
-        mlog.info("Created detection: " + str(detection))
-        detections.append(detection)
-        # Done with this detection
+        alert: Alert = create_alert_from_doc(doc)
 
         try:
             index = doc["_index"]
-            acknowledge_alert(mlog, config, detection.uuid, index)
+            acknowledge_alert(mlog, config, alert.uuid, index)
         except Exception as e:
-            detections.remove(detection)
+            alerts.remove(alert)
             mlog.critical(
-                f"[LOOP PROTECTION] Removed detection {detection.name} ({detection.uuid}) from list of new detections, because the alert could not be acknowledged and a loop might occur! Error: {e}"
+                f"[LOOP PROTECTION] Removed alert {alert.name} ({alert.uuid}) from list of new alerts, because the alert could not be acknowledged and a loop might occur! Error: {e}"
             )
 
     # ...
     # ...
 
-    mlog.info("zs_provide_new_detections() found " + str(len(detections)) + " new detections.")
-    mlog.debug("zs_provide_new_detections() found the following new detections: " + str(detections))
-    return detections
+    mlog.info("irsoar_provide_new_alerts() found " + str(len(alerts)) + " new alerts.")
+    mlog.debug("irsoar_provide_new_alerts() found the following new alerts: " + str(alerts))
+    return alerts
 
 
 ############################################
-#### zs_provide_context_for_detections ####
+#### irsoar_provide_context_for_alerts ####
 ############################################
 
 
-def zs_provide_context_for_detections(
+def irsoar_provide_context_for_alerts(
     config,
     case_file: CaseFile,
     required_type: type,
@@ -1255,11 +1286,11 @@ def zs_provide_context_for_detections(
     search_start=None,
     search_end=None,
 ) -> Union[ContextFlow, ContextLog, ContextProcess]:
-    """Returns a CaseFile object with context for the detections from the Elasic integration.
+    """Returns a CaseFile object with context for the alerts from the Elasic integration.
 
     Args:
         config (dict): The configuration dictionary for this integration
-        detection (CaseFile): The CaseFile object to add context to
+        alert (CaseFile): The CaseFile object to add context to
         required_type (type): The type of context to return. Can be one of the following:
             [ContextFlow, ContextLog]
         test (bool, optional): If set to True, dummy context data will be returned. Defaults to False.
@@ -1276,7 +1307,7 @@ def zs_provide_context_for_detections(
     if search_value is not None:
         uuid_str = " with UUID: " + str(search_value)
     mlog.info(
-        f"zs_provide_context_for_detections() called for detection case: {case_file_str} and required_type: {required_type}"
+        f"irsoar_provide_context_for_alerts() called for alert case: {case_file_str} and required_type: {required_type}"
         + uuid_str
     )
 
@@ -1288,8 +1319,8 @@ def zs_provide_context_for_detections(
     provided_types.append(ContextFile)
     provided_types.append(ContextRegistry)
 
-    detection_name = case_file.detections[0].name
-    detection_id = case_file.detections[0].uuid
+    alert_name = case_file.alerts[0].name
+    alert_id = case_file.alerts[0].uuid
 
     if required_type not in provided_types:
         mlog.error(
@@ -1317,8 +1348,8 @@ def zs_provide_context_for_detections(
                 case_file.uuid, datetime.datetime.now(), "Some log message", "Elastic-SIEM", log_source_ip="10.0.0.3"
             )
         return_objects.append(context_object)
-        detection_example = case_file.detections[0]
-        detection_id = detection_example.vendor_id
+        alert_example = case_file.alerts[0]
+        alert_id = alert_example.vendor_id
 
     # ...
     # ...
@@ -1327,9 +1358,9 @@ def zs_provide_context_for_detections(
             if required_type == ContextProcess:
                 if search_value is None:
                     mlog.info(
-                        "No UUID provided. This implies that the detection is not from Elastic SIEM itself. Will return relevant processes if found."
+                        "No UUID provided. This implies that the alert is not from Elastic SIEM itself. Will return relevant processes if found."
                     )
-                    # ... TODO: Get all processes related to the detection
+                    # ... TODO: Get all processes related to the alert
                 else:
                     if UUID_is_parent:
                         mlog.info(
@@ -1382,7 +1413,7 @@ def zs_provide_context_for_detections(
                         return None
 
                     for doc in flow_docs:
-                        return_objects.append(create_flow_from_doc(mlog, doc["_source"], detection_id))
+                        return_objects.append(create_flow_from_doc(mlog, doc["_source"], alert_id))
                 else:
                     mlog.error("UUID does not match either a valid Elastic Entity ID")
                     return None
@@ -1401,7 +1432,7 @@ def zs_provide_context_for_detections(
                             return None
 
                         for doc in file_docs:
-                            file_obj = create_file_from_doc(mlog, doc["_source"], detection_id)
+                            file_obj = create_file_from_doc(mlog, doc["_source"], alert_id)
                             return_objects.append(file_obj)
                     else:
                         mlog.error("UUID does not match either a valid Elastic Entity ID")
@@ -1423,7 +1454,7 @@ def zs_provide_context_for_detections(
                             return None
 
                         for doc in registry_docs:
-                            registry_obj = create_registry_from_doc(mlog, doc["_source"], detection_id)
+                            registry_obj = create_registry_from_doc(mlog, doc["_source"], alert_id)
                             return_objects.append(registry_obj)
 
         if search_type == "dest_ip":
@@ -1495,7 +1526,7 @@ def zs_provide_context_for_detections(
                         if event_category not in ["file"]:
                             mlog.info("Skipping adding event with category: " + event_category)
                             continue
-                        file_obj = create_file_from_doc(mlog, doc["_source"], detection_id)
+                        file_obj = create_file_from_doc(mlog, doc["_source"], alert_id)
                         return_objects.append(file_obj)
                 else:
                     mlog.error("IP Address provided is not valid.")
@@ -1522,7 +1553,7 @@ def zs_provide_context_for_detections(
                         if event_category not in ["registry"]:
                             mlog.info("Skipping adding event with category: " + event_category)
                             continue
-                        registry_obj = create_registry_from_doc(mlog, doc["_source"], detection_id)
+                        registry_obj = create_registry_from_doc(mlog, doc["_source"], alert_id)
                         return_objects.append(registry_obj)
                 else:
                     mlog.error("IP Address provided is not valid.")
@@ -1544,7 +1575,7 @@ def zs_provide_context_for_detections(
                         if event_category not in ["network"]:
                             mlog.info("Skipping adding event with category: " + event_category)
                             continue
-                        flow_obj = create_flow_from_doc(mlog, doc["_source"], detection_id)
+                        flow_obj = create_flow_from_doc(mlog, doc["_source"], alert_id)
                         return_objects.append(flow_obj)
                 else:
                     mlog.error("IP Address provided is not valid.")
@@ -1552,8 +1583,8 @@ def zs_provide_context_for_detections(
 
     if len(return_objects) == 0:
         mlog.info(
-            "zs_provide_context_for_detections() found no context for detection '"
-            + detection_name
+            "irsoar_provide_context_for_alerts() found no context for alert '"
+            + alert_name
             + "' and required_type: "
             + str(required_type)
         )
@@ -1565,19 +1596,19 @@ def zs_provide_context_for_detections(
                 mlog.error("The returned object is not of the required type. Returning None.")
                 return None
             mlog.info(
-                f"zs_provide_context_for_detections() found context for detection '{detection_name}' ({detection_id}) and required_type: {required_type}"
+                f"irsoar_provide_context_for_alerts() found context for alert '{alert_name}' ({alert_id}) and required_type: {required_type}"
             )
             if VERBOSE_DEBUG:
                 mlog.debug(
-                    "zs_provide_context_for_detections() returned the following context: "
+                    "irsoar_provide_context_for_alerts() returned the following context: "
                     + str(context_object)
-                    + " for detection: "
+                    + " for alert: "
                     + str(case_file)
                 )
         else:
             mlog.info(
-                "zs_provide_context_for_detections() found no context for detection: '"
-                + detection_name
+                "irsoar_provide_context_for_alerts() found no context for alert: '"
+                + alert_name
                 + "' and required_type: "
                 + str(required_type)
             )

@@ -2,9 +2,9 @@
 # Created by: Martin Offermann
 #
 # This is a building block used by IRIS-SOAR Playbooks
-# It is used to provide all available IBM QRadar contexts for a given detection
+# It is used to provide all available IBM QRadar contexts for a given alert
 #
-# Acceptable Detections:
+# Acceptable Alerts:
 #  - Any
 #
 # Gathered Context:

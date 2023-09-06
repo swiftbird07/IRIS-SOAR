@@ -4,8 +4,8 @@
 # This is a playbook used by IRIS-SOAR
 # It is used to generally handle IBM QRadar Offenses and add context to them.
 #
-# Acceptable Detections:
-#  - All elastic detections
+# Acceptable Alerts:
+#  - All elastic alerts
 #
 # Gathered Context:
 # - ContextLog, ContextFlow, ContextFile
@@ -20,11 +20,11 @@ PB_AUTHOR = "Martin Offermann"
 PB_LICENSE = "MIT"
 PB_ENABLED = True
 
-from lib.class_helper import CaseFile, AuditLog, Detection, ContextLog, ContextFlow, ContextFile
+from lib.class_helper import CaseFile, AuditLog, Alert, ContextLog, ContextFlow, ContextFile
 from lib.logging_helper import Log
 from lib.config_helper import Config
-from integrations.dfir-iris import zs_create_iris_case, zs_add_note_to_iris_case, zs_get_iris_case_by_number
-from integrations.ibm_qradar import zs_provide_context_for_detections
+from integrations.dfir-iris import irsoar_create_iris_case, irsoar_add_note_to_iris_case, irsoar_get_iris_case_by_number
+from integrations.ibm_qradar import irsoar_provide_context_for_alerts
 
 # Prepare the logger
 cfg = Config().cfg
@@ -33,111 +33,111 @@ log_level_stdout = cfg["integrations"]["ibm_qradar"]["logging"]["log_level_stdou
 mlog = Log("playbooks." + PB_NAME, log_level_file, log_level_stdout)
 
 
-def zs_can_handle_detection(case_file: CaseFile) -> bool:
-    """Checks if this playbook can handle the detection.
+def irsoar_can_handle_alert(case_file: CaseFile) -> bool:
+    """Checks if this playbook can handle the alert.
 
     Args:
-        case_file (CaseFile): The detection case
+        case_file (CaseFile): The alert case
 
     Returns:
-        bool: True if the playbook can handle the detection, False if not
+        bool: True if the playbook can handle the alert, False if not
     """
     if PB_ENABLED == False:
-        mlog.info(f"Playbook '{PB_NAME}' is disabled. Not handling detection.")
+        mlog.info(f"Playbook '{PB_NAME}' is disabled. Not handling alert.")
         return False
-    # Check if any of the detecions of the detection case is a QRadar Offense
-    for detection in case_file.detections:
-        if detection.vendor_id == "IBM QRadar":
-            mlog.info(f"Playbook '{PB_NAME}' can handle detection '{detection.name}' ({detection.uuid}).")
+    # Check if any of the detecions of the alert case is a QRadar Offense
+    for alert in case_file.alerts:
+        if alert.vendor_id == "IBM QRadar":
+            mlog.info(f"Playbook '{PB_NAME}' can handle alert '{alert.name}' ({alert.uuid}).")
             return True
     return False
 
 
-def zs_handle_detection(case_file: CaseFile, DRY_RUN=False) -> CaseFile:
-    """Handles the detection.
+def irsoar_handle_alert(case_file: CaseFile, DRY_RUN=False) -> CaseFile:
+    """Handles the alert.
 
     Args:
-        case_file (CaseFile): The detection case
+        case_file (CaseFile): The alert case
         DRY_RUN (bool, optional): If True, no external changes will be made. Defaults to False.
 
     Returns:
-        CaseFile: The detection case with the context processes
+        CaseFile: The alert case with the context processes
     """
-    detection_title = case_file.get_title()
-    detections_to_handle = []
-    for detection in case_file.detections:
-        if detection.vendor_id == "IBM QRadar":
-            mlog.debug(f"Adding detection: '{detection.name}' ({detection.uuid}) to list.")
-            detections_to_handle.append(detection)
+    alert_title = case_file.get_title()
+    alerts_to_handle = []
+    for alert in case_file.alerts:
+        if alert.vendor_id == "IBM QRadar":
+            mlog.debug(f"Adding alert: '{alert.name}' ({alert.uuid}) to list.")
+            alerts_to_handle.append(alert)
 
-    if len(detections_to_handle) == 0:
-        mlog.critical("Found no detections in detection case to handle.")
+    if len(alerts_to_handle) == 0:
+        mlog.critical("Found no alerts in alert case to handle.")
         return case_file
 
-    detection: Detection = detections_to_handle[0]  # We primarily handle the first detection
+    alert: Alert = alerts_to_handle[0]  # We primarily handle the first alert
 
     # First check the global whitelist for whitelist entries
     current_action = AuditLog(
         PB_NAME,
         0,
-        f"Checking Whitelist for detection '{detection_title}'",
-        "Started handling detection case. Checking first if any detections are whitelisted.",
+        f"Checking Whitelist for alert '{alert_title}'",
+        "Started handling alert case. Checking first if any alerts are whitelisted.",
     )
     case_file.update_audit(current_action, logger=mlog)
-    mlog.info(f"Checking global whitelist for detection: '{detection.name}' ({detection.uuid})")
-    if detection.check_against_whitelist():
-        case_file.update_audit(current_action.set_successful(message="Detection is whitelisted, skipping."), logger=mlog)
+    mlog.info(f"Checking global whitelist for alert: '{alert.name}' ({alert.uuid})")
+    if alert.check_against_whitelist():
+        case_file.update_audit(current_action.set_successful(message="Alert is whitelisted, skipping."), logger=mlog)
         return case_file
-    case_file.update_audit(current_action.set_successful(message="Detection is not whitelisted."), logger=mlog)
+    case_file.update_audit(current_action.set_successful(message="Alert is not whitelisted."), logger=mlog)
 
-    current_action = AuditLog(PB_NAME, 1, f"Creating iris-case", f"Creatingiris-casefor detection '{detection_title}'")
-    # Create initialiris-casefor detection
-    iris_case_number = zs_create_iris_case(
-        case_file, detection, False, auto_detection_note=True, playbook_name=PB_NAME, playbook_step=1
+    current_action = AuditLog(PB_NAME, 1, f"Creating iris-case", f"Creatingiris-casefor alert '{alert_title}'")
+    # Create initialiris-casefor alert
+    iris_case_number = irsoar_create_iris_case(
+        case_file, alert, False, auto_alert_note=True, playbook_name=PB_NAME, playbook_step=1
     )
     if not iris_case_number:
-        mlog.critical(f"Could not createiris-casefor detection: '{detection.name}' ({detection.uuid})")
+        mlog.critical(f"Could not createiris-casefor alert: '{alert.name}' ({alert.uuid})")
         case_file.update_audit(current_action.set_error(message=f"Could not create iris_case."), logger=mlog)
         return case_file
     case_file.update_audit(current_action.set_successful(message=f"Creatediris-case'{iris_case_number}'."), logger=mlog)
 
-    # Create additional notes for each other detection in the detection case
-    if len(case_file.detections) > 1:
+    # Create additional notes for each other alert in the alert case
+    if len(case_file.alerts) > 1:
         sub_step = 1
-        for other_detection in case_file.detections:
-            if other_detection.uuid != detection.uuid:
-                zs_add_note_to_iris_case(
+        for other_alert in case_file.alerts:
+            if other_alert.uuid != alert.uuid:
+                irsoar_add_note_to_iris_case(
                     iris_case_number,
                     case_file,
-                    other_detection,
+                    other_alert,
                     False,
-                    auto_detection_note=True,
+                    auto_alert_note=True,
                     playbook_name=PB_NAME,
                     playbook_step=100 + sub_step,
                 )
                 sub_step += 1
 
-    # Addiris-caseto detection (-case)
-    mlog.debug(f"Addingiris-caseto detection and detection case.")
+    # Addiris-caseto alert (-case)
+    mlog.debug(f"Adding caseto alert and alert case.")
     if not DRY_RUN:
-       iris-case= zs_get_iris_case_by_number(iris_case_number)
-        detectioniris_case = iris-case
+       iris-case= irsoar_get_iris_case_by_number(iris_case_number)
+        alertiris_case = iris-case
         case_file.add_context(iris_case)
 
     # Gather offense related context
     current_action = AuditLog(
         PB_NAME,
         3,
-        f"Gathering further context for offense '{detection_title}'",
+        f"Gathering further context for offense '{alert_title}'",
         "Started gathering context of events that were in the original offense.",
     )
     case_file.update_audit(current_action, logger=mlog)
     flows = []
-    flows = zs_provide_context_for_detections(case_file, ContextFlow, search_type="offense", search_value=detection.uuid)
+    flows = irsoar_provide_context_for_alerts(case_file, ContextFlow, search_type="offense", search_value=alert.uuid)
     if type(flows) is Exception:
         case_file.update_audit(
             current_action.set_error(
-                message=f"Could not gather context for offense '{detection_title}'. Error: {flows}", data=flows
+                message=f"Could not gather context for offense '{alert_title}'. Error: {flows}", data=flows
             ),
             logger=mlog,
         )
@@ -147,11 +147,11 @@ def zs_handle_detection(case_file: CaseFile, DRY_RUN=False) -> CaseFile:
             case_file.add_context(flow)
 
     logs = []
-    logs = zs_provide_context_for_detections(case_file, ContextLog, search_type="offense", search_value=detection.uuid)
+    logs = irsoar_provide_context_for_alerts(case_file, ContextLog, search_type="offense", search_value=alert.uuid)
     if type(logs) is Exception:
         case_file.update_audit(
             current_action.set_error(
-                message=f"Could not gather context for offense '{detection_title}'. Error: {logs}", data=logs
+                message=f"Could not gather context for offense '{alert_title}'. Error: {logs}", data=logs
             ),
             logger=mlog,
         )
@@ -161,11 +161,11 @@ def zs_handle_detection(case_file: CaseFile, DRY_RUN=False) -> CaseFile:
             case_file.add_context(log)
 
     files = []
-    files = zs_provide_context_for_detections(case_file, ContextFile, search_type="offense", search_value=detection.uuid)
+    files = irsoar_provide_context_for_alerts(case_file, ContextFile, search_type="offense", search_value=alert.uuid)
     if type(files) is Exception:
         case_file.update_audit(
             current_action.set_error(
-                message=f"Could not gather context for offense '{detection_title}'. Error: {files}", data=files
+                message=f"Could not gather context for offense '{alert_title}'. Error: {files}", data=files
             ),
             logger=mlog,
         )
@@ -192,35 +192,35 @@ def zs_handle_detection(case_file: CaseFile, DRY_RUN=False) -> CaseFile:
     )
 
     # Create a note for each context
-    note_id_1 = zs_add_note_to_iris_case(
+    note_id_1 = irsoar_add_note_to_iris_case(
         iris_case_number,
         "context_network",
         False,
         playbook_name=PB_NAME,
         playbook_step=4,
         case_file=case_file,
-        detection=detection,
-        detection_contexts=flows,
+        alert=alert,
+        alert_contexts=flows,
     )
-    note_id_2 = zs_add_note_to_iris_case(
+    note_id_2 = irsoar_add_note_to_iris_case(
         iris_case_number,
         "context_log",
         False,
         playbook_name=PB_NAME,
         playbook_step=5,
         case_file=case_file,
-        detection=detection,
-        detection_contexts=logs,
+        alert=alert,
+        alert_contexts=logs,
     )
-    note_id_3 = zs_add_note_to_iris_case(
+    note_id_3 = irsoar_add_note_to_iris_case(
         iris_case_number,
         "context_file",
         False,
         playbook_name=PB_NAME,
         playbook_step=6,
         case_file=case_file,
-        detection=detection,
-        detection_contexts=files,
+        alert=alert,
+        alert_contexts=files,
     )
 
     if not note_id_1 or type(note_id_1) is Exception:
@@ -254,10 +254,10 @@ def zs_handle_detection(case_file: CaseFile, DRY_RUN=False) -> CaseFile:
             logger=mlog,
         )
 
-    # Addiris-caseto detection (-case)
-    mlog.debug(f"Addingiris-caseto detection and detection case.")
-   iris-case= zs_get_iris_case_by_number(iris_case_number)
-    detectioniris_case = iris-case
+    # Addiris-caseto alert (-case)
+    mlog.debug(f"Adding caseto alert and alert case.")
+   iris-case= irsoar_get_iris_case_by_number(iris_case_number)
+    alertiris_case = iris-case
     case_file.add_context(iris_case)
 
     return case_file

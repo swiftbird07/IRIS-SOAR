@@ -191,8 +191,8 @@ def test_case_worker():
     assert isoar.isoar_worker.check_module_exists("elastic_siem") == True, "elastic_siem module 'does not exist'"
     assert isoar.isoar_worker.check_module_exists("some_invalid_module") == False, "some_invalid_module module exists"
     assert (
-        isoar.isoar_worker.check_module_has_function("elastic_siem", "zs_provide_new_detections", mlog) == True
-    ), "elastic_siem.zs_provide_new_detections does not exist"
+        isoar.isoar_worker.check_module_has_function("elastic_siem", "irsoar_provide_new_alerts", mlog) == True
+    ), "elastic_siem.irsoar_provide_new_alerts does not exist"
     assert (
         isoar.isoar_worker.check_module_has_function("elastic_siem", "some_invalid_function", mlog) == False
     ), "elastic_siem.some_invalid_function exists"

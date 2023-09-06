@@ -2,10 +2,10 @@
 # Created by: Martin Offermann
 #
 # This is a playbook used by IRIS-SOAR
-# It is used to general classify and notify the user about a detection.
+# It is used to general classify and notify the user about a alert.
 #
-# Acceptable Detections:
-#  - All detections
+# Acceptable Alerts:
+#  - All alerts
 #
 # Gathered Context:
 # - None
@@ -28,8 +28,8 @@ from lib.class_helper import CaseFile, AuditLog
 from lib.config_helper import Config
 from lib.generic_helper import handle_percentage
 
-from integrations.matrix_notify import zs_notify
-from integrations.dfir-iris import zs_get_iris_case_by_number, zs_update_iris_case_priority, zs_update_iris_case_state
+from integrations.matrix_notify import irsoar_notify
+from integrations.dfir-iris import irsoar_get_iris_case_by_number, irsoar_update_iris_case_priority, irsoar_update_iris_case_state
 
 # Prepare the logger
 cfg = Config().cfg
@@ -61,58 +61,58 @@ def get_emoji_for_threat_level(threat_level: str) -> str:
         return "⍰"
 
 
-def zs_can_handle_detection(case_file: CaseFile) -> bool:
-    """Checks if this playbook can handle the detection.
+def irsoar_can_handle_alert(case_file: CaseFile) -> bool:
+    """Checks if this playbook can handle the alert.
 
     Args:
-        case_file (CaseFile): The detection case
+        case_file (CaseFile): The alert case
 
     Returns:
-        bool: True if the playbook can handle the detection, False if not
+        bool: True if the playbook can handle the alert, False if not
     """
-    # Check if any of the detecions of the detection case is an Elastic Alert
+    # Check if any of the detecions of the alert case is an Elastic Alert
     if PB_ENABLED == False:
         mlog.info(f"Playbook '{PB_NAME}' is disabled. Not handling anything.")
         return False
 
-    # Check if there is already airis-casefor the detection case
+    # Check if there is already airis-casefor the alert case
     try:
         iris_case_number = case_file.get_iris_case_number()
     except ValueError:
-        mlog.info(f"Playbook '{PB_NAME}' cannot handle detection case '{case_file.uuid}' as there is noiris-casefor it.")
+        mlog.info(f"Playbook '{PB_NAME}' cannot handle alert case '{case_file.uuid}' as there is noiris-casefor it.")
         return False
     return True
 
 
-def zs_handle_detection(case_file: CaseFile, TEST=False) -> CaseFile:
-    """Handles the detection.
+def irsoar_handle_alert(case_file: CaseFile, TEST=False) -> CaseFile:
+    """Handles the alert.
 
     Args:
-        case_file (CaseFile): The detection case
+        case_file (CaseFile): The alert case
         TEST (bool): True if the playbook is run in test mode, False if not
 
     Returns:
-        CaseFile: The updated detection case
+        CaseFile: The updated alert case
     """
     # Get all the indicators
     cfg = Config().cfg
     integration_config = cfg["integrations"]["matrix_notify"]
-    mlog.info(f"Handling detection case '{case_file.uuid}'")
+    mlog.info(f"Handling alert case '{case_file.uuid}'")
     init_action = AuditLog(
         PB_NAME,
         0,
-        "Getting detection case severity",
-        "Started handling detection case by getting the highest severity of all detections and setting it as the appropriate threat level.",
+        "Getting alert case severity",
+        "Started handling alert case by getting the highest severity of all alerts and setting it as the appropriate threat level.",
     )
     case_file.update_audit(init_action, mlog)
 
-    # Get the highest severity of all detections
+    # Get the highest severity of all alerts
     highest_severity = 0
-    for detection in case_file.detections:
-        if detection.severity and detection.severity > highest_severity:
-            highest_severity = detection.severity
+    for alert in case_file.alerts:
+        if alert.severity and alert.severity > highest_severity:
+            highest_severity = alert.severity
     case_file.update_audit(
-        init_action.set_successful(message=f"Got the highest severity of all detections. Severity: {highest_severity}"), mlog
+        init_action.set_successful(message=f"Got the highest severity of all alerts. Severity: {highest_severity}"), mlog
     )
 
     # Set the cases threat level according to the highest severity (One of "undetermined", "negligible", "low", "medium", "high", "critical")
@@ -146,7 +146,7 @@ def zs_handle_detection(case_file: CaseFile, TEST=False) -> CaseFile:
 
     # Get the iris-case
     iris_case_number = case_file.get_iris_case_number()
-   iris-case= zs_get_iris_case_by_number(iris_case_number)
+   iris-case= irsoar_get_iris_case_by_number(iris_case_number)
     ifiris-case== None:
         mlog.error(f"Could not getiris-case'{iris_case_number}'")
         case_file.update_audit(current_action.set_error(message=f"Could not getiris-case'{iris_case_number}'"), mlog)
@@ -175,7 +175,7 @@ def zs_handle_detection(case_file: CaseFile, TEST=False) -> CaseFile:
 
     mlog.info(f"Setting priority ofiris-case'{iris_case_number}' to '{priority}'")
     if TEST == False:
-        if zs_update_iris_case_priority(case_file, priority) == False:
+        if irsoar_update_iris_case_priority(case_file, priority) == False:
             mlog.error(f"Could not set priority ofiris-case'{iris_case_number}' to '{priority}'")
             case_file.update_audit(
                 current_action.set_failed(f"Could not set priority ofiris-case'{iris_case_number}' to '{priority}'"), mlog
@@ -188,7 +188,7 @@ def zs_handle_detection(case_file: CaseFile, TEST=False) -> CaseFile:
         current_action = AuditLog(PB_NAME, 2, "Closing iris-case", "Closing theiris-caseas the case is resolved.")
         case_file.update_audit(current_action, mlog)
         if TEST == False:
-            if zs_update_iris_case_state(case_file, "closed successful") == False:
+            if irsoar_update_iris_case_state(case_file, "closed successful") == False:
                 mlog.error(f"Could not closeiris-case'{iris_case_number}'")
                 case_file.update_audit(current_action.set_failed(f"Could not closeiris-case'{iris_case_number}'"), mlog)
                 return case_file
@@ -201,7 +201,7 @@ def zs_handle_detection(case_file: CaseFile, TEST=False) -> CaseFile:
         mlog.info(f"Case '{case_file.uuid}' is resolved, but notifications for resolved cases are disabled.")
         return case_file
 
-    current_action = AuditLog(PB_NAME, 2, "Notifying user", "Notifying the user about the detection using Matrix.")
+    current_action = AuditLog(PB_NAME, 2, "Notifying user", "Notifying the user about the alert using Matrix.")
     case_file.update_audit(current_action, mlog)
     iris_case_url = cfg["integrations"]["dfir-iris"]["url"]
     iris_case_url += IRIS-CASE_URL_PATH
@@ -264,7 +264,7 @@ def zs_handle_detection(case_file: CaseFile, TEST=False) -> CaseFile:
     message += f"<h4>IRIS Case URL</h4>\n\n<p>{iris_case_url}</p>\n\n"
 
     # Then send the message
-    if zs_notify(cfg["integrations"]["matrix_notify"], message, TEST):
+    if irsoar_notify(cfg["integrations"]["matrix_notify"], message, TEST):
         case_file.update_audit(current_action.set_successful("Notified user"), mlog)
     else:
         case_file.update_audit(current_action.set_error(message="Failed to notify user."), mlog)

@@ -114,20 +114,20 @@ def test_class_helper():
     ruleList = []
     ruleList.append(rule)
 
-    # Test Detection class
-    detection = class_helper.Detection("456", "Some Detection", ruleList, datetime.datetime.now())
-    assert detection != None, "Detection class could not be initialized"
+    # Test Alert class
+    alert = class_helper.Alert("456", "Some Alert", ruleList, datetime.datetime.now())
+    assert alert != None, "Alert class could not be initialized"
 
-    detectionList = []
-    detectionList.append(detection)
+    alertList = []
+    alertList.append(alert)
 
     # Test CaseFile class
-    case_file = class_helper.CaseFile(detectionList)
+    case_file = class_helper.CaseFile(alertList)
     assert case_file != None, "CaseFile class could not be initialized"
 
     # Test ContextFlow class
     flow = class_helper.ContextFlow(
-        detection.uuid,
+        alert.uuid,
         datetime.datetime.now(),
         "PyTest",
         ipaddress.ip_address("123.123.123.123"),
@@ -155,28 +155,28 @@ def test_class_helper():
     assert flow.flow_id > 0, "ContextFlow id is not set"
 
     # Test Certificate class
-    cert = class_helper.Certificate(detection.uuid, "example.com", "Pytest Inc.", "Pytest CN", public_key_size=2048)
+    cert = class_helper.Certificate(alert.uuid, "example.com", "Pytest Inc.", "Pytest CN", public_key_size=2048)
     assert cert != None, "Certificate class could not be initialized"
 
     # Test DNSQuery class
-    dns_query = class_helper.DNSQuery(detection.uuid, "A", "www2.example.com", has_response=True, query_response="10.10.10.10")
+    dns_query = class_helper.DNSQuery(alert.uuid, "A", "www2.example.com", has_response=True, query_response="10.10.10.10")
     assert dns_query != None, "DNSQuery class could not be initialized"
 
     # Test HTTP class
-    http = class_helper.HTTP(detection.uuid, "GET", "HTTPS", "www2.example.com", 200, path="index.html", user_agent="PyTest")
+    http = class_helper.HTTP(alert.uuid, "GET", "HTTPS", "www2.example.com", 200, path="index.html", user_agent="PyTest")
     assert http != None, "HTTP class could not be initialized"
     assert http.full_url == "https://www2.example.com/index.html", "HTTP class full_url not set correctly"
 
     # Test ContextProcess class
     parent_process = class_helper.ContextProcess(
-        uuid.uuid4(), datetime.datetime.now(), detection.uuid, "word.exe", 242, "service.exe", 235, "C:\\Microsoft\word.exe"
+        uuid.uuid4(), datetime.datetime.now(), alert.uuid, "word.exe", 242, "service.exe", 235, "C:\\Microsoft\word.exe"
     )
     assert parent_process != None, "ContextProcess class (for test parent) could not be initialized"
 
     process = class_helper.ContextProcess(
         uuid.uuid4(),
         datetime.datetime.now(),
-        detection.uuid,
+        alert.uuid,
         "virus.exe",
         299,
         "word.exe",
@@ -194,7 +194,7 @@ def test_class_helper():
 
     # Test ContextFile class
     file = class_helper.ContextFile(
-        detection.uuid,
+        alert.uuid,
         datetime.datetime.now(),
         "delete",
         "image.png",
@@ -208,7 +208,7 @@ def test_class_helper():
 
     # Test ContextLog class
     log_message = class_helper.ContextLog(
-        detection.uuid,
+        alert.uuid,
         datetime.datetime.now(),
         "Failed user logon user=root",
         "Auth Logs @ Server",
@@ -218,25 +218,25 @@ def test_class_helper():
     assert log_message != None, "ContextLog class could not be initialized"
 
     # Test ThreatIntel class
-    ti_detections = []
+    ti_alerts = []
     test_hit = class_helper.ThreatIntel(
         datetime.datetime.now(), "Microsoft Defender", True, True, "Malicious", "GenVirus Trojan/32"
     )
-    assert test_hit != None, "ThreatIntelDetection class could not be initialized (test hit)"
+    assert test_hit != None, "ThreatIntelAlert class could not be initialized (test hit)"
 
     test_unknwon = class_helper.ThreatIntel(datetime.datetime.now(), "Avast", False)
-    assert test_unknwon != None, "ThreatIntelDetection class could not be initialized (test unknown)"
+    assert test_unknwon != None, "ThreatIntelAlert class could not be initialized (test unknown)"
 
     test_clean = class_helper.ThreatIntel(datetime.datetime.now(), "Kaspersky", True, False)
-    assert test_clean != None, "ThreatIntelDetection class could not be initialized (test clean)"
+    assert test_clean != None, "ThreatIntelAlert class could not be initialized (test clean)"
 
-    ti_detections.append(test_hit)
-    ti_detections.append(test_unknwon)
-    ti_detections.append(test_clean)
+    ti_alerts.append(test_hit)
+    ti_alerts.append(test_unknwon)
+    ti_alerts.append(test_clean)
 
     # Test ContextThreatIntel class
     threat_intel = class_helper.ContextThreatIntel(
-        class_helper.ContextProcess, process, "VirusTotal", datetime.datetime.now(), ti_detections, score_hit=1, score_total=3
+        class_helper.ContextProcess, process, "VirusTotal", datetime.datetime.now(), ti_alerts, score_hit=1, score_total=3
     )
     assert threat_intel != None, "ContextThreatIntel class could not be initialized (explicit score)"
 
@@ -246,8 +246,8 @@ def test_class_helper():
         process,
         "VirusTotal",
         datetime.datetime.now(),
-        ti_detections,
-        related_detection_uuid=detection.uuid,
+        ti_alerts,
+        related_alert_uuid=alert.uuid,
     )
     assert threat_intel_impl_score != None, "ContextThreatIntel class could not be initialized (implicit score)"
     assert threat_intel_impl_score.score_hit == 1, "ContextThreatIntel class score_hit not calculated correctly"
@@ -334,7 +334,7 @@ def test_class_helper():
 
     # Test ContextRegistry class
     reg_context = class_helper.ContextRegistry(
-        detection.uuid,
+        alert.uuid,
         datetime.datetime.now(),
         "modification",
         "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run",
@@ -347,63 +347,59 @@ def test_class_helper():
 
     # Test CaseFile add_context
     case_file.add_context(log_message)
-    assert len(case_file.context_logs) == 1, "Could not add context log_message to detection"
-    assert (
-        case_file.context_logs[0].log_message == "Failed user logon user=root"
-    ), "Could not add log_message context to detection"
+    assert len(case_file.context_logs) == 1, "Could not add context log_message to alert"
+    assert case_file.context_logs[0].log_message == "Failed user logon user=root", "Could not add log_message context to alert"
 
     case_file.add_context(process)
-    assert len(case_file.context_processes) == 1, "Could not add process context to detection"
-    assert case_file.context_processes[0].process_name == "virus.exe", "Could not add process context to detection"
+    assert len(case_file.context_processes) == 1, "Could not add process context to alert"
+    assert case_file.context_processes[0].process_name == "virus.exe", "Could not add process context to alert"
 
     case_file.add_context(flow)
-    assert case_file.context_flows != None, "Could not add context flow to detection"
-    assert len(case_file.context_flows) == 1, "Could not add context flow to detection"
-    assert str(case_file.context_flows[0].source_ip) == "123.123.123.123", "Could not add context to detection"
+    assert case_file.context_flows != None, "Could not add context flow to alert"
+    assert len(case_file.context_flows) == 1, "Could not add context flow to alert"
+    assert str(case_file.context_flows[0].source_ip) == "123.123.123.123", "Could not add context to alert"
 
     case_file.add_context(threat_intel)
-    assert len(case_file.context_threat_intel) == 1, "Could not add threat_intel context to detection"
-    assert case_file.context_threat_intel[0].source == "VirusTotal", "Could not add threat_intel context to detection"
+    assert len(case_file.context_threat_intel) == 1, "Could not add threat_intel context to alert"
+    assert case_file.context_threat_intel[0].source == "VirusTotal", "Could not add threat_intel context to alert"
 
     case_file.add_context(location)
-    assert len(case_file.context_locations) == 1, "Could not add location context to detection"
-    assert case_file.context_locations[0].country == "Germany", "Could not add location context to detection"
+    assert len(case_file.context_locations) == 1, "Could not add location context to alert"
+    assert case_file.context_locations[0].country == "Germany", "Could not add location context to alert"
 
     case_file.add_context(device)
-    assert len(case_file.context_devices) == 1, "Could not add device context to detection"
-    assert case_file.context_devices[0].name == "MacBook Pro von John Doe", "Could not add device context to detection"
+    assert len(case_file.context_devices) == 1, "Could not add device context to alert"
+    assert case_file.context_devices[0].name == "MacBook Pro von John Doe", "Could not add device context to alert"
 
     case_file.add_context(person)
-    assert len(case_file.context_persons) == 1, "Could not add person context to detection"
-    assert case_file.context_persons[0].name == "John Doe", "Could not add person context to detection"
+    assert len(case_file.context_persons) == 1, "Could not add person context to alert"
+    assert case_file.context_persons[0].name == "John Doe", "Could not add person context to alert"
 
     case_file.add_context(file)
-    assert len(case_file.context_files) == 1, "Could not add file context to detection"
-    assert case_file.context_files[0].file_name == "image.png", "Could not add file context to detection"
+    assert len(case_file.context_files) == 1, "Could not add file context to alert"
+    assert case_file.context_files[0].file_name == "image.png", "Could not add file context to alert"
 
     flow.http = http
     case_file.add_context(flow)
-    assert type(case_file.context_flows[0].http) == class_helper.HTTP, "Could not add http context to detection"
-    assert case_file.context_flows[0].http.method == "GET", "Could not add http context to detection"
+    assert type(case_file.context_flows[0].http) == class_helper.HTTP, "Could not add http context to alert"
+    assert case_file.context_flows[0].http.method == "GET", "Could not add http context to alert"
 
     flow.dns_query = dns_query
     case_file.add_context(flow)
-    assert type(case_file.context_flows[0].dns_query) == class_helper.DNSQuery, "Could not add dns_query context to detection"
-    assert case_file.context_flows[0].dns_query.query == "www2.example.com", "Could not add dns_query context to detection"
+    assert type(case_file.context_flows[0].dns_query) == class_helper.DNSQuery, "Could not add dns_query context to alert"
+    assert case_file.context_flows[0].dns_query.query == "www2.example.com", "Could not add dns_query context to alert"
 
     flow.http.certificate = cert
     case_file.add_context(flow)
-    assert (
-        type(case_file.context_flows[0].http.certificate) == class_helper.Certificate
-    ), "Could not add cert context to detection"
-    assert case_file.context_flows[0].http.certificate.subject == "example.com", "Could not add cert context to detection"
+    assert type(case_file.context_flows[0].http.certificate) == class_helper.Certificate, "Could not add cert context to alert"
+    assert case_file.context_flows[0].http.certificate.subject == "example.com", "Could not add cert context to alert"
 
-    assert case_file.indicators is not None, "Could not add indicators to detection"
-    assert len(case_file.indicators) != 0, "Could not add indicators to detection"
-    assert case_file.indicators["ip"][0] == ipaddress.IPv4Address("123.123.123.123"), "Could not add indicators to detection"
-    assert case_file.indicators["domain"][0] == "www2.example.com", "Could not add indicators to detection"
-    assert case_file.indicators["url"][0] == "https://www2.example.com/index.html", "Could not add indicators to detection"
-    assert case_file.indicators["hash"][0] == "6f3b9dda23c69c097372ef91fd09420a", "Could not add indicators to detection"
+    assert case_file.indicators is not None, "Could not add indicators to alert"
+    assert len(case_file.indicators) != 0, "Could not add indicators to alert"
+    assert case_file.indicators["ip"][0] == ipaddress.IPv4Address("123.123.123.123"), "Could not add indicators to alert"
+    assert case_file.indicators["domain"][0] == "www2.example.com", "Could not add indicators to alert"
+    assert case_file.indicators["url"][0] == "https://www2.example.com/index.html", "Could not add indicators to alert"
+    assert case_file.indicators["hash"][0] == "6f3b9dda23c69c097372ef91fd09420a", "Could not add indicators to alert"
 
     case_file.add_context(flow)
     case_file.add_context(flow)
@@ -415,22 +411,22 @@ def test_class_helper():
     t2 = datetime.datetime.now() + datetime.timedelta(minutes=1)
     t3 = datetime.datetime.now() + datetime.timedelta(minutes=2)
     log_message1 = class_helper.ContextLog(
-        detection.uuid,
+        alert.uuid,
         t3,
         "First created Log message. Happened last.",
         "Auth Logs @ Server",
         log_source_ip="1.1.1.1",
     )
     log_message2 = class_helper.ContextLog(
-        detection.uuid, t1, "Second created Log message. Happened first.", "Auth Logs @ Server", log_source_ip="1.1.1.1"
+        alert.uuid, t1, "Second created Log message. Happened first.", "Auth Logs @ Server", log_source_ip="1.1.1.1"
     )
     log_message3 = class_helper.ContextLog(
-        detection.uuid, t2, "Third created Log message. Happened in the middle.", "Auth Logs @ Server", log_source_ip="10.12.0.1"
+        alert.uuid, t2, "Third created Log message. Happened in the middle.", "Auth Logs @ Server", log_source_ip="10.12.0.1"
     )
     case_file.add_context(log_message1)
     case_file.add_context(log_message2)
     case_file.add_context(log_message3)
-    assert len(case_file.context_logs) == 1 + 3, "Could not add log messages to detection"
+    assert len(case_file.context_logs) == 1 + 3, "Could not add log messages to alert"
     assert (
         case_file.context_logs[1 + 0].log_message == "Second created Log message. Happened first."
     ), "Time sorting of log messages failed"
@@ -441,46 +437,46 @@ def test_class_helper():
         case_file.context_logs[1 + 2].log_message == "First created Log message. Happened last."
     ), "Time sorting of log messages failed"
 
-    flow.dns_query = class_helper.DNSQuery(detection.uuid, "A", "*.example.com", True, "10.10.10.10")
+    flow.dns_query = class_helper.DNSQuery(alert.uuid, "A", "*.example.com", True, "10.10.10.10")
     case_file.add_context(flow)
-    assert case_file.indicators["domain"][1] == "example.com", "Could not add indicators to detection"
+    assert case_file.indicators["domain"][1] == "example.com", "Could not add indicators to alert"
 
     case_file.add_context(reg_context)
     assert (
         case_file.indicators["registry"][0]
         == "hklm\\software\\microsoft\\windows\\currentversion\\run->c:\\windows\\system32\\calc.exe"
-    ), "Could not add indicators to detection"
+    ), "Could not add indicators to alert"
 
     # Test CaseFile class indicators
-    case_file2 = class_helper.CaseFile(detection.uuid)
+    case_file2 = class_helper.CaseFile(alert.uuid)
     case_file2.add_context(flow)
     case_file2.add_context(process)
 
-    assert case_file2.indicators is not None, "Could not add indicators to detection"
-    assert len(case_file2.indicators) != 0, "Could not add indicators to detection"
-    assert case_file2.indicators["ip"][0] == ipaddress.IPv4Address("123.123.123.123"), "Could not add indicators to detection"
-    assert case_file2.indicators["domain"][0] == "www2.example.com", "Could not add indicators to detection"
-    assert case_file2.indicators["url"][0] == "https://www2.example.com/index.html", "Could not add indicators to detection"
-    assert case_file2.indicators["hash"][0] == "6f3b9dda23c69c097372ef91fd09420a", "Could not add indicators to detection"
+    assert case_file2.indicators is not None, "Could not add indicators to alert"
+    assert len(case_file2.indicators) != 0, "Could not add indicators to alert"
+    assert case_file2.indicators["ip"][0] == ipaddress.IPv4Address("123.123.123.123"), "Could not add indicators to alert"
+    assert case_file2.indicators["domain"][0] == "www2.example.com", "Could not add indicators to alert"
+    assert case_file2.indicators["url"][0] == "https://www2.example.com/index.html", "Could not add indicators to alert"
+    assert case_file2.indicators["hash"][0] == "6f3b9dda23c69c097372ef91fd09420a", "Could not add indicators to alert"
 
-    # Test Detection class indicators
-    detection2 = class_helper.Detection(
+    # Test Alert class indicators
+    alert2 = class_helper.Alert(
         "Roman Bellic Enterprises",
-        "Yet another detection",
+        "Yet another alert",
         ruleList,
         datetime.datetime.now(),
-        description="This is another test detection",
+        description="This is another test alert",
         process=process,
         flow=flow,
     )
-    assert detection2.indicators is not None, "Could not add indicators to detection"
-    assert len(detection2.indicators) != 0, "Could not add indicators to detection"
-    assert detection2.indicators["ip"][0] == ipaddress.IPv4Address("123.123.123.123"), "Could not add indicators to detection"
-    assert detection2.indicators["domain"][0] == "www2.example.com", "Could not add indicators to detection"
-    assert detection2.indicators["url"][0] == "https://www2.example.com/index.html", "Could not add indicators to detection"
-    assert detection2.indicators["hash"][0] == "6f3b9dda23c69c097372ef91fd09420a", "Could not add indicators to detection"
+    assert alert2.indicators is not None, "Could not add indicators to alert"
+    assert len(alert2.indicators) != 0, "Could not add indicators to alert"
+    assert alert2.indicators["ip"][0] == ipaddress.IPv4Address("123.123.123.123"), "Could not add indicators to alert"
+    assert alert2.indicators["domain"][0] == "www2.example.com", "Could not add indicators to alert"
+    assert alert2.indicators["url"][0] == "https://www2.example.com/index.html", "Could not add indicators to alert"
+    assert alert2.indicators["hash"][0] == "6f3b9dda23c69c097372ef91fd09420a", "Could not add indicators to alert"
 
-    case_file.detections.append(detection2)
+    case_file.alerts.append(alert2)
 
     # Test auditLog class
     len_audit = len(case_file.audit_trail)
@@ -537,7 +533,7 @@ def test_class_helper():
     mlog.info(person)
     mlog.info("DEVICE: ")
     mlog.info(device)
-    mlog.info("DETECTION case: ")
+    mlog.info("ALERT case: ")
     mlog.info(case_file)
     mlog.info("DNS QUERY: ")
     mlog.info(dns_query)

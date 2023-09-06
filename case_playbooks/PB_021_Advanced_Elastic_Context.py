@@ -2,10 +2,10 @@
 # Created by: Martin Offermann
 #
 # This is a playbook used by IRIS-SOAR
-# It is used to get further context from the Elastic SIEM for all detections.
+# It is used to get further context from the Elastic SIEM for all alerts.
 #
-# Acceptable Detections:
-#  - All Detections
+# Acceptable Alerts:
+#  - All Alerts
 #
 # Gathered Context:
 # - ContextFlow, ContextProcess, ContextFile, ContextRegistry
@@ -27,7 +27,7 @@ import datetime
 from lib.class_helper import (
     CaseFile,
     AuditLog,
-    Detection,
+    Alert,
     ContextLog,
     ContextFlow,
     ContextFile,
@@ -37,10 +37,10 @@ from lib.class_helper import (
 )
 from lib.logging_helper import Log
 from lib.config_helper import Config
-from integrations.dfir-iris import zs_add_note_to_iris_case, zs_update_iris_case_title
-from integrations.elastic_siem import zs_provide_context_for_detections
+from integrations.dfir-iris import irsoar_add_note_to_iris_case, irsoar_update_iris_case_title
+from integrations.elastic_siem import irsoar_provide_context_for_alerts
 from lib.generic_helper import format_results, dict_get
-from playbooks.bb_elastic_context_fetcher import (
+from case_playbooks.bb_elastic_context_fetcher import (
     bb_get_context_process_parents,
     bb_get_context_process_children,
     bb_get_context_process_file_events,
@@ -56,73 +56,73 @@ log_level_stdout = cfg["integrations"]["ibm_qradar"]["logging"]["log_level_stdou
 mlog = Log("playbooks." + PB_NAME, log_level_file, log_level_stdout)
 
 
-def zs_can_handle_detection(case_file: CaseFile) -> bool:
-    """Checks if this playbook can handle the detection.
+def irsoar_can_handle_alert(case_file: CaseFile) -> bool:
+    """Checks if this playbook can handle the alert.
 
     Args:
-        case_file (CaseFile): The detection case
+        case_file (CaseFile): The alert case
 
     Returns:
-        bool: True if the playbook can handle the detection, False if not
+        bool: True if the playbook can handle the alert, False if not
     """
     if PB_ENABLED == False:
-        mlog.info(f"Playbook '{PB_NAME}' is disabled. Not handling detection.")
+        mlog.info(f"Playbook '{PB_NAME}' is disabled. Not handling alert.")
         return False
 
-    for detection in case_file.detections:
-        # Check if any of the detecions of the detection case is a QRadar Offense
+    for alert in case_file.alerts:
+        # Check if any of the detecions of the alert case is a QRadar Offense
         try:
             case_file.get_iris_case_number()
         except ValueError:
             mlog.info(
-                f"Playbook '{PB_NAME}' cannot handle detection '{detection.name}' ({detection.uuid}), as there is noiris-casein it."
+                f"Playbook '{PB_NAME}' cannot handle alert '{alert.name}' ({alert.uuid}), as there is noiris-casein it."
             )
             return False
 
-        if detection.vendor_id == "IBM QRadar":
-            mlog.info(f"Playbook '{PB_NAME}' can handle detection '{detection.name}' ({detection.uuid}).")
+        if alert.vendor_id == "IBM QRadar":
+            mlog.info(f"Playbook '{PB_NAME}' can handle alert '{alert.name}' ({alert.uuid}).")
             return True
-        elif detection.vendor_id == "elastic_siem":
-            mlog.info(f"Playbook '{PB_NAME}' can handle detection '{detection.name}' ({detection.uuid}).")
+        elif alert.vendor_id == "elastic_siem":
+            mlog.info(f"Playbook '{PB_NAME}' can handle alert '{alert.name}' ({alert.uuid}).")
             return True
     return False
 
 
-def zs_handle_detection(case_file: CaseFile, DRY_RUN=False) -> CaseFile:
-    """Handles the detection.
+def irsoar_handle_alert(case_file: CaseFile, DRY_RUN=False) -> CaseFile:
+    """Handles the alert.
 
     Args:
-        case_file (CaseFile): The detection case
+        case_file (CaseFile): The alert case
         DRY_RUN (bool, optional): If True, no external changes will be made. Defaults to False.
 
     Returns:
-        CaseFile: The detection case with the context processes
+        CaseFile: The alert case with the context processes
     """
-    for detection in case_file.detections:
-        detection: Detection
-        if detection.vendor_id == "IBM QRadar" or detection.vendor_id == "elastic_siem":
+    for alert in case_file.alerts:
+        alert: Alert
+        if alert.vendor_id == "IBM QRadar" or alert.vendor_id == "elastic_siem":
             mlog.info("Handling QRadar Offense.")
             config = Config().cfg["integrations"]["elastic_siem"]
 
-            if detection.flow:
-                # First search for the process that is related to the detection
+            if alert.flow:
+                # First search for the process that is related to the alert
                 current_action = AuditLog(
                     PB_NAME,
                     1,
-                    "Searching for process related to detection by destination ip.",
-                    "Searchin for process related to detection by the destination ip given in the detection.",
+                    "Searching for process related to alert by destination ip.",
+                    "Searchin for process related to alert by the destination ip given in the alert.",
                 )
                 case_file.update_audit(current_action, logger=mlog)
-                processes = zs_provide_context_for_detections(
-                    config, case_file, ContextProcess, False, detection.flow.destination_ip, search_type="dest_ip"
+                processes = irsoar_provide_context_for_alerts(
+                    config, case_file, ContextProcess, False, alert.flow.destination_ip, search_type="dest_ip"
                 )
-                mlog.info(f"Found {len(processes)} processes related to detection {detection.uuid} destination ip.")
-                detection.process = processes[0]
+                mlog.info(f"Found {len(processes)} processes related to alert {alert.uuid} destination ip.")
+                alert.process = processes[0]
 
                 if processes and len(processes) > 0:
                     case_file.update_audit(
                         current_action.set_successful(
-                            message=f"Found {len(processes)} processes related to detection destination ip."
+                            message=f"Found {len(processes)} processes related to alert destination ip."
                         ),
                     )
 
@@ -130,7 +130,7 @@ def zs_handle_detection(case_file: CaseFile, DRY_RUN=False) -> CaseFile:
                         case_file.add_context(process)
                 else:
                     case_file.update_audit(
-                        current_action.set_warning(warning_message=f"Found no processes related to detection destination ip.")
+                        current_action.set_warning(warning_message=f"Found no processes related to alert destination ip.")
                     )
 
             # Now search for all events of the alerted host at that time
@@ -138,17 +138,17 @@ def zs_handle_detection(case_file: CaseFile, DRY_RUN=False) -> CaseFile:
                 PB_NAME,
                 2,
                 "Searching all events of the alerted host at that time.",
-                "Searching all events of the alerted host in a time range around the detection.",
+                "Searching all events of the alerted host in a time range around the alert.",
             )
             case_file.update_audit(current_action, logger=mlog)
 
-            if detection.device:
-                host_ip = detection.device.local_ip
-                start_time = detection.timestamp - datetime.timedelta(minutes=TIME_DELTA_MINUTES_BEFORE)
-                end_time = detection.timestamp + datetime.timedelta(minutes=TIME_DELTA_MINUTES_AFTER)
+            if alert.device:
+                host_ip = alert.device.local_ip
+                start_time = alert.timestamp - datetime.timedelta(minutes=TIME_DELTA_MINUTES_BEFORE)
+                end_time = alert.timestamp + datetime.timedelta(minutes=TIME_DELTA_MINUTES_AFTER)
 
                 # Search for all events of the host at that time
-                processes = zs_provide_context_for_detections(
+                processes = irsoar_provide_context_for_alerts(
                     config,
                     case_file,
                     ContextProcess,
@@ -161,20 +161,20 @@ def zs_handle_detection(case_file: CaseFile, DRY_RUN=False) -> CaseFile:
 
                 if processes and len(processes) > 0:
                     mlog.info(
-                        f"Found {len(processes)} processes related to host {host_ip} at time {detection.timestamp} (before {TIME_DELTA_MINUTES_BEFORE} minutes and after {TIME_DELTA_MINUTES_AFTER} minutes)."
+                        f"Found {len(processes)} processes related to host {host_ip} at time {alert.timestamp} (before {TIME_DELTA_MINUTES_BEFORE} minutes and after {TIME_DELTA_MINUTES_AFTER} minutes)."
                     )
                 else:
                     mlog.info(
-                        f"Found no processes related to host {host_ip} at time {detection.timestamp} (before {TIME_DELTA_MINUTES_BEFORE} minutes and after {TIME_DELTA_MINUTES_AFTER} minutes)."
+                        f"Found no processes related to host {host_ip} at time {alert.timestamp} (before {TIME_DELTA_MINUTES_BEFORE} minutes and after {TIME_DELTA_MINUTES_AFTER} minutes)."
                     )
                     case_file.update_audit(
                         current_action.set_warning(
-                            warning_message=f"Found no processes related to host {host_ip} at time {detection.timestamp} (before {TIME_DELTA_MINUTES_BEFORE} minutes and after {TIME_DELTA_MINUTES_AFTER} minutes)."
+                            warning_message=f"Found no processes related to host {host_ip} at time {alert.timestamp} (before {TIME_DELTA_MINUTES_BEFORE} minutes and after {TIME_DELTA_MINUTES_AFTER} minutes)."
                         ),
                         logger=mlog,
                     )
 
-                flows = zs_provide_context_for_detections(
+                flows = irsoar_provide_context_for_alerts(
                     config,
                     case_file,
                     ContextFlow,
@@ -187,20 +187,20 @@ def zs_handle_detection(case_file: CaseFile, DRY_RUN=False) -> CaseFile:
 
                 if flows and len(flows) > 0:
                     mlog.info(
-                        f"Found {len(flows)} flows related to host {host_ip} at time {detection.timestamp} (before {TIME_DELTA_MINUTES_BEFORE} minutes and after {TIME_DELTA_MINUTES_AFTER} minutes)."
+                        f"Found {len(flows)} flows related to host {host_ip} at time {alert.timestamp} (before {TIME_DELTA_MINUTES_BEFORE} minutes and after {TIME_DELTA_MINUTES_AFTER} minutes)."
                     )
                 else:
                     mlog.info(
-                        f"Found no flows related to host {host_ip} at time {detection.timestamp} (before {TIME_DELTA_MINUTES_BEFORE} minutes and after {TIME_DELTA_MINUTES_AFTER} minutes)."
+                        f"Found no flows related to host {host_ip} at time {alert.timestamp} (before {TIME_DELTA_MINUTES_BEFORE} minutes and after {TIME_DELTA_MINUTES_AFTER} minutes)."
                     )
                     case_file.update_audit(
                         current_action.set_warning(
-                            warning_message=f"Found no flows related to host {host_ip} at time {detection.timestamp} (before {TIME_DELTA_MINUTES_BEFORE} minutes and after {TIME_DELTA_MINUTES_AFTER} minutes)."
+                            warning_message=f"Found no flows related to host {host_ip} at time {alert.timestamp} (before {TIME_DELTA_MINUTES_BEFORE} minutes and after {TIME_DELTA_MINUTES_AFTER} minutes)."
                         ),
                         logger=mlog,
                     )
 
-                files = zs_provide_context_for_detections(
+                files = irsoar_provide_context_for_alerts(
                     config,
                     case_file,
                     ContextFile,
@@ -213,20 +213,20 @@ def zs_handle_detection(case_file: CaseFile, DRY_RUN=False) -> CaseFile:
 
                 if files and len(files) > 0:
                     mlog.info(
-                        f"Found {len(files)} files related to host {host_ip} at time {detection.timestamp} (before {TIME_DELTA_MINUTES_BEFORE} minutes and after {TIME_DELTA_MINUTES_AFTER} minutes)."
+                        f"Found {len(files)} files related to host {host_ip} at time {alert.timestamp} (before {TIME_DELTA_MINUTES_BEFORE} minutes and after {TIME_DELTA_MINUTES_AFTER} minutes)."
                     )
                 else:
                     mlog.info(
-                        f"Found no files related to host {host_ip} at time {detection.timestamp} (before {TIME_DELTA_MINUTES_BEFORE} minutes and after {TIME_DELTA_MINUTES_AFTER} minutes)."
+                        f"Found no files related to host {host_ip} at time {alert.timestamp} (before {TIME_DELTA_MINUTES_BEFORE} minutes and after {TIME_DELTA_MINUTES_AFTER} minutes)."
                     )
                     case_file.update_audit(
                         current_action.set_warning(
-                            warning_message=f"Found no files related to host {host_ip} at time {detection.timestamp} (before {TIME_DELTA_MINUTES_BEFORE} minutes and after {TIME_DELTA_MINUTES_AFTER} minutes)."
+                            warning_message=f"Found no files related to host {host_ip} at time {alert.timestamp} (before {TIME_DELTA_MINUTES_BEFORE} minutes and after {TIME_DELTA_MINUTES_AFTER} minutes)."
                         ),
                         logger=mlog,
                     )
 
-                registry = zs_provide_context_for_detections(
+                registry = irsoar_provide_context_for_alerts(
                     config,
                     case_file,
                     ContextRegistry,
@@ -239,15 +239,15 @@ def zs_handle_detection(case_file: CaseFile, DRY_RUN=False) -> CaseFile:
 
                 if registry and len(registry) > 0:
                     mlog.info(
-                        f"Found {len(registry)} registry events related to host {host_ip} at time {detection.timestamp} (before {TIME_DELTA_MINUTES_BEFORE} minutes and after {TIME_DELTA_MINUTES_AFTER} minutes)."
+                        f"Found {len(registry)} registry events related to host {host_ip} at time {alert.timestamp} (before {TIME_DELTA_MINUTES_BEFORE} minutes and after {TIME_DELTA_MINUTES_AFTER} minutes)."
                     )
                 else:
                     mlog.info(
-                        f"Found no registry events related to host {host_ip} at time {detection.timestamp} (before {TIME_DELTA_MINUTES_BEFORE} minutes and after {TIME_DELTA_MINUTES_AFTER} minutes)."
+                        f"Found no registry events related to host {host_ip} at time {alert.timestamp} (before {TIME_DELTA_MINUTES_BEFORE} minutes and after {TIME_DELTA_MINUTES_AFTER} minutes)."
                     )
                     case_file.update_audit(
                         current_action.set_warning(
-                            warning_message=f"Found no registry events related to host {host_ip} at time {detection.timestamp} (before {TIME_DELTA_MINUTES_BEFORE} minutes and after {TIME_DELTA_MINUTES_AFTER} minutes)."
+                            warning_message=f"Found no registry events related to host {host_ip} at time {alert.timestamp} (before {TIME_DELTA_MINUTES_BEFORE} minutes and after {TIME_DELTA_MINUTES_AFTER} minutes)."
                         ),
                         logger=mlog,
                     )
@@ -269,19 +269,19 @@ def zs_handle_detection(case_file: CaseFile, DRY_RUN=False) -> CaseFile:
 
                     case_file.update_audit(
                         current_action.set_successful(
-                            message=f"Found {len(processes)} processes, {len(flows)} flows, {len(files)} files and {len(registry)} registry events related to host {host_ip} at time {detection.timestamp} (before {TIME_DELTA_MINUTES_BEFORE} minutes and after {TIME_DELTA_MINUTES_AFTER} minutes)."
+                            message=f"Found {len(processes)} processes, {len(flows)} flows, {len(files)} files and {len(registry)} registry events related to host {host_ip} at time {alert.timestamp} (before {TIME_DELTA_MINUTES_BEFORE} minutes and after {TIME_DELTA_MINUTES_AFTER} minutes)."
                         ),
                         logger=mlog,
                     )
                 else:
                     case_file.update_audit(
                         current_action.set_error(
-                            message=f"Found no processes, flows, files or registry events related to host {host_ip} at time {detection.timestamp} (before {TIME_DELTA_MINUTES_BEFORE} minutes and after {TIME_DELTA_MINUTES_AFTER} minutes)."
+                            message=f"Found no processes, flows, files or registry events related to host {host_ip} at time {alert.timestamp} (before {TIME_DELTA_MINUTES_BEFORE} minutes and after {TIME_DELTA_MINUTES_AFTER} minutes)."
                         ),
                         logger=mlog,
                     )
 
-                # Add all contexts to the detection case:
+                # Add all contexts to the alert case:
                 if processes:
                     for process in processes:
                         case_file.add_context(process)
@@ -310,10 +310,10 @@ def zs_handle_detection(case_file: CaseFile, DRY_RUN=False) -> CaseFile:
     children = []
     process_tree = ""
 
-    parents = bb_get_context_process_parents(PB_NAME, 2, mlog, case_file, detection)
-    children = bb_get_context_process_children(PB_NAME, 3, mlog, case_file, detection)
+    parents = bb_get_context_process_parents(PB_NAME, 2, mlog, case_file, alert)
+    children = bb_get_context_process_children(PB_NAME, 3, mlog, case_file, alert)
     process_tree = bb_get_context_process_tree_visualisation(
-        PB_NAME, 4, mlog, case_file, detection, parents, children, current_action
+        PB_NAME, 4, mlog, case_file, alert, parents, children, current_action
     )
 
     process_names = []
@@ -323,14 +323,14 @@ def zs_handle_detection(case_file: CaseFile, DRY_RUN=False) -> CaseFile:
     if len(parents) > 0 or len(children) > 0:
         case_file.update_audit(
             current_action.set_successful(
-                message=f"Found {len(parents)} parents and {len(children)} children for process {process_names} at time {detection.timestamp}."
+                message=f"Found {len(parents)} parents and {len(children)} children for process {process_names} at time {alert.timestamp}."
             ),
             logger=mlog,
         )
     else:
         case_file.update_audit(
             current_action.set_warning(
-                warning_message=f"Found no parents and no children for process {process_names} at time {detection.timestamp}."
+                warning_message=f"Found no parents and no children for process {process_names} at time {alert.timestamp}."
             ),
             logger=mlog,
         )
@@ -342,15 +342,15 @@ def zs_handle_detection(case_file: CaseFile, DRY_RUN=False) -> CaseFile:
     case_file.update_audit(current_action, logger=mlog)
     iris_case_number = case_file.get_iris_case_number()
 
-    zs_add_note_to_iris_case(
+    irsoar_add_note_to_iris_case(
         iris_case_number,
         "context_process",
         False,
         playbook_name=PB_NAME,
         playbook_step=5,
         case_file=case_file,
-        detection=detection,
-        detection_contexts=process_names,
+        alert=alert,
+        alert_contexts=process_names,
         parents=parents,
         children=children,
         tree=process_tree,
@@ -358,44 +358,44 @@ def zs_handle_detection(case_file: CaseFile, DRY_RUN=False) -> CaseFile:
     )
 
     # Create a note for Network Flows
-    zs_add_note_to_iris_case(
+    irsoar_add_note_to_iris_case(
         iris_case_number,
         "context_network",
         False,
         playbook_name=PB_NAME,
         playbook_step=8,
         case_file=case_file,
-        detection=detection,
-        detection_contexts=None,
+        alert=alert,
+        alert_contexts=None,
         other_contexts=None,
         gather_type="time range",
     )
 
     # Create a note for File Events
-    zs_add_note_to_iris_case(
+    irsoar_add_note_to_iris_case(
         iris_case_number,
         "context_file",
         False,
         playbook_name=PB_NAME,
         playbook_step=10,
         case_file=case_file,
-        detection=detection,
-        detection_contexts=None,
+        alert=alert,
+        alert_contexts=None,
         other_contexts=None,
         file_names=None,
         gather_type="time range",
     )
 
     # Create a note for Registry Events
-    zs_add_note_to_iris_case(
+    irsoar_add_note_to_iris_case(
         iris_case_number,
         "context_registry",
         False,
         playbook_name=PB_NAME,
         playbook_step=12,
         case_file=case_file,
-        detection=detection,
-        detection_contexts=None,
+        alert=alert,
+        alert_contexts=None,
         other_contexts=None,
         gather_type="time range",
     )

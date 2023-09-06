@@ -875,7 +875,7 @@ class Certificate:
        Use it in ContextProcess/File context if th certificate is a signature of a process/file. Use it in HTTP context if the certificate is related to https traffic.
 
     Attributes:
-        related_detection_uuid (str): The UUID of the related detection
+        related_alert_uuid (str): The UUID of the related alert
         subject (str): The subject of the certificate
         issuer (str): The issuer of the certificate
         issuer_common_name (str): The issuer common name of the certificate
@@ -903,7 +903,7 @@ class Certificate:
 
     def __init__(
         self,
-        related_detection_uuid: uuid.UUID,
+        related_alert_uuid: uuid.UUID,
         subject: str,
         issuer: str,
         issuer_common_name: str = None,
@@ -923,7 +923,7 @@ class Certificate:
         is_trusted: bool = None,
         is_self_signed: bool = None,
     ):
-        self.related_detection_uuid = related_detection_uuid
+        self.related_alert_uuid = related_alert_uuid
         self.issuer = issuer
         self.issuer_common_name = issuer_common_name
         self.issuer_organization = issuer_organization
@@ -957,7 +957,7 @@ class Certificate:
     def __dict__(self):
         dict_ = {
             "timestamp": self.timestamp,
-            "related_detection_uuid": self.related_detection_uuid,
+            "related_alert_uuid": self.related_alert_uuid,
             "subject": self.subject,
             "issuer": self.issuer,
             "issuer_common_name": self.issuer_common_name,
@@ -985,10 +985,10 @@ class Certificate:
 
 
 class ContextFile:
-    """File class. Represents a file event in the context of a detection.
+    """File class. Represents a file event in the context of a alert.
 
     Attributes:
-        related_detection_uuid (uuid.UUID): The UUID of the detection the file is related to
+        related_alert_uuid (uuid.UUID): The UUID of the alert the file is related to
         timestamp (datetime): When the object was created (for cross-context compatibility)
         action (str): The action that was performed on the file (create, modify, delete, rename, etc.)
         file_name (str): The name of the file
@@ -1034,7 +1034,7 @@ class ContextFile:
 
     def __init__(
         self,
-        related_detection_uuid: uuid.UUID,
+        related_alert_uuid: uuid.UUID,
         timestamp: datetime,
         action: str,
         file_name: str,
@@ -1070,7 +1070,7 @@ class ContextFile:
         is_unknown: bool = False,
         uuid: uuid.UUID = uuid.uuid4(),
     ):
-        self.related_detection_uuid = related_detection_uuid
+        self.related_alert_uuid = related_alert_uuid
         self.timestamp = timestamp
         self.action = action
 
@@ -1128,7 +1128,7 @@ class ContextFile:
 
     def __dict__(self):
         dict_ = {
-            "related_detection_uuid": self.related_detection_uuid,
+            "related_alert_uuid": self.related_alert_uuid,
             "timestamp": self.timestamp,
             "action": self.action,
             "file_name": self.file_name,
@@ -1176,7 +1176,7 @@ class DNSQuery:
     """DNSQuery class.
 
     Attributes:
-        related_detection_uuid (str): The UUID of the related detection
+        related_alert_uuid (str): The UUID of the related alert
         type (str): The type of the DNS query
         query (str): The query of the DNS query
         query_response (str): The query response of the DNS query
@@ -1189,7 +1189,7 @@ class DNSQuery:
 
     def __init__(
         self,
-        related_detection_uuid: uuid.UUID,
+        related_alert_uuid: uuid.UUID,
         type: str,
         query: str,
         has_response: bool = False,
@@ -1197,7 +1197,7 @@ class DNSQuery:
         rcode: str = "NOERROR",
         timestamp=datetime.datetime.now(),
     ):
-        self.related_detection_uuid = related_detection_uuid
+        self.related_alert_uuid = related_alert_uuid
 
         if type not in ["A", "AAAA", "CNAME", "MX", "NS", "PTR", "SOA", "SRV", "TXT"]:
             raise ValueError("type must be one of A, AAAA, CNAME, MX, NS, PTR, SOA, SRV, TXT")
@@ -1217,7 +1217,7 @@ class DNSQuery:
 
     def __dict__(self):
         dict_ = {
-            "related_detection_uuid": self.related_detection_uuid,
+            "related_alert_uuid": self.related_alert_uuid,
             "type": self.type,
             "query": self.query,
             "has_response": self.has_response,
@@ -1236,7 +1236,7 @@ class HTTP:
     """HTTP class.
 
     Attributes:
-        related_detection_uuid (str): The UUID of the related detection
+        related_alert_uuid (str): The UUID of the related alert
         method (str): The method of the HTTP request
         type (str): The type of the HTTP request (HTTP or HTTPS)
         host (str): The host of the HTTP request
@@ -1262,7 +1262,7 @@ class HTTP:
 
     def __init__(
         self,
-        related_detection_uuid: uuid.UUID,
+        related_alert_uuid: uuid.UUID,
         method: str,
         type: str,
         host: str,
@@ -1281,7 +1281,7 @@ class HTTP:
         file: ContextFile = None,
         timestamp: datetime.datetime = datetime.datetime.now(),
     ):
-        self.related_detection_uuid = related_detection_uuid
+        self.related_alert_uuid = related_alert_uuid
         self.full_url = None
         self.user_agent = None
         self.referer = None
@@ -1363,7 +1363,7 @@ class HTTP:
         try:
             dict_ = {
                 "timestamp": self.timestamp,
-                "related_detection_uuid": self.related_detection_uuid,
+                "related_alert_uuid": self.related_alert_uuid,
                 "method": self.method,
                 "type": self.type,
                 "host": self.host,
@@ -1397,11 +1397,11 @@ class HTTP:
 
 
 class ContextFlow:
-    """This class provides a single context of type flow for a detection.
+    """This class provides a single context of type flow for a alert.
        ! Use only if the context of type "DNSQuery", "HTTP" or "Process" is not applicable !
 
     Attributes:
-        related_detection_uuid (str): The related detection unique ID of the context flow
+        related_alert_uuid (str): The related alert unique ID of the context flow
         timestamp (datetime): The timestamp of the flow
         integration (str): The integration from which the flow was received
         source_ip (socket.inet_aton): The source IP of the flow
@@ -1435,7 +1435,7 @@ class ContextFlow:
         firewall_action (str): The firewall action of the flow
         firewall_rule_id (int): The firewall rule of the flow
         uuid (uuid.UUID): The UUID of the flow
-        detection_relevance (int): The relevance of the flow to the detection (0-100)
+        alert_relevance (int): The relevance of the flow to the alert (0-100)
 
     Methods:
         __init__(self, timestamp: datetime.datetime, integration: str, source_ip: socket.inet_aton, source_port: int, destination_ip: socket.inet_aton, destination_port: int, protocol: str, application: str, data: str = None, source_mac: socket.mac = None, destination_mac: str = None, source_hostname: str = None, destination_hostname: str = None, category: str = "Generic Flow", sub_category: str = "Generic HTTP(S) Traffic", flow_direction: str = "L2R", flow_id: int = random.randint(1, 1000000000), interface: str = None, network: str = None, network_type: str = None, flow_source: str = None)
@@ -1444,7 +1444,7 @@ class ContextFlow:
 
     def __init__(
         self,
-        related_detection_uuid: uuid.UUID,
+        related_alert_uuid: uuid.UUID,
         timestamp: datetime.datetime,
         integration: str,
         source_ip: Union[ipaddress.IPv4Address, ipaddress.IPv6Address],
@@ -1479,7 +1479,7 @@ class ContextFlow:
         firewall_action: str = "Unknown",
         firewall_rule_id: int = None,
         uuid: uuid.UUID = uuid.uuid4(),
-        detection_relevance: int = 50,
+        alert_relevance: int = 50,
     ):
         source_ip = cast_to_ipaddress(source_ip)
         destination_ip = cast_to_ipaddress(destination_ip)
@@ -1487,7 +1487,7 @@ class ContextFlow:
         if flow_id < 1 or flow_id > 1000000000:
             raise ValueError("flow_id must be between 1 and 1000000000")
 
-        self.related_detection_uuid = related_detection_uuid
+        self.related_alert_uuid = related_alert_uuid
 
         self.timestamp = timestamp
         self.data = data
@@ -1591,14 +1591,14 @@ class ContextFlow:
         self.firewall_rule_id = firewall_rule_id
 
         self.uuid = uuid
-        self.detection_relevance = handle_percentage(detection_relevance)
+        self.alert_relevance = handle_percentage(alert_relevance)
 
     def __dict__(self):
         # Have to overwrite the __dict__ method because of the ipaddress objects
 
         dict_ = {
-            "related_detection_uuid": self.related_detection_uuid,
-            "detection relevance": self.detection_relevance,
+            "related_alert_uuid": self.related_alert_uuid,
+            "alert relevance": self.alert_relevance,
             "timestamp": str(self.timestamp),
             "data": self.data,
             "integration": self.integration,
@@ -1652,7 +1652,7 @@ class ContextProcess:
     Attributes:
         process_uuid (str): The UID / EntityID of the process
         timestamp (datetime.datetime): The timestamp of the event
-        related_detection_uuid (uuid.UUID): The UUID of the detection this process is related to
+        related_alert_uuid (uuid.UUID): The UUID of the alert this process is related to
         process_name (str): The name of the process
         process_id (int): The ID of the process
         parent_process_name (str): The name of the parent process
@@ -1699,7 +1699,7 @@ class ContextProcess:
         process_io_text (str): The IO text of the process
         process_io_bytes (str): The IO of the process
         is_complete (bool): Set to True if all available information has been collected, False (default) if not
-        detection_relevance (int): The relevance of the process in the detection (0-100)
+        alert_relevance (int): The relevance of the process in the alert (0-100)
 
     Methods:
         __init__(self, process_name: str, process_id: int, parent_process_name: str = "N/A", parent_process_id: int = 0, process_path: str = "", process_md5: str = "", process_sha1: str = "", process_sha256: str = "", process_command_line: str = "", process_username: str = "", process_integrity_level: str = "", process_is_elevated_token: bool = False, process_token_elevation_type: str = "", process_token_elevation_type_full: str = "", process_token_integrity_level: str = "", process_token_integrity_level_full: str = "", process_privileges: str = "", process_owner: str = "", process_group_id: int = "", process_group_name: str = "", process_logon_guid: str = "", process_logon_id: str = "", process_logon_type: str = "", process_logon_type_full: str = "", process_logon_time: str = "", process_start_time: str = "", process_parent_start_time: str = "", process_current_directory: str = "", process_image_file_device: str = "", process_image_file_directory: str = "", process_image_file_name: str = "", process_image_file_path: str = "", process_dns: DNSQuery = None, process_certificate: Certificate = None, process_http: HTTP = None, process_flow: ContextFlow = None, process_parent: ContextProcess = None, process_children: List[ContextProcess] = None, process_environment_variables: List[] = None, process_arguments: List[] = None, process_modules: List[] = None, process_thread: str = "")
@@ -1707,18 +1707,18 @@ class ContextProcess:
     """
 
     # TODO: 1) Change that DNSQuery, HTTP and Certificate are directly inside a ContextFlow object, as they depend on each other [DONE]
-    #        1b) Remove them as explicit contexts in Detection and CaseFile [DONE]
+    #        1b) Remove them as explicit contexts in Alert and CaseFile [DONE]
     #       2) Make that contexts only refere to itself by UUID [DONE]
-    #       3) Create get_context_by_uuid() method in Detection and CaseFile [DONE]
+    #       3) Create get_context_by_uuid() method in Alert and CaseFile [DONE]
     #       4) Edit the elastic siem integration and building block according to the changes
-    #       5) Implement related_detection_uuid in all stand-alone contexts [DONE]
-    #       6) Implement relevance scoring in all stand-alone contexts (relevance to the detection) [DONE]
+    #       5) Implement related_alert_uuid in all stand-alone contexts [DONE]
+    #       6) Implement relevance scoring in all stand-alone contexts (relevance to the alert) [DONE]
 
     def __init__(
         self,
         process_uuid: str,
         timestamp: datetime.datetime,
-        related_detection_uuid: uuid.UUID,
+        related_alert_uuid: uuid.UUID,
         process_name: str = "",
         process_id: int = -1,
         parent_process_name: str = "N/A",
@@ -1771,7 +1771,7 @@ class ContextProcess:
         process_io_bytes: int = 0,
         process_io_text: str = "",
         is_complete: bool = False,
-        detection_relevance: int = 50,
+        alert_relevance: int = 50,
     ):
         mlog = logging_helper.Log("lib.class_helper")
 
@@ -1783,7 +1783,7 @@ class ContextProcess:
             mlog.warning("Process Object __init__: given uuid seems too short")
 
         self.timestamp = timestamp
-        self.related_detection_uuid = related_detection_uuid
+        self.related_alert_uuid = related_alert_uuid
 
         self.process_name = process_name
 
@@ -1889,7 +1889,7 @@ class ContextProcess:
             mlog.warning("Process Object __init__: process_command_line should not be None if is_complete is True")
         self.is_complete = is_complete
 
-        self.detection_relevance = handle_percentage(detection_relevance)
+        self.alert_relevance = handle_percentage(alert_relevance)
 
         if process_io_text and len(process_io_text) > 0 and process_io_bytes > 0:
             process_io_bytes = len(process_io_text.encode("utf-8"))
@@ -1910,8 +1910,8 @@ class ContextProcess:
     def __dict__(self):
         _dict = {
             "timestamp": self.timestamp,
-            "related_detection_uuid": self.related_detection_uuid,
-            "detection_relevance": self.detection_relevance,
+            "related_alert_uuid": self.related_alert_uuid,
+            "alert_relevance": self.alert_relevance,
             "process_name": self.process_name,
             "process_id": self.process_id,
             "parent_process_name": self.parent_process_name,
@@ -1977,7 +1977,7 @@ class ContextLog:
        Be aware that either log_source_ip or log_source_device must be set.
 
     Attrbutes:
-        related_detection_uuid (uuid.UUID): The UUID of the detection this log is related to
+        related_alert_uuid (uuid.UUID): The UUID of the alert this log is related to
         timestamp (datetime.datetime): The timestamp of the log
         log_message (str): The message of the log
         log_source_name (str): The source of the log (e.g. Syslog @ Linux Server)
@@ -1990,7 +1990,7 @@ class ContextLog:
         log_facility (str): The facility of the log
         log_tags (List[str]): The tags of the log
         log_custom_fields (dict): The custom fields of the log
-        detection_relevance (int): The relevance of the log to the detection (0-100)
+        alert_relevance (int): The relevance of the log to the alert (0-100)
 
     Methods:
         __init__(log_message, log_source, log_flow, log_protocol, log_timestamp, log_type, log_severity, log_facility, log_tags, log_custom_fields): Initializes the ContextLog object
@@ -2000,7 +2000,7 @@ class ContextLog:
 
     def __init__(
         self,
-        related_detection_uuid: uuid.UUID,
+        related_alert_uuid: uuid.UUID,
         timestamp: datetime.datetime,
         log_message: str,
         log_source_name: str,
@@ -2014,9 +2014,9 @@ class ContextLog:
         log_tags: List[str] = None,
         log_custom_fields: dict = None,
         uuid: uuid.UUID = uuid.uuid4(),
-        detection_relevance: int = 50,
+        alert_relevance: int = 50,
     ):
-        self.related_detection_uuid = related_detection_uuid
+        self.related_alert_uuid = related_alert_uuid
         self.timestamp = timestamp
         self.log_message = log_message
         self.log_source_name = log_source_name
@@ -2043,12 +2043,12 @@ class ContextLog:
         self.log_tags = log_tags
         self.log_custom_fields = log_custom_fields
         self.uuid = uuid
-        self.detection_relevance = handle_percentage(detection_relevance)
+        self.alert_relevance = handle_percentage(alert_relevance)
 
     def __dict__(self):
         dict_ = {
-            "related_detection_uuid": str(self.related_detection_uuid),
-            "detection_relevance": self.detection_relevance,
+            "related_alert_uuid": str(self.related_alert_uuid),
+            "alert_relevance": self.alert_relevance,
             "timestamp": str(self.timestamp),
             "log_message": self.log_message,
             "log_source_name": self.log_source_name,
@@ -2085,7 +2085,7 @@ class ContextRegistry:
 
     def __init__(
         self,
-        related_detection_uuid: uuid.UUID,
+        related_alert_uuid: uuid.UUID,
         timestamp: datetime.datetime,
         action: str,
         registry_key: str,
@@ -2098,7 +2098,7 @@ class ContextRegistry:
         process_id: int = None,
         process_uuid: str = None,
     ):
-        self.related_detection_uuid = related_detection_uuid
+        self.related_alert_uuid = related_alert_uuid
         self.timestamp = timestamp
         self.action = action
         self.registry_key = registry_key
@@ -2113,7 +2113,7 @@ class ContextRegistry:
 
     def __dict__(self):
         dict_ = {
-            "related_detection_uuid": str(self.related_detection_uuid),
+            "related_alert_uuid": str(self.related_alert_uuid),
             "timestamp": str(self.timestamp),
             "action": self.action,
             "registry_key": self.registry_key,
@@ -2134,20 +2134,20 @@ class ContextRegistry:
 
 
 class ThreatIntel:
-    """Detection by an idividual threat intel engine (e.g. Kaspersky, Avast, Microsoft, etc.).
+    """Alert by an idividual threat intel engine (e.g. Kaspersky, Avast, Microsoft, etc.).
        ! This class is not a stand-alone context. !
        Use it in ContextThreatIntel context to store multiple threat intel engines.
 
     Attributes:
-        engine (str): The name of the detection engine
-        is_known (bool): If the indicator is known by the detection engine
-        is_hit (bool): If the detection engine hit on the indicator
+        engine (str): The name of the alert engine
+        is_known (bool): If the indicator is known by the alert engine
+        is_hit (bool): If the alert engine hit on the indicator
         hit_type (str): The type of the hit (e.g. malicious, suspicious, etc.)
         threat_name (str): The name of the threat (if available)
-        confidence (int): The confidence of the detection engine (if available)
-        engine_version (str): The version of the detection engine
-        engine_update (datetime): The last update of the detection engine
-        method (str): The method of the detection engine (e.g. signature, heuristics, etc.)
+        confidence (int): The confidence of the alert engine (if available)
+        engine_version (str): The version of the alert engine
+        engine_update (datetime): The last update of the alert engine
+        method (str): The method of the alert engine (e.g. signature, heuristics, etc.)
         is_related_indicator (bool): If the the object is part of a related indicator or directly related to the indicator of the ContextThreatIntel object
         related_indicator_name (str): The name of the related indicator (if is_related_indicator is True)
     """
@@ -2163,8 +2163,8 @@ class ThreatIntel:
         confidence: int = "",
         engine_version: str = "",
         engine_last_updated: datetime = None,
-        detection_last_seen: datetime.datetime = None,
-        detection_last_update: datetime.datetime = None,
+        alert_last_seen: datetime.datetime = None,
+        alert_last_update: datetime.datetime = None,
         method: str = "",
         is_related_indicator: bool = False,
         related_indicator_name: str = "",
@@ -2192,8 +2192,8 @@ class ThreatIntel:
         self.engine = engine
         self.engine_version = engine_version
         self.engine_update = engine_last_updated
-        self.detection_last_seen = detection_last_seen
-        self.detection_last_update = detection_last_update
+        self.alert_last_seen = alert_last_seen
+        self.alert_last_update = alert_last_update
         self.method = method
         self.is_related_indicator = is_related_indicator
         self.related_indicator_name = related_indicator_name
@@ -2211,8 +2211,8 @@ class ThreatIntel:
             "confidence": self.confidence,
             "engine_version": self.engine_version,
             "engine_update": str(self.engine_update),
-            "detection_last_seen": str(self.detection_last_seen),
-            "detection_last_update": str(self.detection_last_update),
+            "alert_last_seen": str(self.alert_last_seen),
+            "alert_last_update": str(self.alert_last_update),
             "method": self.method,
         }
         return _dict
@@ -2462,7 +2462,7 @@ def __str__(self):
 
 
 class ContextThreatIntel:
-    """DetectionThreatIntel class. This class is used for storing threat intel (e.g. VirusTotal, AlienVault OTX, etc.).
+    """AlertThreatIntel class. This class is used for storing threat intel (e.g. VirusTotal, AlienVault OTX, etc.).
     The risk score can generally be calculated as score_hit / score_known.
 
     Attributes:
@@ -2470,15 +2470,15 @@ class ContextThreatIntel:
         indicator(socket.intet_aton | HTTP | DNSQuery | ContextProcess ) The indicator
         source (str): The integration source of the indicator
         timestamp (datetime): The timestamp of the lookup
-        threat_intel_detections (List[ThreatIntel]): The threat intel detections of the indicator
+        threat_intel_alerts (List[ThreatIntel]): The threat intel alerts of the indicator
         score_hit (int): The hits on the particular indicator
         score_total (int): The total number of engines that were queried
         score_hit_sus (int): The number of suspicious hits on the indicator
         score_hit_mal (int): The number of malicious hits on the indicator
         score_known (int): The number of engines that know the indicator
         score_unknown (int): The number of engines that don't know the indicator
-        related_detection_uuid (uuid.UUID): The UUID of the related detection
-        detection_relevance (int): The relevance of the threat intel to the detection (0-100)
+        related_alert_uuid (uuid.UUID): The UUID of the related alert
+        alert_relevance (int): The relevance of the threat intel to the alert (0-100)
         tags (List[str]): The tags of the threat intel
         last_analyzed (datetime): The last time the indicator was analyzed
         AS_owner (str): The owner of the AS (if available)
@@ -2494,7 +2494,7 @@ class ContextThreatIntel:
         whois (Whois): The whois of the indicator (if available)
 
     Methods:
-        __init__(type, indicator, source, timestamp, threat_intel_detections, score_hit, score_total): Initializes the ContextThreatIntel object
+        __init__(type, indicator, source, timestamp, threat_intel_alerts, score_hit, score_total): Initializes the ContextThreatIntel object
         __str__(self): Returns the ContextThreatIntel object as a string
     """
 
@@ -2504,16 +2504,16 @@ class ContextThreatIntel:
         indicator: Union[ipaddress.IPv4Address, ipaddress.IPv6Address, HTTP, DNSQuery, ContextFile, ContextProcess],
         source: str,
         timestamp: datetime.datetime,
-        threat_intel_detections: List[ThreatIntel],
+        threat_intel_alerts: List[ThreatIntel],
         score_hit: int = None,
         score_total: int = None,
         score_hit_sus: int = None,
         score_hit_mal: int = None,
         score_known: int = None,
         score_unknown: int = None,
-        related_detection_uuid: uuid.UUID = None,
+        related_alert_uuid: uuid.UUID = None,
         uuid: uuid.UUID = uuid.uuid4(),
-        detection_relevance: int = 50,
+        alert_relevance: int = 50,
         tags: List[str] = [],
         last_analyzed: datetime.datetime = None,
         AS_owner: str = None,
@@ -2538,7 +2538,7 @@ class ContextThreatIntel:
         self.indicator = indicator
         self.source = source
         self.timestamp = timestamp
-        self.threat_intel_detections = threat_intel_detections
+        self.threat_intel_alerts = threat_intel_alerts
 
         if score_hit is not None and score_total is not None and score_hit_sus is not None and score_hit_mal is not None:
             if score_total < 0:
@@ -2550,8 +2550,8 @@ class ContextThreatIntel:
             self.score_hit = score_hit
             self.score_total = score_total
         else:
-            # Calculate implicit score using threat_intel_detections
-            self.score_total = len(threat_intel_detections)
+            # Calculate implicit score using threat_intel_alerts
+            self.score_total = len(threat_intel_alerts)
             self.score_hit = 0
             if score_hit_sus is None:
                 calc_sus = True
@@ -2560,12 +2560,12 @@ class ContextThreatIntel:
                 calc_mal = True
                 self.score_hit_mal = 0
 
-            for detection in threat_intel_detections:
-                if detection.is_hit:
+            for alert in threat_intel_alerts:
+                if alert.is_hit:
                     self.score_hit += 1
-                    if detection.hit_type == "suspicious" and calc_sus:
+                    if alert.hit_type == "suspicious" and calc_sus:
                         self.score_hit_sus = self.score_hit_sus + 1
-                    if detection.hit_type == "malicious" and calc_mal:
+                    if alert.hit_type == "malicious" and calc_mal:
                         self.score_hit_mal = self.score_hit_mal + 1
 
         if score_hit_sus is not None:
@@ -2590,8 +2590,8 @@ class ContextThreatIntel:
             self.score_known = score_known
         else:
             self.score_known = 0
-            for detection in threat_intel_detections:
-                if detection.is_known:
+            for alert in threat_intel_alerts:
+                if alert.is_known:
                     self.score_known += 1
 
         if score_unknown is not None:
@@ -2615,9 +2615,9 @@ class ContextThreatIntel:
             else:
                 self.score_unknown = self.score_total - self.score_known
 
-        self.related_detection_uuid = related_detection_uuid
+        self.related_alert_uuid = related_alert_uuid
         self.uuid = uuid
-        self.detection_relevance = handle_percentage(detection_relevance)
+        self.alert_relevance = handle_percentage(alert_relevance)
         self.tags = tags
         self.last_analyzed = last_analyzed
         self.AS_owner = AS_owner
@@ -2646,15 +2646,15 @@ class ContextThreatIntel:
             "indicator": self.indicator,
             "source": self.source,
             "timestamp": self.timestamp,
-            "threat_intel_detections": self.threat_intel_detections,
+            "threat_intel_alerts": self.threat_intel_alerts,
             "score_hit": self.score_hit,
             "score_total": self.score_total,
             "score_hit_sus": self.score_hit_sus,
             "score_hit_mal": self.score_hit_mal,
             "score_known": self.score_known,
             "score_unknown": self.score_unknown,
-            "related_detection_uuid": self.related_detection_uuid,
-            "detection_relevance": self.detection_relevance,
+            "related_alert_uuid": self.related_alert_uuid,
+            "alert_relevance": self.alert_relevance,
             "tags": self.tags,
             "last_analyzed": self.last_analyzed,
             "AS_owner": self.AS_owner,
@@ -2676,35 +2676,35 @@ class ContextThreatIntel:
         return json.dumps(clean_dict, indent=4, sort_keys=False, default=str)
 
 
-class Detection:
-    """Detection class. This class is used for storing detections.
+class Alert:
+    """Alert class. This class is used for storing alerts.
 
     Attributes:
-        vendor_id (str): The vendor specific ID of the detection, note that for unique identification, the 'uuid' of the detection is used
-        name (str): The name of the detection
-        rules (List[Rule]): The rules that triggered the detection
-        timestamp (datetime): The timestamp of the detection
-        description (str): The description of the detection
-        tags (List[str]): The tags of the detection
-        raw (str): The raw detection
-        host_name (str): The source host of the detection
-        host_ip (ipaddress.IPV4Address): The IP of the host of the detection
-        severity (int): The severity of the detection
-        log (ContextLog): The log object of the detection if applicable
-        process (Process): The process related to the detection
-        flow (ContextFlow): The flow related to the detection (source and destination IP and port etc.)
-        threat_intel (ContextThreatIntel): The threat intel directly related to the detection
-        location (Location): The location of the detection (e.g. country)
-        device (Device): The device that triggered the detection
-        user (Person): The user that triggered the detection
-        file (File): A file related to the detection
-        http_request (HTTP): A HTTP request related to the detection
-        dns_request (DNS): A DNS request related to the detection
-        certificate (Certificate): A certificate related to the detection
-        registry (Registry): A registry related to the detection
+        vendor_id (str): The vendor specific ID of the alert, note that for unique identification, the 'uuid' of the alert is used
+        name (str): The name of the alert
+        rules (List[Rule]): The rules that triggered the alert
+        timestamp (datetime): The timestamp of the alert
+        description (str): The description of the alert
+        tags (List[str]): The tags of the alert
+        raw (str): The raw alert
+        host_name (str): The source host of the alert
+        host_ip (ipaddress.IPV4Address): The IP of the host of the alert
+        severity (int): The severity of the alert
+        log (ContextLog): The log object of the alert if applicable
+        process (Process): The process related to the alert
+        flow (ContextFlow): The flow related to the alert (source and destination IP and port etc.)
+        threat_intel (ContextThreatIntel): The threat intel directly related to the alert
+        location (Location): The location of the alert (e.g. country)
+        device (Device): The device that triggered the alert
+        user (Person): The user that triggered the alert
+        file (File): A file related to the alert
+        http_request (HTTP): A HTTP request related to the alert
+        dns_request (DNS): A DNS request related to the alert
+        certificate (Certificate): A certificate related to the alert
+        registry (Registry): A registry related to the alert
         log_source (str): The source of the log (e.g. Windows Event Log, Sysmon, etc.)
-        url (str): The URL of the detection
-        uuid (str): The universal unique ID of the detection (UUID v4 - random if not set)
+        url (str): The URL of the alert
+        uuid (str): The universal unique ID of the alert (UUID v4 - random if not set)
 
     Methods:
         __init__(self, id: str, name: str, rules: List[Rule], description: str = None, tags: List[str] = None, raw: str = None, timestamp: datetime = None, source: str = None, source_ip: socket.inet_aton = None, source_port: int = None, destination: str = None, destination_ip: datetime = None, destination_port: int = None, protocol: str = None, severity: int = None, process: ContextProcess = None)
@@ -2938,6 +2938,17 @@ class Detection:
         """Returns the string representation of the object."""
         return json.dumps(del_none_from_dict(self.__dict__()), indent=4, sort_keys=False, default=str)
 
+    def get_host(self):
+        """Returns the host of the alert."""
+        host = self.device.name
+        if not host:
+            host = self.device.local_ip
+            if not host:
+                host = self.device.uuid
+                if not host:
+                    host = "unknown"
+        return host
+
     def get_context_by_uuid(self, uuid):
         """Returns the context object by uuid.
 
@@ -2985,7 +2996,7 @@ class Detection:
         from lib.generic_helper import get_from_cache
 
         mlog = logging_helper.Log("lib.class_helper")
-        detection = self
+        alert = self
 
         wl_ips = get_from_cache("global_whitelist_ips", "LIST")
         wl_ips = wl_ips if wl_ips is not None else []
@@ -2993,7 +3004,7 @@ class Detection:
         wl_ips = [ip for ip in wl_ips if ip != ""]  # Remove empty entries
         mlog.debug(f"Found {len(wl_ips)} IPs in global whitelist.")
 
-        for ip in detection.indicators["ip"]:
+        for ip in alert.indicators["ip"]:
             if ip in wl_ips:
                 mlog.info(f"IP '{ip}' is whitelisted.")
                 return True
@@ -3004,7 +3015,7 @@ class Detection:
         wl_domains = [domain for domain in wl_domains if domain != ""]  # Remove empty entries
         mlog.debug(f"Found {len(wl_domains)} domains in global whitelist.")
 
-        for domain in detection.indicators["domain"]:
+        for domain in alert.indicators["domain"]:
             if domain in wl_domains:
                 mlog.info(f"Domain '{domain}' is whitelisted.")
                 return True
@@ -3015,7 +3026,7 @@ class Detection:
         wl_hashes = [hash_ for hash_ in wl_hashes if hash_ != ""]  # Remove empty entries
         mlog.debug(f"Found {len(wl_hashes)} hashes in global whitelist.")
 
-        for hash_ in detection.indicators["hash"]:
+        for hash_ in alert.indicators["hash"]:
             if hash_ in wl_hashes:
                 mlog.info(f"Hash '{hash_}' is whitelisted.")
                 return True
@@ -3026,7 +3037,7 @@ class Detection:
         wl_urls = [url for url in wl_urls if url != ""]  # Remove empty entries
         mlog.debug(f"Found {len(wl_urls)} URLs in global whitelist.")
 
-        for url in detection.indicators["url"]:
+        for url in alert.indicators["url"]:
             if url in wl_urls:
                 mlog.info(f"URL '{url}' is whitelisted.")
                 return True
@@ -3037,17 +3048,17 @@ class Detection:
         wl_emails = [email for email in wl_emails if email != ""]  # Remove empty entries
         mlog.debug(f"Found {len(wl_emails)} emails in global whitelist.")
 
-        for email in detection.indicators["email"]:
+        for email in alert.indicators["email"]:
             if email in wl_emails:
                 mlog.info(f"Email '{email}' is whitelisted.")
                 return True
 
-        mlog.debug("Detection is not whitelisted in the global whitelist.")
+        mlog.debug("Alert is not whitelisted in the global whitelist.")
         return False
 
 
 class AuditLog:
-    """The "AuditLog" class serves as a centralized mechanism to capture and document the actions performed by ISOAR, particularly by its "Playbooks," that impact the detection cases.
+    """The "AuditLog" class serves as a centralized mechanism to capture and document the actions performed by ISOAR, particularly by its "Playbooks," that impact the alert cases.
        Generally a planned action is declared first as a new AuditLog, pushed to the audit trail, and then executed. The relevant AuditLog is then updated with the result of the action.
 
     Args:
@@ -3198,10 +3209,10 @@ class AuditLog:
 
 
 class CaseFile:
-    """CaseFile class. This class is used for storing one or multiple detections in an unified case object.
+    """CaseFile class. This class is used for storing one or multiple alerts in an unified case object.
 
     Attributes:
-        detections (List[Detection]): The detections of the case
+        alerts (List[Alert]): The alerts of the case
         playbooks (List[str]): The playbooks of the case
         action (str): The action of the case
         action_result (bool): The action result of the case
@@ -3222,16 +3233,16 @@ class CaseFile:
 
 
     Methods:
-        __init__(self, detections: List[Detection], uuid: uuid.UUID = uuid.uuid4()): Initializes the CaseFile object.
+        __init__(self, alerts: List[Alert], uuid: uuid.UUID = uuid.uuid4()): Initializes the CaseFile object.
         __str__(self): Returns the string representation of the object.
         add_context_log(self, context: Union[ContextLog, ContextProcess, ContextFlow, ContextThreatIntel, Location, Device, Person, ContextFile]): Adds a context to the case.
         get_context_by_uuid(self, uuid: str, filterType: type (optional)): Returns the context by the given uuid.
     """
 
-    def __init__(self, detections: list, uuid: uuid.UUID = uuid.uuid4()):
-        self.detections = detections
-        if type(detections) != list:
-            self.detections = [detections]
+    def __init__(self, alerts: list, uuid: uuid.UUID = uuid.uuid4()):
+        self.alerts = alerts
+        if type(alerts) != list:
+            self.alerts = [alerts]
 
         self.procedure_step = (
             "initial"  # One of "initial", "gather_information", "analyze", "containment", "eradication", "closure"
@@ -3289,7 +3300,7 @@ class CaseFile:
     def __dict__(self):
         """Returns the object as a dictionary."""
         dict_ = {
-            "detections": self.detections,
+            "alerts": self.alerts,
             "handled_by_playbooks": self.handled_by_playbooks,
             "action": self.action,
             "iris_case_number": self.get_iris_case_number() if self.iris_case else None,
@@ -3335,7 +3346,7 @@ class CaseFile:
             dict,
         ],
     ):
-        """Adds a context to the detection case, respecting the timeline
+        """Adds a context to the alert case, respecting the timeline
 
         Args:
             context (Union[ContextLog, ContextProcess, ContextFlow, ContextThreatIntel, Location, Device, Person, ContextFile, HTTP, DNSQuery, Certificate, dict]): The context to add (dict menas IRIS Case object)
@@ -3572,7 +3583,7 @@ class CaseFile:
     def update_audit(self, audit: AuditLog, logger=None):
         """Adds or updates the given audit element to the audit_trail of the case.
            It will also update apropiate fields of the case if the playbook was executed successfully or has failed.
-           Also the audit will be added to "audit.log" file (sorted by detection uuid).
+           Also the audit will be added to "audit.log" file (sorted by alert uuid).
 
         Args:
             audit (auditElement): The audit element
@@ -3591,9 +3602,7 @@ class CaseFile:
 
         if audit.result_data is None:
             audit.result_data = {}
-        audit.result_data["detection_name"] = self.detections[
-            0
-        ].name  # Add detection name to result data for better overview in log entries
+        audit.result_data["alert_name"] = self.alerts[0].name  # Add alert name to result data for better overview in log entries
 
         for h in self.audit_trail:
             if h.playbook == audit.playbook and h.stage == audit.stage:
@@ -3608,14 +3617,14 @@ class CaseFile:
         """Returns the title of the case."""
         rules = []
         try:
-            for detection in self.detections:
-                for rule in detection.rules:
+            for alert in self.alerts:
+                for rule in alert.rules:
                     rules.append(rule.name)
             if len(rules) > 0:
                 return rules[0]
         except:
             pass
-        return self.detections[0].name
+        return self.alerts[0].name
 
     def get_iris_case_number(self):
         """Returns theiris-casenumber of the case."""

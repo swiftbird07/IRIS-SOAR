@@ -13,10 +13,10 @@ import matrix_client.api as matrix_client_api
 import traceback
 
 
-def zs_notify(config: dict, message: str, allow_multiple: bool = False) -> bool:
+def irsoar_notify(config: dict, message: str, allow_multiple: bool = False) -> bool:
     """
     This function is used to send notifications to Matrix.
-    :param case_file: The detection case object.
+    :param case_file: The alert case object.
     :param config: The configuration object.
     :param message: The message to send.
     :param allow_multiple: If multiple notifications with the same message should be allowed (default: False)
@@ -29,7 +29,7 @@ def zs_notify(config: dict, message: str, allow_multiple: bool = False) -> bool:
         log_level_stdout=config["logging"]["log_level_stdout"],
     )
 
-    mlog.info("zs_notify called with message to send: '" + message + "'")
+    mlog.info("irsoar_notify called with message to send: '" + message + "'")
 
     # First check if a similar notification was already sent by looking at the cache of sent notifications
     mlog.debug("Checking if notification was already sent...")

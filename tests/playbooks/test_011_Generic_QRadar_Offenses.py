@@ -4,10 +4,10 @@
 # ! Be aware that this has to be an online test
 import datetime
 
-from playbooks.PB_011_Generic_QRadar_Offenses import zs_can_handle_detection, zs_handle_detection
-from lib.class_helper import CaseFile, Detection, Rule
+from case_playbooks.PB_011_Generic_QRadar_Offenses import irsoar_can_handle_alert, irsoar_handle_alert
+from lib.class_helper import CaseFile, Alert, Rule
 
-detection = Detection(
+alert = Alert(
     "IBM QRadar",
     "QRadar Offense Test",
     [Rule("1438", "Test Rule")],
@@ -17,15 +17,15 @@ detection = Detection(
     host_name="test-host",
     uuid="1438",
 )
-case_file = CaseFile([detection])
+case_file = CaseFile([alert])
 
 
-def test_zs_can_handle_detection():
+def test_irsoar_can_handle_alert():
     # Test the function
-    can_handle = zs_can_handle_detection(case_file)
-    assert can_handle == True, "zs_can_handle_detection() should return True for this detection case"
+    can_handle = irsoar_can_handle_alert(case_file)
+    assert can_handle == True, "irsoar_can_handle_alert() should return True for this alert case"
 
 
-def test_zs_handle_detection():
-    zs_handle_detection(case_file, False)
-    assert True == True, "zs_handle_detection() should not raise an exception"
+def test_irsoar_handle_alert():
+    irsoar_handle_alert(case_file, False)
+    assert True == True, "irsoar_handle_alert() should not raise an exception"

@@ -3,7 +3,7 @@
 # This module is used to integrate IRIS-SOAR with VirusTotal Threat Intelligence.
 #
 # This module is capable of:
-# [X] Providing context for detections of type [ContextThreatIntel]
+# [X] Providing context for alerts of type [ContextThreatIntel]
 # [ ] User interactive setup.
 #
 # Integration Version: 0.0.1
@@ -22,7 +22,7 @@ import time
 
 import lib.logging_helper as logging_helper
 
-# For context for detections:
+# For context for alerts:
 from lib.class_helper import (
     CaseFile,
     ThreatIntel,
@@ -43,7 +43,7 @@ TIME_INTERVAL_QUEUED_SEARCH = 10  # The time interval in seconds after which the
 
 
 def handle_response(
-    response, cache, search_value, search_type, detection_id, mlog, wait_if_api_quota_exceeded, tries=0, response2=None
+    response, cache, search_value, search_type, alert_id, mlog, wait_if_api_quota_exceeded, tries=0, response2=None
 ):
     if cache or response.status_code == 200:
         if not cache:
@@ -141,7 +141,7 @@ def handle_response(
         if len(intel) > 0:
             mlog.info(f"VirusTotal API for {str(search_type)} '{search_value}' returned {len(intel)} context entries.")
             context = ContextThreatIntel(
-                search_type, search_value, "Virus Total API", datetime.datetime.now(), intel, related_detection_uuid=detection_id
+                search_type, search_value, "Virus Total API", datetime.datetime.now(), intel, related_alert_uuid=alert_id
             )
 
             # Add certificate information if available
@@ -153,7 +153,7 @@ def handle_response(
                 ):
                     cert_dict = response_json["data"]["attributes"]["last_https_certificate"]
                     cert = Certificate(
-                        related_detection_uuid=detection_id,
+                        related_alert_uuid=alert_id,
                         subject=dict_get(cert_dict, "subject.CN"),
                         issuer=dict_get(cert_dict, "issuer"),
                         issuer_common_name=dict_get(cert_dict, "issuer.CN"),
@@ -305,7 +305,7 @@ def handle_response(
         return None
 
 
-def zs_provide_context_for_detections(
+def irsoar_provide_context_for_alerts(
     config,
     case_file: CaseFile,
     required_type: type,
@@ -315,11 +315,11 @@ def zs_provide_context_for_detections(
     maxContext=50,
     wait_if_api_quota_exceeded=False,
 ) -> ContextThreatIntel:
-    """Returns a CaseFile object with context for the detections from the Virus Total integration.
+    """Returns a CaseFile object with context for the alerts from the Virus Total integration.
 
     Args:
         config (dict): The configuration dictionary for this integration
-        detection (CaseFile): The CaseFile object to add context to
+        alert (CaseFile): The CaseFile object to add context to
         required_type (type): The type of context to return. Can be one of the following:
             [ContextThreatIntel]
         TEST (bool, optional): If set to True, the function will return a test object. Defaults to False.
@@ -329,7 +329,7 @@ def zs_provide_context_for_detections(
         maxContext (int, optional): The maximum number of context entries to return. Defaults to 50.
 
     Returns:
-        ContextThreatIntel: A ContextThreatIntel object with context for the detections
+        ContextThreatIntel: A ContextThreatIntel object with context for the alerts
     """
     # Check if integration is enabled
     if config["enabled"] == False:
@@ -358,11 +358,11 @@ def zs_provide_context_for_detections(
         mlog.log_critical(f"Search value is not set.")
         raise ValueError(f"Search value is not set.")
 
-    detection_name = case_file.detections[0].name
-    detection_id = case_file.detections[0].uuid
+    alert_name = case_file.alerts[0].name
+    alert_id = case_file.alerts[0].uuid
 
     mlog.info(
-        f"Providing context for detection '{detection_name}' with ID '{detection_id}'. Search indicator type is '{search_type}' and searched value is '{search_value}'."
+        f"Providing context for alert '{alert_name}' with ID '{alert_id}'. Search indicator type is '{search_type}' and searched value is '{search_value}'."
     )
     # Get the context from VirusTotal
     cache = get_from_cache("virus_total", str(search_type), str(search_value))
@@ -455,5 +455,5 @@ def zs_provide_context_for_detections(
             response2 = requests.request("GET", url2, headers=headers, verify=verify_certs, params=params, timeout=10)
 
     return handle_response(
-        response, cache, search_value, search_type, detection_id, mlog, wait_if_api_quota_exceeded, response2=response2
+        response, cache, search_value, search_type, alert_id, mlog, wait_if_api_quota_exceeded, response2=response2
     )

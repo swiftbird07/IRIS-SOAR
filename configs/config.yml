@@ -10,7 +10,7 @@ daemon:
   interval_min: 1
 integrations:
   dfir-iris:
-    api_key: $ZS_INT_IRIS_API_KEY
+    api_key: $IRSOAR_IRIS_API_KEY
     logging:
       log_level_file: info
       log_level_stdout: warning
@@ -19,14 +19,14 @@ integrations:
       default_priority: 3 normal
       default_type: Security Alert
       enabled: true
-      target_queue: ISOAR Detections::Tests
-      target_queue_escalation: ISOAR Detections::Tests
+      target_queue: ISOAR Alerts::Tests
+      target_queue_escalation: ISOAR Alerts::Tests
     url: https://iris.pve.lan
     verify_certs: false
     version: 2.0.1
     webservice_name: ALERTELAST_API
   elastic_siem:
-    elastic_password: $ZS_INT_ELASTIC_PW
+    elastic_password: $IRSOAR_ELASTIC_PW
     elastic_url: https://10.20.1.28:9200
     elastic_user: zsoar
     elastic_verify_certs: false
@@ -41,7 +41,7 @@ integrations:
       log_level_file: debug
       log_level_stdout: debug
       log_level_syslog: error
-    qradar_api_key: $ZS_INT_QRADAR_API_KEY
+    qradar_api_key: $IRSOAR_QRADAR_API_KEY
     qradar_url: https://10.20.1.1
     qradar_verify_certs: false
   matrix_notify:
@@ -50,13 +50,13 @@ integrations:
       log_level_file: info
       log_level_stdout: warning
       log_level_syslog: error
-    matrix_access_token: $ZS_INT_MATRIX_ACCESS_TOKEN
+    matrix_access_token: $IRSOAR_MATRIX_ACCESS_TOKEN
     matrix_enabled: true
-    matrix_server: $ZS_INT_MATRIX_SERVER_URL
-    matrix_room_id: $ZS_INT_MATRIX_ROOM_ID
+    matrix_server: $IRSOAR_MATRIX_SERVER_URL
+    matrix_room_id: $IRSOAR_MATRIX_ROOM_ID
     matrix_verify_certs: true
   virus_total:
-    api_key: $ZS_INT_VIRUSTOTAL_API_KEY
+    api_key: $IRSOAR_VIRUSTOTAL_API_KEY
     enabled: true
     logging:
       log_level_file: info

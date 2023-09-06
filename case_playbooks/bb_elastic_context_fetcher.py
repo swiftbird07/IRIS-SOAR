@@ -2,10 +2,10 @@
 # Created by: Martin Offermann
 #
 # This is a building block used by IRIS-SOAR Playbooks
-# It is used to provide all available Elastic SIEM contexts for a given detection
+# It is used to provide all available Elastic SIEM contexts for a given alert
 # This building block is itself dependent on the building block "BB_Elastic_Process_Context".
 #
-# Acceptable Detections:
+# Acceptable Alerts:
 #  - Any
 #
 # Gathered Context:
@@ -22,8 +22,8 @@ BB_ENABLED = True
 
 import traceback
 
-from lib.class_helper import Detection, CaseFile, Rule, ContextProcess, ContextLog, ContextFlow, ContextFile, AuditLog
-from playbooks.bb_elastic_process_context import (
+from lib.class_helper import Alert, CaseFile, Rule, ContextProcess, ContextLog, ContextFlow, ContextFile, AuditLog
+from case_playbooks.bb_elastic_process_context import (
     bb_get_all_parents,
     bb_get_all_children,
     bb_make_process_tree_visualisation,
@@ -33,14 +33,14 @@ from playbooks.bb_elastic_process_context import (
 )
 
 
-def bb_get_context_process_parents(playbook_name, playbook_step, mlog, case_file: CaseFile, detection: Detection):
+def bb_get_context_process_parents(playbook_name, playbook_step, mlog, case_file: CaseFile, alert: Alert):
     """Get the parents of a process.
 
     Arguments:
         PB_NAME {str} -- The name of the playbook.
         mlog {Logger} -- The playbook's logger.
-        case_file {CaseFile} -- The detection case.
-        detection {Detection} -- The detection.
+        case_file {CaseFile} -- The alert case.
+        alert {Alert} -- The alert.
 
     Returns:
         list -- A list of ContextProcess objects.
@@ -51,37 +51,35 @@ def bb_get_context_process_parents(playbook_name, playbook_step, mlog, case_file
     case_file.update_audit(current_sub_action, logger=mlog)
     parents = []
     try:
-        parents = bb_get_all_parents(case_file, detection.process)  #
+        parents = bb_get_all_parents(case_file, alert.process)  #
     except Exception as e:
-        mlog.error(
-            f"Failed to get parents for detection: '{detection.name}' ({detection.uuid}). Exception: {traceback.format_exc()}"
-        )
+        mlog.error(f"Failed to get parents for alert: '{alert.name}' ({alert.uuid}). Exception: {traceback.format_exc()}")
         case_file.update_audit(
-            current_sub_action.set_error(message=f"Failed to get parents for detection.", exception=e), logger=mlog
+            current_sub_action.set_error(message=f"Failed to get parents for alert.", exception=e), logger=mlog
         )
 
     if parents is None:
-        mlog.warning(f"Got no parents for detection.")
-        case_file.update_audit(current_sub_action.set_warning(warning_message=f"Found no parents for detection."), logger=mlog)
+        mlog.warning(f"Got no parents for alert.")
+        case_file.update_audit(current_sub_action.set_warning(warning_message=f"Found no parents for alert."), logger=mlog)
     else:
         process_names = []
         for process in parents:
             process_names.append(f"{process.process_name} ({process.process_id})")
         case_file.update_audit(
-            current_sub_action.set_successful(message=f"Found {len(parents)} parents for detection.", data=process_names),
+            current_sub_action.set_successful(message=f"Found {len(parents)} parents for alert.", data=process_names),
             logger=mlog,
         )
     return parents
 
 
-def bb_get_context_process_children(playbook_name, playbook_step, mlog, case_file: CaseFile, detection: Detection):
+def bb_get_context_process_children(playbook_name, playbook_step, mlog, case_file: CaseFile, alert: Alert):
     """Get the children of a process.
 
     Arguments:
         PB_NAME {str} -- The name of the playbook.
         mlog {Logger} -- The playbook's logger.
-        case_file {CaseFile} -- The detection case.
-        detection {Detection} -- The detection.
+        case_file {CaseFile} -- The alert case.
+        alert {Alert} -- The alert.
 
     Returns:
         list -- A list of ContextProcess objects.
@@ -92,26 +90,24 @@ def bb_get_context_process_children(playbook_name, playbook_step, mlog, case_fil
         playbook_name, playbook_step, "Context - Get Children", "Gathering Children Process Context from Elastic."
     )
     try:
-        children, thrown_count = bb_get_all_children(case_file, detection.process)
+        children, thrown_count = bb_get_all_children(case_file, alert.process)
     except Exception as e:
-        mlog.error(
-            f"Failed to get children for detection: '{detection.name}' ({detection.uuid}). Exception: {traceback.format_exc()}"
-        )
+        mlog.error(f"Failed to get children for alert: '{alert.name}' ({alert.uuid}). Exception: {traceback.format_exc()}")
         case_file.update_audit(
-            current_sub_action.set_error(message=f"Failed to get children for detection.", exception=e), logger=mlog
+            current_sub_action.set_error(message=f"Failed to get children for alert.", exception=e), logger=mlog
         )
 
     if children is None:
-        mlog.warning(f"Got no children for detection.")
-        case_file.update_audit(current_sub_action.set_warning(warning_message=f"Found no children for detection."), logger=mlog)
+        mlog.warning(f"Got no children for alert.")
+        case_file.update_audit(current_sub_action.set_warning(warning_message=f"Found no children for alert."), logger=mlog)
     else:
         if thrown_count > 0:
             mlog.warning(
-                f"[OVERFLOW PROTECTION] Got {len(children)} children for detection, but {thrown_count} children were thrown due to overflow protection."
+                f"[OVERFLOW PROTECTION] Got {len(children)} children for alert, but {thrown_count} children were thrown due to overflow protection."
             )
             case_file.update_audit(
                 current_sub_action.set_warning(
-                    warning_message=f"[OVERFLOW PROTECTION] Found {len(children)} children for detection, but {thrown_count} children were thrown due to overflow protection."
+                    warning_message=f"[OVERFLOW PROTECTION] Found {len(children)} children for alert, but {thrown_count} children were thrown due to overflow protection."
                 ),
                 logger=mlog,
             )
@@ -120,7 +116,7 @@ def bb_get_context_process_children(playbook_name, playbook_step, mlog, case_fil
         for process in children:
             process_names.append(f"{process.process_name}")
         case_file.update_audit(
-            current_sub_action.set_successful(message=f"Found {len(children)} children for detection.", data=process_names),
+            current_sub_action.set_successful(message=f"Found {len(children)} children for alert.", data=process_names),
             logger=mlog,
         )
     return children
@@ -131,7 +127,7 @@ def bb_get_context_process_tree_visualisation(
     playbook_step,
     mlog,
     case_file: CaseFile,
-    detection: Detection,
+    alert: Alert,
     parents: list,
     children: list,
     current_action: AuditLog,
@@ -141,8 +137,8 @@ def bb_get_context_process_tree_visualisation(
     Arguments:
         PB_NAME {str} -- The name of the playbook.
         mlog {Logger} -- The playbook's logger.
-        case_file {CaseFile} -- The detection case.
-        detection {Detection} -- The detection.
+        case_file {CaseFile} -- The alert case.
+        alert {Alert} -- The alert.
         parents {list} -- A list of ContextProcess objects.
         children {list} -- A list of ContextProcess objects.
         current_action {AuditLog} -- The current action AuditLog object.
@@ -154,45 +150,43 @@ def bb_get_context_process_tree_visualisation(
     if len(parents) > 0 or len(children) > 0:
         current_sub_action = AuditLog(playbook_name, playbook_step, "Context - Process Tree", "Gathering Process Tree from BB.")
         try:
-            process_tree = bb_make_process_tree_visualisation(detection.process, parents, children)
+            process_tree = bb_make_process_tree_visualisation(alert.process, parents, children)
         except Exception as e:
             mlog.error(
-                f"Failed to create process tree visualisation for detection: '{detection.name}' ({detection.uuid}). Exception: {traceback.format_exc()}"
+                f"Failed to create process tree visualisation for alert: '{alert.name}' ({alert.uuid}). Exception: {traceback.format_exc()}"
             )
             case_file.update_audit(
-                current_sub_action.set_error(message=f"Failed to create process tree visualisation for detection.", exception=e),
+                current_sub_action.set_error(message=f"Failed to create process tree visualisation for alert.", exception=e),
                 logger=mlog,
             )
         if process_tree == "":
-            mlog.warning(f"Failed to get process tree visualisation for detection.")
+            mlog.warning(f"Failed to get process tree visualisation for alert.")
             case_file.update_audit(
                 current_sub_action.set_warning(
-                    warning_message=f"Failed to get process tree visualisation for detection (empty response)."
+                    warning_message=f"Failed to get process tree visualisation for alert (empty response)."
                 ),
                 logger=mlog,
             )
         else:
             case_file.update_audit(
                 current_sub_action.set_successful(
-                    message=f"Successfully created process tree visualisation for detection.", data=process_tree
+                    message=f"Successfully created process tree visualisation for alert.", data=process_tree
                 ),
                 logger=mlog,
             )
     else:
-        case_file.update_audit(
-            current_action.set_warning(warning_message=f"Found no context processes for detection."), logger=mlog
-        )
+        case_file.update_audit(current_action.set_warning(warning_message=f"Found no context processes for alert."), logger=mlog)
     return process_tree
 
 
-def bb_get_context_process_network_flows(playbook_name, playbook_step, mlog, case_file: CaseFile, detection: Detection):
+def bb_get_context_process_network_flows(playbook_name, playbook_step, mlog, case_file: CaseFile, alert: Alert):
     """Get the network flows of a process.
 
     Arguments:
         PB_NAME {str} -- The name of the playbook.
         mlog {Logger} -- The playbook's logger.
-        case_file {CaseFile} -- The detection case.
-        detection {Detection} -- The detection.
+        case_file {CaseFile} -- The alert case.
+        alert {Alert} -- The alert.
 
     Returns:
         list -- A list of ContextFlow objects related to the detected process.
@@ -210,14 +204,14 @@ def bb_get_context_process_network_flows(playbook_name, playbook_step, mlog, cas
         )
         case_file.update_audit(current_action, logger=mlog)
 
-        if detection.process:
-            detected_process_flows, thrown_count = bb_get_process_network_flows(case_file, detection.process)
+        if alert.process:
+            detected_process_flows, thrown_count = bb_get_process_network_flows(case_file, alert.process)
 
-        if detection.flow:
-            detected_process_flows.append(detection.flow)
+        if alert.flow:
+            detected_process_flows.append(alert.flow)
 
         if len(detected_process_flows) == 0:
-            mlog.warning(f"Got no network flows for detection.")
+            mlog.warning(f"Got no network flows for alert.")
             case_file.update_audit(
                 current_action.set_warning(warning_message=f"Found no network flows for detected process."), logger=mlog
             )
@@ -243,11 +237,9 @@ def bb_get_context_process_network_flows(playbook_name, playbook_step, mlog, cas
                 )
 
     except Exception as e:
-        mlog.error(
-            f"Failed to get network flows for detection: '{detection.name}' ({detection.uuid}). Exception: {traceback.format_exc()}"
-        )
+        mlog.error(f"Failed to get network flows for alert: '{alert.name}' ({alert.uuid}). Exception: {traceback.format_exc()}")
         case_file.update_audit(
-            current_action.set_error(message=f"Failed to get network flows for detection.", exception=traceback.format_exc()),
+            current_action.set_error(message=f"Failed to get network flows for alert.", exception=traceback.format_exc()),
             logger=mlog,
         )
 
@@ -290,34 +282,30 @@ def bb_get_context_process_network_flows(playbook_name, playbook_step, mlog, cas
 
             case_file.update_audit(
                 current_action.set_successful(
-                    message=f"Found {len(context_process_flows)} network flows for other processes of detection.",
+                    message=f"Found {len(context_process_flows)} network flows for other processes of alert.",
                     data=destination_ips,
                 ),
                 logger=mlog,
             )
     except Exception as e:
-        mlog.error(
-            f"Failed to get network flows for detection: '{detection.name}' ({detection.uuid}). Exception: {traceback.format_exc()}"
-        )
+        mlog.error(f"Failed to get network flows for alert: '{alert.name}' ({alert.uuid}). Exception: {traceback.format_exc()}")
         case_file.update_audit(
-            current_action.set_error(message=f"Failed to get network flows for detection.", exception=traceback.format_exc()),
+            current_action.set_error(message=f"Failed to get network flows for alert.", exception=traceback.format_exc()),
             logger=mlog,
         )
 
-    case_file.update_audit(
-        current_action.set_successful(message=f"Successfully gathered needed context for detection."), logger=mlog
-    )
+    case_file.update_audit(current_action.set_successful(message=f"Successfully gathered needed context for alert."), logger=mlog)
     return detected_process_flows, context_process_flows
 
 
-def bb_get_context_process_file_events(playbook_name, playbook_step, mlog, case_file: CaseFile, detection: Detection):
+def bb_get_context_process_file_events(playbook_name, playbook_step, mlog, case_file: CaseFile, alert: Alert):
     """Get the file events of a process.
 
     Arguments:
         PB_NAME {str} -- The name of the playbook.
         mlog {Logger} -- The playbook's logger.
-        case_file {CaseFile} -- The detection case.
-        detection {Detection} -- The detection.
+        case_file {CaseFile} -- The alert case.
+        alert {Alert} -- The alert.
 
     Returns:
         list -- A list of ContextFlow objects related to the detected process.
@@ -332,14 +320,14 @@ def bb_get_context_process_file_events(playbook_name, playbook_step, mlog, case_
             playbook_name, playbook_step, "File Events - Alerted Process", "Gathering file events of alerted process from BB."
         )
         case_file.update_audit(current_action, logger=mlog)
-        if detection.process:
-            detected_process_file_events, thrown = bb_get_process_file_events(case_file, detection.process)
+        if alert.process:
+            detected_process_file_events, thrown = bb_get_process_file_events(case_file, alert.process)
 
-        if detection.file:
-            detected_process_file_events.append(detection.file)
+        if alert.file:
+            detected_process_file_events.append(alert.file)
 
         if len(detected_process_file_events) == 0:
-            mlog.warning(f"Got no file events for detection.")
+            mlog.warning(f"Got no file events for alert.")
             case_file.update_audit(
                 current_action.set_warning(warning_message=f"Found no file events for detected process."), logger=mlog
             )
@@ -354,11 +342,9 @@ def bb_get_context_process_file_events(playbook_name, playbook_step, mlog, case_
                 logger=mlog,
             )
     except Exception as e:
-        mlog.error(
-            f"Failed to get file events for detection: '{detection.name}' ({detection.uuid}). Exception: {traceback.format_exc()}"
-        )
+        mlog.error(f"Failed to get file events for alert: '{alert.name}' ({alert.uuid}). Exception: {traceback.format_exc()}")
         case_file.update_audit(
-            current_action.set_error(message=f"Failed to get file events for detection.", exception=e), logger=mlog
+            current_action.set_error(message=f"Failed to get file events for alert.", exception=e), logger=mlog
         )
 
     # Gather file events from other context processes
@@ -396,29 +382,27 @@ def bb_get_context_process_file_events(playbook_name, playbook_step, mlog, case_
                 file_names.append(event.file_name)
             case_file.update_audit(
                 current_action.set_successful(
-                    message=f"Found {len(context_processes_file_events)} file events for other processes of detection.",
+                    message=f"Found {len(context_processes_file_events)} file events for other processes of alert.",
                     data=file_names,
                 ),
                 logger=mlog,
             )
     except Exception as e:
-        mlog.error(
-            f"Failed to get file events for detection: '{detection.name}' ({detection.uuid}). Exception: {traceback.format_exc()}"
-        )
+        mlog.error(f"Failed to get file events for alert: '{alert.name}' ({alert.uuid}). Exception: {traceback.format_exc()}")
         case_file.update_audit(
-            current_action.set_error(message=f"Failed to get file events for detection.", exception=e), logger=mlog
+            current_action.set_error(message=f"Failed to get file events for alert.", exception=e), logger=mlog
         )
     return detected_process_file_events, context_processes_file_events, file_names
 
 
-def bb_get_context_process_registry_events(playbook_name, playbook_step, mlog, case_file: CaseFile, detection: Detection):
+def bb_get_context_process_registry_events(playbook_name, playbook_step, mlog, case_file: CaseFile, alert: Alert):
     """Get the registry events of a process.
 
     Arguments:
         PB_NAME {str} -- The name of the playbook.
         mlog {Logger} -- The playbook's logger.
-        case_file {CaseFile} -- The detection case.
-        detection {Detection} -- The detection.
+        case_file {CaseFile} -- The alert case.
+        alert {Alert} -- The alert.
 
     Returns:
         list -- A list of ContextFlow objects related to the detected process.
@@ -435,11 +419,11 @@ def bb_get_context_process_registry_events(playbook_name, playbook_step, mlog, c
             "Gathering registry events of detected process from BB.",
         )
         case_file.update_audit(current_action, logger=mlog)
-        if detection.process:
-            detected_process_registry_events, thrown = bb_get_process_registry_events(case_file, detection.process)
+        if alert.process:
+            detected_process_registry_events, thrown = bb_get_process_registry_events(case_file, alert.process)
 
-        if detection.registry:
-            detected_process_registry_events.append(detection.registry)
+        if alert.registry:
+            detected_process_registry_events.append(alert.registry)
 
         if len(detected_process_registry_events) == 0:
             mlog.warning(f"Got no registry events from detected process.")
@@ -459,11 +443,9 @@ def bb_get_context_process_registry_events(playbook_name, playbook_step, mlog, c
             )
 
     except Exception as e:
-        mlog.error(
-            f"Failed to get registry events for detection: '{detection.name}' ({detection.uuid}). Exception: {traceback.format_exc()}"
-        )
+        mlog.error(f"Failed to get registry events for alert: '{alert.name}' ({alert.uuid}). Exception: {traceback.format_exc()}")
         case_file.update_audit(
-            current_action.set_error(message=f"Failed to get registry events for detection.", exception=e), logger=mlog
+            current_action.set_error(message=f"Failed to get registry events for alert.", exception=e), logger=mlog
         )
 
     # Gatther registry events from other processes
@@ -492,17 +474,15 @@ def bb_get_context_process_registry_events(playbook_name, playbook_step, mlog, c
                 registry_keys.append(event.registry_key)
             case_file.update_audit(
                 current_action.set_successful(
-                    message=f"Found {len(context_processes_registry_events)} registry events for other processes of detection.",
+                    message=f"Found {len(context_processes_registry_events)} registry events for other processes of alert.",
                     data=registry_keys,
                 ),
                 logger=mlog,
             )
 
     except Exception as e:
-        mlog.error(
-            f"Failed to get registry events for detection: '{detection.name}' ({detection.uuid}). Exception: {traceback.format_exc()}"
-        )
+        mlog.error(f"Failed to get registry events for alert: '{alert.name}' ({alert.uuid}). Exception: {traceback.format_exc()}")
         case_file.update_audit(
-            current_action.set_error(message=f"Failed to get registry events for detection.", exception=e), logger=mlog
+            current_action.set_error(message=f"Failed to get registry events for alert.", exception=e), logger=mlog
         )
     return detected_process_registry_events, context_processes_registry_events, registry_keys

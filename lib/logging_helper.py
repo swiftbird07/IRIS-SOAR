@@ -150,12 +150,12 @@ class Log:
         self.logger.critical(message)
 
 
-def update_audit_log(detection_uuid, new_action, logger=None):
+def update_audit_log(alert_uuid, new_action, logger=None):
     """Updates the audit log file with the given audit_log.
        If an audit log with the same playbook and stage already exists, it will be overwritten.
 
     Args:
-        detection_uuid (str): The detection uuid
+        alert_uuid (str): The alert uuid
         audit_log (dict): The audit log
         logger (Log): The logger object (optional) Set if the audit shall be logged to the normal log file as well
 
@@ -179,31 +179,31 @@ def update_audit_log(detection_uuid, new_action, logger=None):
             mlog.critical(f"Could not load audit log file at {path}. Error: {e}")
             return
 
-    # Get the audit log for given detection_uuid
+    # Get the audit log for given alert_uuid
     try:
-        al_detection = audit_log_file[str(detection_uuid)]
-        mlog.debug(f"Found audit log for detection_uuid {detection_uuid}: {al_detection}")
+        al_alert = audit_log_file[str(alert_uuid)]
+        mlog.debug(f"Found audit log for alert_uuid {alert_uuid}: {al_alert}")
     except KeyError:
-        mlog.info(f"Could not find audit log for detection_uuid {detection_uuid}. Creating a new one.")
-        al_detection = []
+        mlog.info(f"Could not find audit log for alert_uuid {alert_uuid}. Creating a new one.")
+        al_alert = []
 
     # Update the audit log but check if playbook and stage already exists
     is_update = False
-    if al_detection != []:
-        for element in al_detection:
+    if al_alert != []:
+        for element in al_alert:
             element_dict = json.loads(element)
             if element_dict["playbook"] == new_action.playbook and element_dict["stage"] == new_action.stage:
                 mlog.debug(
                     f"Found existing audit log for playbook {new_action.playbook} and stage {new_action.stage}. Overwriting it."
                 )
                 is_update = True
-                al_detection.remove(element)
+                al_alert.remove(element)
                 break
 
     # Add the new audit log
     str_new_action = str(new_action)
-    al_detection.append(str_new_action)
-    audit_log_file[str(detection_uuid)] = al_detection
+    al_alert.append(str_new_action)
+    audit_log_file[str(alert_uuid)] = al_alert
 
     # Save the audit log
     try:
@@ -216,13 +216,13 @@ def update_audit_log(detection_uuid, new_action, logger=None):
         if type(logger) is Log:
             if is_update:
                 if new_action.result_had_warnings:
-                    logger.warning(f"[AUDIT_UPDATE] Case File '{detection_uuid}' : {str_new_action}")
+                    logger.warning(f"[AUDIT_UPDATE] Case File '{alert_uuid}' : {str_new_action}")
                 elif new_action.result_had_errors:
-                    logger.error(f"[AUDIT_UPDATE] Case File '{detection_uuid}' : {str_new_action}")
+                    logger.error(f"[AUDIT_UPDATE] Case File '{alert_uuid}' : {str_new_action}")
                 else:
-                    logger.info(f"[AUDIT_UPDATE] Case File '{detection_uuid}' : {str_new_action}")  # TODO: Fix this not working
+                    logger.info(f"[AUDIT_UPDATE] Case File '{alert_uuid}' : {str_new_action}")  # TODO: Fix this not working
             else:
-                logger.info(f"[AUDIT] Case File '{detection_uuid}' : {str_new_action}")
+                logger.info(f"[AUDIT] Case File '{alert_uuid}' : {str_new_action}")
         else:
             mlog.error(f"Given logger object is not of type Log. Could not log to logger.")
     else:

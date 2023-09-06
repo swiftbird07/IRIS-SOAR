@@ -10,9 +10,9 @@ import datetime
 import json
 
 import lib.logging_helper as logging_helper
-from lib.class_helper import CaseFile, Detection, Rule, ContextProcess, ContextFlow
+from lib.class_helper import CaseFile, Alert, Rule, ContextProcess, ContextFlow
 from lib.config_helper import Config
-from playbooks.bb_elastic_process_context import (
+from case_playbooks.bb_elastic_process_context import (
     bb_get_all_processes_by_uuid,
     bb_get_all_children,
     bb_get_all_parents,
@@ -34,11 +34,11 @@ TEST_PROCESS_UID = "YjExNmM1NTYtNGNmMi00NTc5LWEwOGQtODU5OTIwMjVmMjNmLTE5MjQ2ODUt
 
 ruleList = []
 ruleList.append(rule)
-detection = Detection("456", "Some Detection", ruleList, datetime.datetime.now())
+alert = Alert("456", "Some Alert", ruleList, datetime.datetime.now())
 
-detectionList = []
-detectionList.append(detection)
-case_file = CaseFile(detectionList)
+alertList = []
+alertList.append(alert)
+case_file = CaseFile(alertList)
 assert (
     case_file != None
 ), "CaseFile class could not be initialized"  # Sanity check - should be already tested by test_isoar_lib.py -> test_class_helper()

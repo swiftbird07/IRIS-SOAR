@@ -3,7 +3,7 @@ IRIS-SOAR features
 
 IRIS-SOAR is currently still in early development. The following features are planned for the final release:
 
-- Get detections from various sources (called 'integrations') and
+- Get alerts from various sources (called 'integrations') and
   forward them to Znuny/OTRS
 
 - Provide context for iris-cases by getting information from various

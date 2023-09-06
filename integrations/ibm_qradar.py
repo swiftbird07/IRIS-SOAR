@@ -3,12 +3,12 @@
 # This module is used to integrate IRIS-SOAR with IBM QRadar.
 #
 # This module is capable of:
-# [ ] Providing new detections.
-# [ ] Providing context for detections of type [ContextFlow | ContextLog]
+# [ ] Providing new alerts.
+# [ ] Providing context for alerts of type [ContextFlow | ContextLog]
 # [ ] User interactive setup.
 #
 # Integration Version: 0.0.2
-# Currently limited to process related detections and contexts.
+# Currently limited to process related alerts and contexts.
 
 from typing import Union, List
 import datetime
@@ -31,12 +31,12 @@ import ipaddress
 
 import lib.logging_helper as logging_helper
 
-# For new detections:
-from lib.class_helper import Rule, Detection, ContextFlow, ContextDevice, ContextLog, HTTP, ContextFile, ContextDevice, DNSQuery
+# For new alerts:
+from lib.class_helper import Rule, Alert, ContextFlow, ContextDevice, ContextLog, HTTP, ContextFile, ContextDevice, DNSQuery
 from lib.config_helper import Config
 from lib.generic_helper import cast_to_ipaddress
 
-# For context for detections:
+# For context for alerts:
 from lib.class_helper import (
     CaseFile,
     ContextFlow,
@@ -422,7 +422,7 @@ class QRadar:
                 path="/api/siem/offenses/{:d}/notes".format(offense),
                 params={
                     "fields": "",
-                    "note_text": "Detection Created UUID: " + str(uuid),
+                    "note_text": "Alert Created UUID: " + str(uuid),
                 },
             )
         except requests.exceptions.RequestException as e:
@@ -845,16 +845,16 @@ def create_files_from_events(mlog, offense_id, all_events):
     return file_list
 
 
-def zs_provide_new_detections(config, TEST=False) -> List[Detection]:
+def irsoar_provide_new_alerts(config, TEST=False) -> List[Alert]:
     """
-    This function is used to provide new detections to IRIS-SOAR.
+    This function is used to provide new alerts to IRIS-SOAR.
     :param config: The configuration of the integration.
     :param TEST: If set to "TEST", the function will not acknowledge the offenses.
-    :return: A list of detections.
+    :return: A list of alerts.
     """
     mlog = init_logging(config)
-    mlog.info("zs_provide_new_detections() called.")
-    detections = []
+    mlog.info("irsoar_provide_new_alerts() called.")
+    alerts = []
     socket.setdefaulttimeout = CONNECTION_TIMEOUT
 
     try:
@@ -863,7 +863,7 @@ def zs_provide_new_detections(config, TEST=False) -> List[Detection]:
         qradar_verify_certs = config["qradar_verify_certs"]
     except KeyError as e:
         mlog.critical("Missing config parameters: " + e)
-        return detections
+        return alerts
 
     requests.packages.urllib3.disable_warnings()
 
@@ -921,7 +921,7 @@ def zs_provide_new_detections(config, TEST=False) -> List[Detection]:
 
             device = ContextDevice(None, host_ip)
 
-            detection = Detection(
+            alert = Alert(
                 "IBM QRadar",
                 offense["description"],
                 rule_list,
@@ -935,23 +935,23 @@ def zs_provide_new_detections(config, TEST=False) -> List[Detection]:
             )
             try:
                 qradar.set_tag(offense["id"], TEST)  # acknowledge offense
-                qradar.create_note(offense["id"], detection.uuid)
-                detections.append(detection)
+                qradar.create_note(offense["id"], alert.uuid)
+                alerts.append(alert)
             except Exception:
                 mlog.error(
                     "[ANTI-LOOP] Failed to acknowledge offense with offense ID "
                     + str(offense["id"])
-                    + ". Will not return detection in order to repeated detection alerts."
+                    + ". Will not return alert in order to repeated alert alerts."
                 )
 
         except Exception as e:
-            mlog.error("Uncatched exception in zs_provide_new_detections(): " + (traceback.format_exc()))
+            mlog.error("Uncatched exception in irsoar_provide_new_alerts(): " + (traceback.format_exc()))
 
     mlog.info("Done Quering QRadar SIEM (with Hit(s))")
-    return detections
+    return alerts
 
 
-def zs_provide_context_for_detections(
+def irsoar_provide_context_for_alerts(
     case_file: CaseFile, required_type: type, TEST="", search_type=None, search_value=None
 ) -> list:
     """
@@ -964,7 +964,7 @@ def zs_provide_context_for_detections(
     config = config["integrations"]["ibm_qradar"]
     mlog = init_logging(config)
     mlog.info(
-        "zs_provide_context() called with required type "
+        "irsoar_provide_context() called with required type "
         + str(required_type)
         + " and search_type '"
         + str(search_type)
@@ -1039,18 +1039,18 @@ def zs_provide_context_for_detections(
                 return response
 
             if response.status_code != 200:
-                mlog.error(f"Got response code {str(response.status_code)} in zs_provide_context(): " + response.text)
-                return Exception("Got response code " + str(response.status_code) + " in zs_provide_context()")
+                mlog.error(f"Got response code {str(response.status_code)} in irsoar_provide_context(): " + response.text)
+                return Exception("Got response code " + str(response.status_code) + " in irsoar_provide_context()")
 
         except Exception as e:
-            mlog.error("Error establishing connection to QRadar in zs_provide_context(): " + str(e))
-            return Exception("Error establishing connection to QRadar in zs_provide_context(): " + str(e))
+            mlog.error("Error establishing connection to QRadar in irsoar_provide_context(): " + str(e))
+            return Exception("Error establishing connection to QRadar in irsoar_provide_context(): " + str(e))
 
         body = response.json()
 
-        mlog.info("Updating detection's description: " + repr(body["description"]))
-        detection: Detection = case_file.detections[0]
-        detection.rules[0].description = body["description"]
+        mlog.info("Updating alert's description: " + repr(body["description"]))
+        alert: Alert = case_file.alerts[0]
+        alert.rules[0].description = body["description"]
 
         ## CONTEXT FLOW ##
         if required_type == ContextFlow or required_type == any:

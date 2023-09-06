@@ -14,7 +14,7 @@ import datetime
 import ipaddress
 from typing import Union, List
 
-THRESHOLD_MAX_CONTEXTS = 1000  # The maximum number of contexts for each type that can be added to a detection case
+THRESHOLD_MAX_CONTEXTS = 1000  # The maximum number of contexts for each type that can be added to a alert case
 
 mlog = logging_helper.Log("lib.generic_helper")
 
@@ -246,12 +246,12 @@ def format_results(events, format, group_by="uuid", transform=False):
             del event["process_arguments"]
         if "process_children" in event:
             del event["process_children"]
-        if "related_detection_uuids" in event:
-            del event["related_detection_uuids"]
+        if "related_alert_uuids" in event:
+            del event["related_alert_uuids"]
         if "process_uuid" in event:
             del event["process_uuid"]
-        if "related_detection_uuid" in event:
-            del event["related_detection_uuid"]
+        if "related_alert_uuid" in event:
+            del event["related_alert_uuid"]
 
         if "process_id" in event and event["process_id"] is not None:
             if type(event["process_id"]) is not int:  # If a UUID == process_id, limit it to not be too long in the table
@@ -380,17 +380,17 @@ def format_results(events, format, group_by="uuid", transform=False):
 
         # Try to remove undetected / clean ThreatIntel Engine hits, as they are too many to be readable
         try:
-            if "threat_intel_detections" in event:
-                detections_hit = ""
-                detections = event["threat_intel_detections"]
-                del event["threat_intel_detections"]
+            if "threat_intel_alerts" in event:
+                alerts_hit = ""
+                alerts = event["threat_intel_alerts"]
+                del event["threat_intel_alerts"]
 
-                if detections is not None and detections != "None":
-                    for detection in detections:
-                        if detection.is_hit == True:
-                            detections_hit += "[ '" + detection.engine + "': " + detection.threat_name + " ]  "
+                if alerts is not None and alerts != "None":
+                    for alert in alerts:
+                        if alert.is_hit == True:
+                            alerts_hit += "[ '" + alert.engine + "': " + alert.threat_name + " ]  "
 
-                event["threat_intel_detections"] = detections_hit
+                event["threat_intel_alerts"] = alerts_hit
         except Exception as e:
             mlog.warning("format_results() - Error removing clean ThreatIntel Engine hits: " + str(e))
 

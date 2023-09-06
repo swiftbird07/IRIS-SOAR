@@ -2,10 +2,10 @@
 # Created by: Martin Offermann
 #
 # This is a building block used by IRIS-SOAR Playbooks
-# It is used to provide basic context to ContextProcess detection alerts of Elastic SIEM (formerly known as Elastic Endpoint Security).
+# It is used to provide basic context to ContextProcess alert alerts of Elastic SIEM (formerly known as Elastic Endpoint Security).
 #
-# Acceptable Detections:
-#  - All elastic detections related to process activity
+# Acceptable Alerts:
+#  - All elastic alerts related to process activity
 #
 # Gathered Context:
 # - ContextProcess tree
@@ -39,7 +39,7 @@ import uuid
 
 import lib.logging_helper as logging_helper
 from lib.class_helper import CaseFile, ContextProcess, ContextFlow, ContextFile, ContextRegistry
-from integrations.elastic_siem import zs_provide_context_for_detections
+from integrations.elastic_siem import irsoar_provide_context_for_alerts
 from lib.config_helper import Config
 
 # Prepare the logger
@@ -65,7 +65,7 @@ def bb_get_all_processes_by_uuid(case_file: CaseFile, uuid, children=False) -> C
     mlog.debug("bb_get_all_processes_by_uuid - Fetching complete process for UUID: " + str(uuid))
 
     # Gather context
-    processes = zs_provide_context_for_detections(
+    processes = irsoar_provide_context_for_alerts(
         integration_config, case_file, ContextProcess, search_value=uuid, maxContext=-1, TEST=False, UUID_is_parent=children
     )
     if processes == None:
@@ -413,7 +413,7 @@ def bb_get_process_network_flows(case_file: CaseFile, process: ContextProcess) -
     """Returns all network flows for a process.
     Context is automatically added to the CaseFile object.
 
-    :param case_file: The Detection case
+    :param case_file: The Alert case
     :param process: The process to get the network flows for
 
     :return: A list of ContextFlow objects
@@ -426,7 +426,7 @@ def bb_get_process_network_flows(case_file: CaseFile, process: ContextProcess) -
     cfg = Config().cfg
     integration_config = cfg["integrations"]["elastic_siem"]
 
-    network_flows: List[ContextFlow] = zs_provide_context_for_detections(
+    network_flows: List[ContextFlow] = irsoar_provide_context_for_alerts(
         integration_config, case_file, ContextFlow, False, uuid, False
     )
     if network_flows == None or len(network_flows) == 0:
@@ -465,7 +465,7 @@ def bb_get_process_file_events(case_file: CaseFile, process: ContextProcess) -> 
     """Returns all file events for a process.
     Context is automatically added to the CaseFile object.
 
-    :param case_file: The Detection case
+    :param case_file: The Alert case
     :param process: The process to get the file events for
 
     :return: A list of ContextFile objects
@@ -478,7 +478,7 @@ def bb_get_process_file_events(case_file: CaseFile, process: ContextProcess) -> 
     cfg = Config().cfg
     integration_config = cfg["integrations"]["elastic_siem"]
 
-    file_events: List[ContextFile] = zs_provide_context_for_detections(
+    file_events: List[ContextFile] = irsoar_provide_context_for_alerts(
         integration_config, case_file, ContextFile, False, uuid, False
     )
     if file_events == None or len(file_events) == 0:
@@ -514,7 +514,7 @@ def bb_get_process_registry_events(case_file: CaseFile, process: ContextProcess)
     """Returns all registry events for a process.
     Context is automatically added to the CaseFile object.
 
-    :param case_file: The Detection case
+    :param case_file: The Alert case
     :param process: The process to get the registry events for
 
     :return: A list of ContextRegistry objects
@@ -527,7 +527,7 @@ def bb_get_process_registry_events(case_file: CaseFile, process: ContextProcess)
     cfg = Config().cfg
     integration_config = cfg["integrations"]["elastic_siem"]
 
-    registry_events: List[ContextRegistry] = zs_provide_context_for_detections(
+    registry_events: List[ContextRegistry] = irsoar_provide_context_for_alerts(
         integration_config, case_file, ContextRegistry, False, uuid, False
     )
     if registry_events == None or len(registry_events) == 0:
