@@ -19,6 +19,9 @@ log_level_file = config["logging"]["log_level_file"]
 log_level_stdout = config["logging"]["log_level_stdout"]
 mlog = logging_helper.Log("integrations.dfir-iris", log_level_file, log_level_stdout)
 
+IRSOAR_USE_TEMPLATE = False
+IRSOAR_TEMPLATE = None
+
 
 def get_cases_by_title(title, partial_match=False):
     """Returns a list of cases that match the title.
@@ -67,3 +70,77 @@ def get_cases_by_title(title, partial_match=False):
         return False
 
     return case_list
+
+
+def update_alert_state(alert, state):
+    # Initiate a session with our API key and host. Session stays the same during all the script run.
+    session = ClientSession(
+        apikey=config["api_key"],
+        host=config["url"],
+        ssl_verify=False,
+    )
+
+    # Get the alert
+    alert = Alert(session=session)
+    if type(state) == str:
+        state = state.lower()
+        if state == "open":
+            state_id = 1
+        elif state == "closed":
+            state_id = 2
+    elif type(state) == int:
+        state_id = state
+    else:
+        mlog.error(f"update_alert_state() was called with a non-string and non-int state argument: {state}")
+        return False
+
+    alert.update_alert(alert.uuid, {"alert_status_id": state_id})
+    return True
+
+
+def merge_alert_to_case(alert_id, case_number, iocs=None, assets=None, note=None):
+    # Initiate a session with our API key and host. Session stays the same during all the script run.
+    session = ClientSession(
+        apikey=config["api_key"],
+        host=config["url"],
+        ssl_verify=False,
+    )
+
+    # Get the alert
+    alert = Alert(session=session)
+    alert.merge_alert(alert_id, case_number, iocs, assets, note, True)
+    return True
+
+
+def escalate_alert(alert_id, title, iocs=None, assets=None, note=None, tags=None):
+    # Initiate a session with our API key and host. Session stays the same during all the script run.
+    session = ClientSession(
+        apikey=config["api_key"],
+        host=config["url"],
+        ssl_verify=False,
+    )
+
+    if IRSOAR_USE_TEMPLATE:
+        template = IRSOAR_TEMPLATE  # TODO: Implement this
+
+    # Get the alert
+    alert = Alert(session=session)
+    alert.escalate_alert(alert_id, iocs, assets, note, title, tags, template, True)
+    return True
+
+
+def add_note_to_alert(alert_id, msg):
+    # Initiate a session with our API key and host. Session stays the same during all the script run.
+    session = ClientSession(
+        apikey=config["api_key"],
+        host=config["url"],
+        ssl_verify=False,
+    )
+
+    # Get the alert
+    alert = Alert(session=session)
+    current_alert = alert.get_alert(alert_id)
+    current_note = current_alert.get_data_field("alert_note")
+
+    alert.update_alert(alert_id, {"alert_note": current_note + "\n" + msg})
+    return True

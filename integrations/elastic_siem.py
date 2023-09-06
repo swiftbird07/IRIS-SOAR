@@ -1142,7 +1142,7 @@ def acknowledge_alert(mlog, config, alert_id, index):
 ############################################
 
 
-def irsoar_transform_alert_to_alert(config, alert) -> Alert:
+def irsoar_transform_alert_to_alert(config, alert, alert_id) -> Alert:
     """Transforms an alert into a Alert object.
 
     Args:
@@ -1155,7 +1155,9 @@ def irsoar_transform_alert_to_alert(config, alert) -> Alert:
     mlog = init_logging(config)
     mlog.info("irsoar_transform_alert_to_alert() called.")
     doc = alert["alert_source_content"]
-    return create_alert_from_doc(mlog, doc)
+    alert = create_alert_from_doc(mlog, doc)
+    alert.uuid = alert_id
+    return alert
 
 
 ############################################

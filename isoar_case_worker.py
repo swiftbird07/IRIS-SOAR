@@ -143,7 +143,7 @@ def main(config, fromDaemon=False, debug=False):
                     continue
                 integration_config = config["integrations"][integration]
                 alert = getattr(__import__("integrations." + integration), integration).irsoar_transform_alert_to_alert(
-                    integration_config, alert
+                    integration_config, alert, alert_id
                 )
                 if not isinstance(alert, class_helper.Alert):
                     mlog.error("The integration " + integration + " did not return a valid Alert object. Skipping.")

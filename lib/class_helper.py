@@ -22,6 +22,7 @@ from lib.generic_helper import (
     remove_duplicates_from_dict,
     dict_get,
 )
+import lib.iris_helper as iris_helper
 
 DEFAULT_IP = ipaddress.ip_address("127.0.0.1")  # When no IP address is provided, this is used
 THRESHOLD_PROCESS_IO_BYTES = 100000  # Threshold for the process IO bytes (100 KB)
@@ -3055,6 +3056,105 @@ class Alert:
 
         mlog.debug("Alert is not whitelisted in the global whitelist.")
         return False
+
+    def iris_update_state(self, state):
+        """Updates the state of the alert in IRIS.
+
+        Args:
+            state (str): The state of the alert in IRIS
+        """
+        return iris_helper.update_alert_state(self.uuid, state)
+
+    def get_iris_iocs(self):
+        # IOCs (self)
+        iocs = []
+        if self.indicators["ip"]:
+            for ip in self.indicators["ip"]:
+                iocs.append({"ioc_type_id": 79, "ioc_value": str(ip), "ioc_tlp_id": 1})
+        if self.indicators["domain"]:
+            for domain in self.indicators["domain"]:
+                iocs.append({"ioc_type_id": 20, "ioc_value": domain, "ioc_tlp_id": 1})
+        if self.indicators["url"]:
+            for url in self.indicators["url"]:
+                iocs.append({"ioc_type_id": 141, "ioc_value": url, "ioc_tlp_id": 1})
+        if self.indicators["hash"]:
+            for hash in self.indicators["hash"]:
+                iocs.append({"ioc_type_id": 90, "ioc_value": hash, "ioc_tlp_id": 1})
+        if self.indicators["email"]:
+            for email in self.indicators["email"]:
+                iocs.append({"ioc_type_id": 22, "ioc_value": email, "ioc_tlp_id": 1})
+        if self.indicators["countries"]:
+            for country in self.indicators["countries"]:
+                iocs.append({"ioc_type_id": 96, "ioc_value": country, "ioc_tlp_id": 1})
+        if self.indicators["registry"]:
+            for registry in self.indicators["registry"]:
+                iocs.append({"ioc_type_id": 109, "ioc_value": registry, "ioc_tlp_id": 1})
+        if self.indicators["other"]:
+            for other in self.indicators["other"]:
+                iocs.append({"ioc_type_id": 96, "ioc_value": other, "ioc_tlp_id": 1})
+        return iocs
+
+    def get_iris_asset(self):
+        # Asset (self):
+        asset_id = 3
+
+        if self.device.type == "host":
+            if self.device.os_family == "windows":
+                asset_id = 9
+            elif self.device.os_family == "linux":
+                asset_id = 4
+            elif self.device.os_family == "macos":
+                asset_id = 6
+            elif self.device.os_family == "ios":
+                asset_id = 8
+            elif self.device.os_family == "android":
+                asset_id = 7
+        else:
+            if self.device.os_family == "windows":
+                asset_id = 10
+            elif self.device.os_family == "linux":
+                asset_id = 3
+        asset = {
+            "asset_name": self.device.name if self.device.name else "Unknown",
+            "asset_type_id": asset_id,
+            "asset_description": self.device.description if self.device.description else None,
+            "asset_ip": str(self.device.local_ip) if self.device.local_ip else None,
+            "asset_tags": self.device.tags if self.device.tags else None,
+        }
+        return asset
+
+    def iris_attach_to_case(self, case_number):
+        """Attaches the alert to a case in IRIS.
+
+        Args:
+            case_number (str): The case number of the case in IRIS
+        """
+        iocs = self.get_iris_iocs()
+        assets = [self.get_iris_asset()]
+
+        # Note (self)
+        note = "Added by IRIS-SOAR." + "\n" + "Alert: " + self.name + "\n" + "Description: " + self.description
+
+        return iris_helper.merge_alert_to_case(self.uuid, case_number, iocs, assets, note)
+
+    def iris_excalate_to_case(self):
+        """Excalates the alert to a case in IRIS."""
+
+        iocs = self.get_iris_iocs()
+        assets = [self.get_iris_asset()]
+
+        # Note (self)
+        title = "Case created by IRIS-SOAR." + "\n" + "Alert: " + self.name + "\n" + "Description: " + self.description
+
+        return iris_helper.escalate_alert(self.uuid, title, iocs, assets, self.description, self.tags)
+
+    def add_not_to_iris(self, message):
+        """Adds a note to the alert in IRIS.
+
+        Args:
+            message (str): The message of the note
+        """
+        return iris_helper.add_note_to_alert(self.uuid, message)
 
 
 class AuditLog:
