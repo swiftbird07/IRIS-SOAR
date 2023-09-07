@@ -4,8 +4,11 @@ Welcome!
 
 **IRIS-SOAR** is a modular SOAR implementation written in Python. It is designed to be a companion to DFIR-IRIS that uses playbook automation and is able to load integrations to other services.
 
-Check out the Usage section for information on how to setup and use the project.
-Want to contribute? Nice! Check out the Contributing page for more information.
+Install istruction can be found [here](https://github.com/maof97/IRIS-SOAR/wiki/Installation-and-Setup).
+
+Check out the "How it works" wiki page [here](https://github.com/maof97/IRIS-SOAR/wiki/How-it-works) to get a detailed explanation how IRIS-SOAR works on a high level.
+
+Want to contribute? Nice! Check out the Contributing wiki page for more information.
 
 ## IRIS-SOAR features
 
