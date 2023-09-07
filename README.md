@@ -22,7 +22,7 @@ IRIS-SOAR is currently still in early development. The following features are pl
 
 ### Integrations
 Currently there are the following integrations available:
-- Elastic SIEM: Get alerts from Elastic to IRIS and enrich cases with the Elastic.
-- IBM QRadar: Get offenses from QRadar to IRIS (as alerts) and enrich cases with data from QRadar.
-- VirusTotal: Get indicator threat intel context for a case or alert
-- Matrix: Notify users about alerts and / or new cases or update them on new findings.
+- *Elastic SIEM*: Get alerts from Elastic to IRIS and enrich cases with the Elastic.
+- *IBM QRadar*: Get offenses from QRadar to IRIS (as alerts) and enrich cases with data from QRadar.
+- *VirusTotal*: Get indicator threat intel context for a case or alert
+- *Matrix*: Notify users about alerts and / or new cases or update them on new findings.
