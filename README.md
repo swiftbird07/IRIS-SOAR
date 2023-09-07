@@ -19,3 +19,10 @@ IRIS-SOAR is currently still in early development. The following features are pl
 - Automatically escalate / merge one or multiple IRIS-Alerts to an IRIS-Case using alert specific playbooks.
 - Using case specific playbooks it is also possible to automate actions on IRIS-Cases. For example, if an IRIS-Cases is deemed to be a false positive, it can be closed automatically or if the IRIS-Cases is deemed to be a real incident, it can be escalated to a severity etc..
 - IRIS-SOAR is designed and build to be easily extensible. It is possible to add new integrations or playbooks to IRIS-SOAR with minimal effort.
+
+### Integrations
+Currently there are the following integrations available:
+- Elastic SIEM: Get alerts from Elastic to IRIS and enrich cases with the Elastic.
+- IBM QRadar: Get offenses from QRadar to IRIS (as alerts) and enrich cases with data from QRadar.
+- VirusTotal: Get indicator threat intel context for a case or alert
+- Matrix: Notify users about alerts and / or new cases or update them on new findings.
