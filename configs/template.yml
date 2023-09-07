@@ -1,35 +1,90 @@
-daemon:
-  enabled: false
-  interval: 2
+cache: # Enable caching? This will cache alerts and cases in a json file. This is useful if you want to avoid duplicate alerts and cases.
+  file: # File cache settings
+    enabled: true
+    max_age_hours: 24
+    max_size_mb: 10
+    path: lib/cache.json
+daemon: # Daemon settings
+  enabled: true # Enable the daemon? This will start the daemon script in the background. If set to false you can still start a run of IRIS-SOAR manually via the 'iris-sorar.py --start' command.
+  interval: 1 # Interval in minutes in which the daemon script will run. E.g. if set to 1 the daemon script will run every minute.
   interval_min: 1
-integrations:
-  elastic_siem:
-    elastic_password: $IRSOAR_INT_ELASTIC_PW
-    elastic_url: https://10.20.1.6:9200
-    elastic_user: isoar
-    elastic_verify_certs: false
-    enabled: false
-    logging:
+integrations: # Integrations settings
+  dfir-iris: # IRIS settings
+    api_key: $IRSOAR_IRIS_API_KEY # The API key of the IRIS user that will be used to push alerts and cases into the IRIS. This user needs to have the required permissions to push alerts and cases into the IRIS.
+    logging: # Logging settings. You can set the log level for each logging output. Possible values are: debug, info, warning, error, critical, none
+      log_level_file: info
+      log_level_stdout: warning
+      log_level_syslog: error
+    default_severity: 3 # Default severity of alerts that will be pushed into the IRIS.
+    default_type: 2 # Default type of alerts that will be pushed into the IRIS.
+    url: https://iris.pve.lan # The URL of the IRIS Web instance. Has to be reachable from the server where IRIS-SOAR is running.
+    verify_certs: false # Verify the SSL certificate of the IRIS Web instance? Set to false if you use a self-signed certificate.
+    version: 2.0.1 # API version of the IRIS Web instance to use.
+  elastic_siem: # Elastic SIEM settings
+    elastic_password: $IRSOAR_ELASTIC_PW # The password of the Elastic SIEM user that will be used to fetch alerts from Elastic SIEM.
+    elastic_url: https://10.20.1.28:9200 # The URL of the Elastic SIEM instance. Has to be reachable from the server where IRIS-SOAR is running.
+    elastic_user: zsoar # The username of the Elastic SIEM user that will be used to fetch alerts from Elastic SIEM. This user needs to have the required permissions to fetch alerts from Elastic SIEM.
+    elastic_verify_certs: false # Verify the SSL certificate of the Elastic SIEM instance? Set to false if you use a self-signed certificate.
+    enabled: true # Enable the Elastic SIEM integration?
+    logging: # Logging settings. You can set the log level for each logging output. Possible values are: debug, info, warning, error, critical, none
+      log_level_file: debug
+      log_level_stdout: warning
+      log_level_syslog: error
+  ibm_qradar: # IBM QRadar settings
+    enabled: true # Enable the IBM QRadar integration?
+    logging: # Logging settings. You can set the log level for each logging output. Possible values are: debug, info, warning, error, critical, none
       log_level_file: debug
       log_level_stdout: debug
       log_level_syslog: error
-  ibm_qradar:
-    enabled: false
-  vt_threat_intel:
-    enabled: false
-logging:
-  language: en
-  log_file_rotate_size: 1
-  log_file_split: false
-  log_file_split_module: false
-  log_file_split_start: true
-  log_level_file: debug
-  log_level_stdout: info
-  log_level_syslog: none
-  split_file_on_startup: true
-  split_file_on_worker_iteration: false
-  split_files_by_module: false
-setup:
-  load_enviroment_variables: true
-  setup_step: 0
-dfir-iris: null
+    qradar_api_key: $IRSOAR_QRADAR_API_KEY # The API key of the IBM QRadar user that will be used to fetch alerts from IBM QRadar.
+    qradar_url: https://10.20.1.1 # The URL of the IBM QRadar instance. Has to be reachable from the server where IRIS-SOAR is running.
+    qradar_verify_certs: false # Verify the SSL certificate of the IBM QRadar instance? Set to false if you use a self-signed certificate.
+  matrix_notify: # Matrix Notify settings. Cannot provice alerts at the moment. Only used to send notifications to a Matrix room.
+    enabled: true # Enable the Matrix Notify integration?
+    logging: # Logging settings. You can set the log level for each logging output. Possible values are: debug, info, warning, error, critical, none
+      log_level_file: info
+      log_level_stdout: warning
+      log_level_syslog: error
+    matrix_access_token: $IRSOAR_MATRIX_ACCESS_TOKEN # The access token of the Matrix user that will be used to send notifications to a Matrix room.
+    matrix_enabled: true # Enable the Matrix Notify integration?
+    matrix_server: $IRSOAR_MATRIX_SERVER_URL # The URL of the Matrix server. Has to be reachable from the server where IRIS-SOAR is running.
+    matrix_room_id: $IRSOAR_MATRIX_ROOM_ID # The ID of the Matrix room where notifications will be sent to.
+    matrix_verify_certs: true # Verify the SSL certificate of the Matrix server? Set to false if you use a self-signed certificate.
+  virus_total: # Virus Total settings
+    api_key: $IRSOAR_VIRUSTOTAL_API_KEY # The API key of the Virus Total user that will be used to fetch information from Virus Total.
+    enabled: true # Enable the Virus Total integration?
+    logging: # Logging settings. You can set the log level for each logging output. Possible values are: debug, info, warning, error, critical, none
+      log_level_file: info
+      log_level_stdout: warning
+      log_level_syslog: error
+    verify_certs: false
+logging: # Logging settings. You can set the log level for each logging output. Possible values are: debug, info, warning, error, critical, none
+  language: en # Language of the log messages. Currently only 'en' is supported.
+  log_file_rotate_size: 1 # Size in MB when the log file will be rotated. CURRENTLY NOT SUPPORTED
+  log_file_split: false # Split the log file into multiple files? This will create a new log file for each day. CURRENTLY NOT SUPPORTED
+  log_file_split_module: false # Split the log file into multiple files by module? This will create a new log file for each module. CURRENTLY NOT SUPPORTED
+  log_file_split_start: true # Split the log file on startup? This will create a new log file on startup. CURRENTLY NOT SUPPORTED
+  log_level_file: info # Log level for the log file (globally, so when not set by integration). Possible values are: debug, info, warning, error, critical, none
+  log_level_stdout: warning # Log level for the stdout (globally, so when not set by integration). Possible values are: debug, info, warning, error, critical, none
+  log_level_syslog: none # Log level for the syslog (globally, so when not set by integration). Possible values are: debug, info, warning, error, critical, none
+  split_file_on_startup: true # Split the log file on startup? This will create a new log file on startup. CURRENTLY NOT SUPPORTED
+  split_file_on_worker_iteration: false # Split the log file on every worker iteration? This will create a new log file on every worker iteration. CURRENTLY NOT SUPPORTED
+  split_files_by_module: false # Split the log file into multiple files by module? This will create a new log file for each module. CURRENTLY NOT SUPPORTED
+playbooks: # Playbook settings. Add your playbooks here. You can enable or disable them here as well.
+  PB_010_Generic_Elastic_Alerts: # Playbook name
+    enabled: true # Enable the playbook?
+  PB_011_Generic_QRadar_Offenses:
+    enabled: true
+  PB_020_Generic_Suricata_Alerts:
+    enabled: true
+  PB_021_Advanced_Elastic_Context:
+    enabled: true
+  PB_022_Generic_NTOP-NG_Alerts:
+    enabled: true
+  PB_110_Generic_VirusTotal:
+    enabled: true
+  PB_900_Classify_and_Notify:
+    enabled: true
+setup: # Setup settings (meta)
+  load_enviroment_variables: true # Load environment variables from the .env file? This is useful if you want to avoid storing sensitive information like passwords in the config file.
+  setup_step: 2 # Setup step. Do not change this. CURRENTLY NOT SUPPORTED
