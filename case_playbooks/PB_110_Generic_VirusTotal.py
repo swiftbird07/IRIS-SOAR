@@ -40,7 +40,6 @@ from lib.config_helper import Config
 from lib.generic_helper import cast_to_ipaddress, format_results, is_local_tld
 
 from integrations.virus_total import irsoar_provide_context_for_alerts
-from integrations.dfir-iris import irsoar_add_note_to_iris_case, irsoar_get_iris_case_by_number
 
 # Prepare the logger
 cfg = Config().cfg
@@ -435,9 +434,7 @@ def irsoar_handle_alert(case_file: CaseFile, TEST=False) -> CaseFile:
 
             irsoar_add_note_to_iris_case(iris_case_number, "raw", TEST, note_title, note_body, "text/html")
             current_action.playbook_done = True
-            case_file.update_audit(
-                current_action.set_successful(message=f"Added note to iris-case", data=case_file.alerts), mlog
-            )
+            case_file.update_audit(current_action.set_successful(message=f"Added note to iris-case", data=case_file.alerts), mlog)
         except Exception as e:
             mlog.error(f"Error while adding note to iris-case: {e}")
             case_file.update_audit(current_action.set_error(message=f"Error while adding note to iris-case: {e}", data=e), mlog)

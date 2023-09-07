@@ -7,7 +7,6 @@ import datetime
 from case_playbooks.PB_022_Generic_NTOPNG_Alerts import irsoar_can_handle_alert, irsoar_handle_alert
 from lib.class_helper import CaseFile, Alert, Rule, ContextLog
 from integrations.ibm_qradar import irsoar_provide_context_for_alerts
-from integrations.dfir-iris import irsoar_create_iris_case, irsoar_get_iris_case_by_number
 
 OFFENSE_ID = "1539"
 

@@ -6,7 +6,6 @@ import datetime
 
 from case_playbooks.PB_021_Advanced_Elastic_Context import irsoar_can_handle_alert, irsoar_handle_alert
 from lib.class_helper import CaseFile, Alert, Rule, ContextDevice
-from integrations.dfir-iris import irsoar_create_iris_case
 
 
 def prepare_test():
@@ -22,7 +21,7 @@ def prepare_test():
         device=ContextDevice("MacBook Pro von Martin 14'", "10.21.0.9"),
     )
     case_file = CaseFile([alert])
-   iris-case= irsoar_create_iris_case(
+    iris_case = irsoar_create_iris_case(
         case_file
     )  # if an error occurs here, check the irsoar_create_iris_case() function in tests/integrations/test_dfir-iris.py
     return case_file

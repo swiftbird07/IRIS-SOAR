@@ -37,7 +37,6 @@ from lib.class_helper import (
 )
 from lib.logging_helper import Log
 from lib.config_helper import Config
-from integrations.dfir-iris import irsoar_add_note_to_iris_case, irsoar_update_iris_case_title
 from integrations.elastic_siem import irsoar_provide_context_for_alerts
 from lib.generic_helper import format_results, dict_get
 from case_playbooks.bb_elastic_context_fetcher import (
@@ -74,9 +73,7 @@ def irsoar_can_handle_alert(case_file: CaseFile) -> bool:
         try:
             case_file.get_iris_case_number()
         except ValueError:
-            mlog.info(
-                f"Playbook '{PB_NAME}' cannot handle alert '{alert.name}' ({alert.uuid}), as there is noiris-casein it."
-            )
+            mlog.info(f"Playbook '{PB_NAME}' cannot handle alert '{alert.name}' ({alert.uuid}), as there is noiris-casein it.")
             return False
 
         if alert.vendor_id == "IBM QRadar":

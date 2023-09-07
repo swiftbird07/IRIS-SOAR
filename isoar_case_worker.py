@@ -280,15 +280,7 @@ def main(config, fromDaemon=False, debug=False):
                     if not iris_case_number:
                         mlog.warning("Could not add audit log toiris-casebecause noiris-casenumber was found.")
                         continue
-                    iris_case = irsoar_add_note_to_iris_case(
-                        iris_case_number,
-                        "raw",
-                        False,
-                        "(DEBUG) Audit Log Trail",
-                        trail_str,
-                        visible_for_customer=False,
-                        raw_body_type="text/html",
-                    )
+                    iris_case = case.add_note_to_iris(title="(DEBUG) Audit Log Trail", group="IRIS-SOAR Audit", content=trail_str)
                     mlog.info("Added audit log toiris-case" + str(iris_case_number) + ".")
                 except Exception as e:
                     mlog.error(

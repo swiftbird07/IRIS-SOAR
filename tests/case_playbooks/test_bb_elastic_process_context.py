@@ -4,7 +4,6 @@
 
 
 import pytest
-import isoar
 import os
 import datetime
 import json

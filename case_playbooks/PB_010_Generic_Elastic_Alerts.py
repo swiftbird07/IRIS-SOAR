@@ -26,7 +26,6 @@ import lib.logging_helper as logging_helper
 from lib.class_helper import CaseFile, AuditLog, Alert
 from lib.config_helper import Config
 
-from integrations.dfir-iris import irsoar_create_iris_case, irsoar_add_note_to_iris_case, irsoar_get_iris_case_by_number
 from case_playbooks.bb_elastic_context_fetcher import (
     bb_get_context_process_children,
     bb_get_context_process_parents,
@@ -131,8 +130,8 @@ def irsoar_handle_alert(case_file: CaseFile, DRY_RUN=False) -> CaseFile:
     # Adding ticket to alert (-case)
     mlog.debug(f"Adding caseto alert and alert case.")
     if not DRY_RUN:
-       iris_case = irsoar_get_iris_case_by_number(iris_case_number)
-        alertiris_case = iris-case
+        iris_case = irsoar_get_iris_case_by_number(iris_case_number)
+        alertiris_case = iris - case
         case_file.add_context(iris_case)
 
     # Gather process related contexts from BB_Elastic_Context_Fetcher:

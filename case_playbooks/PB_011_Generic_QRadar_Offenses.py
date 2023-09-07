@@ -23,7 +23,6 @@ PB_ENABLED = True
 from lib.class_helper import CaseFile, AuditLog, Alert, ContextLog, ContextFlow, ContextFile
 from lib.logging_helper import Log
 from lib.config_helper import Config
-from integrations.dfir-iris import irsoar_create_iris_case, irsoar_add_note_to_iris_case, irsoar_get_iris_case_by_number
 from integrations.ibm_qradar import irsoar_provide_context_for_alerts
 
 # Prepare the logger
@@ -120,8 +119,8 @@ def irsoar_handle_alert(case_file: CaseFile, DRY_RUN=False) -> CaseFile:
     # Addiris-caseto alert (-case)
     mlog.debug(f"Adding caseto alert and alert case.")
     if not DRY_RUN:
-       iris-case= irsoar_get_iris_case_by_number(iris_case_number)
-        alertiris_case = iris-case
+        iris_case = irsoar_get_iris_case_by_number(iris_case_number)
+        alertiris_case = iris - case
         case_file.add_context(iris_case)
 
     # Gather offense related context
@@ -136,9 +135,7 @@ def irsoar_handle_alert(case_file: CaseFile, DRY_RUN=False) -> CaseFile:
     flows = irsoar_provide_context_for_alerts(case_file, ContextFlow, search_type="offense", search_value=alert.uuid)
     if type(flows) is Exception:
         case_file.update_audit(
-            current_action.set_error(
-                message=f"Could not gather context for offense '{alert_title}'. Error: {flows}", data=flows
-            ),
+            current_action.set_error(message=f"Could not gather context for offense '{alert_title}'. Error: {flows}", data=flows),
             logger=mlog,
         )
         flows = []
@@ -150,9 +147,7 @@ def irsoar_handle_alert(case_file: CaseFile, DRY_RUN=False) -> CaseFile:
     logs = irsoar_provide_context_for_alerts(case_file, ContextLog, search_type="offense", search_value=alert.uuid)
     if type(logs) is Exception:
         case_file.update_audit(
-            current_action.set_error(
-                message=f"Could not gather context for offense '{alert_title}'. Error: {logs}", data=logs
-            ),
+            current_action.set_error(message=f"Could not gather context for offense '{alert_title}'. Error: {logs}", data=logs),
             logger=mlog,
         )
         logs = []
@@ -164,9 +159,7 @@ def irsoar_handle_alert(case_file: CaseFile, DRY_RUN=False) -> CaseFile:
     files = irsoar_provide_context_for_alerts(case_file, ContextFile, search_type="offense", search_value=alert.uuid)
     if type(files) is Exception:
         case_file.update_audit(
-            current_action.set_error(
-                message=f"Could not gather context for offense '{alert_title}'. Error: {files}", data=files
-            ),
+            current_action.set_error(message=f"Could not gather context for offense '{alert_title}'. Error: {files}", data=files),
             logger=mlog,
         )
         files = []
@@ -225,7 +218,9 @@ def irsoar_handle_alert(case_file: CaseFile, DRY_RUN=False) -> CaseFile:
 
     if not note_id_1 or type(note_id_1) is Exception:
         case_file.update_audit(
-            current_action.set_error(message=f"Could not add context network toiris-case'{iris_case_number}'. Error: {note_id_1}"),
+            current_action.set_error(
+                message=f"Could not add context network toiris-case'{iris_case_number}'. Error: {note_id_1}"
+            ),
             logger=mlog,
         )
 
@@ -256,8 +251,8 @@ def irsoar_handle_alert(case_file: CaseFile, DRY_RUN=False) -> CaseFile:
 
     # Addiris-caseto alert (-case)
     mlog.debug(f"Adding caseto alert and alert case.")
-   iris-case= irsoar_get_iris_case_by_number(iris_case_number)
-    alertiris_case = iris-case
+    iris_case = irsoar_get_iris_case_by_number(iris_case_number)
+    alertiris_case = iris - case
     case_file.add_context(iris_case)
 
     return case_file

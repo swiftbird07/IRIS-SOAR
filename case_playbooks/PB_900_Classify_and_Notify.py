@@ -20,7 +20,7 @@ PB_AUTHOR = "Martin Offermann"
 PB_LICENSE = "MIT"
 PB_ENABLED = True
 
- IRIS_CASE_URL_PATH = "/znuny/index.pl?Action=AgentIRIS CaseZoom;IRIS CaseID="  # The path to theiris-casein the OTRS web interface
+IRIS_CASE_URL_PATH = "/znuny/index.pl?Action=AgentIRIS CaseZoom;IRIS CaseID="  # The path to theiris-casein the OTRS web interface
 NOTIFY_RESOLVED_CASES = True  # If resolved cases should still be notified
 
 import lib.logging_helper as logging_helper
@@ -29,7 +29,6 @@ from lib.config_helper import Config
 from lib.generic_helper import handle_percentage
 
 from integrations.matrix_notify import irsoar_notify
-from integrations.dfir-iris import irsoar_get_iris_case_by_number, irsoar_update_iris_case_priority, irsoar_update_iris_case_state
 
 # Prepare the logger
 cfg = Config().cfg
@@ -146,8 +145,8 @@ def irsoar_handle_alert(case_file: CaseFile, TEST=False) -> CaseFile:
 
     # Get the iris-case
     iris_case_number = case_file.get_iris_case_number()
-   iris-case= irsoar_get_iris_case_by_number(iris_case_number)
-    ifiris-case== None:
+    iris_case = irsoar_get_iris_case_by_number(iris_case_number)
+    if iris_case == None:
         mlog.error(f"Could not getiris-case'{iris_case_number}'")
         case_file.update_audit(current_action.set_error(message=f"Could not getiris-case'{iris_case_number}'"), mlog)
         return case_file
@@ -204,7 +203,7 @@ def irsoar_handle_alert(case_file: CaseFile, TEST=False) -> CaseFile:
     current_action = AuditLog(PB_NAME, 2, "Notifying user", "Notifying the user about the alert using Matrix.")
     case_file.update_audit(current_action, mlog)
     iris_case_url = cfg["integrations"]["dfir-iris"]["url"]
-    iris_case_url += IRIS-CASE_URL_PATH
+    iris_case_url += IRIS - CASE_URL_PATH
     iris_case_url += str(case_file.get_iris_case_id())
 
     emoji = "ℹ️"  # default emoji (undetermined)
