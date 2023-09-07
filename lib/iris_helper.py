@@ -144,3 +144,24 @@ def add_note_to_alert(alert_id, msg):
 
     alert.update_alert(alert_id, {"alert_note": current_note + "\n" + msg})
     return True
+
+def add_note_to_case(case_id, group, title, message):
+    # Initiate a session with our API key and host. Session stays the same during all the script run.
+    session = ClientSession(
+        apikey=config["api_key"],
+        host=config["url"],
+        ssl_verify=False,
+    )
+
+    # Get the Case from IRIS
+    case = Case(session=session)
+    
+    # Fetch the case from its ID.
+    if not case.case_id_exists(cid=case_id):
+        mlog.error(f'Case ID {str(case_id)} not found !')
+        return False
+
+    # Attribute the cid to the case instance
+    case.set_cid(cid=1)
+    case.add_note(title, message, group, cid=case_id)
+    

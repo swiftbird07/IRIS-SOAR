@@ -1,4 +1,4 @@
-# IRIS-SOAR
+ # IRIS-SOAR
 # Created by: Martin Offermann
 # This module is a helper module that privides important classes and functions for the IRIS-SOAR project.
 
@@ -10,7 +10,7 @@ import datetime
 import json
 import uuid
 import pandas as pd
-import pyotrs
+import traceback
 
 import lib.config_helper as config_helper
 import lib.logging_helper as logging_helper
@@ -3755,3 +3755,21 @@ class CaseFile:
                 return self.iris_case.field_get("Title")
         else:
             raise ValueError("The case_file has no iris_case.")
+    
+    def add_note_to_iris(self, title, content, group=None, group_id=None):
+        """Adds a note to the case in iris (and also to the local object)"""
+        if group is None and group_id is None:
+            raise ValueError("Either group or group_id must be set.")
+        
+        if group == "IRIS-SOAR Audit":
+            group_id = 1
+        # ...
+        else:
+            raise ValueError("Group name '{group}' not supported. Specify group_id instead.")
+        
+        try:
+            return iris_helper.add_note_to_case(self.uuid, group_id, title, content)
+        except Exception  as e:
+            mlog = logging_helper.Log("lib.class_helper")
+            mlog.error(f"Couldn't send note to iris case {str(self.uuid)}.  Error: " + traceback.format_exc())
+            return False

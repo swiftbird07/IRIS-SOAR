@@ -77,8 +77,7 @@ def irsoar_handle_alerts(alerts: Alert):
                     alert.iris_attach_to_case(case.uuid)
 
                 # Add a audit notes to the case
-                case.add_note_to_iris(group="IRIS-SOAR Audit", msg=f"Added {len(alerts_by_host[host])} alerts to case.")
-                case.add_note_to_iris(group="IRIS-SOAR Audit", msg=f"Added Alerts: {alerts_by_host[host]}")
+                case.add_note_to_iris(group="IRIS-SOAR Audit", title=f"Added {len(alerts_by_host[host])} alerts to case.", content=f"Added Alerts: {alerts_by_host[host]}")
 
                 # Add a note to the alerts
                 for alert in alerts_by_host[host]:
@@ -106,9 +105,8 @@ def irsoar_handle_alerts(alerts: Alert):
 
             # Add a audit notes to the case
             case_file.add_note_to_iris(
-                group="IRIS-SOAR Audit", msg=f"Created a case for {len(alerts_by_host[host])} alerts from the same host '{host}'."
+                group="IRIS-SOAR Audit", title=f"Created a case for {len(alerts_by_host[host])} alerts from the same host '{host}'.", content=f"Initial Alerts: {alerts_by_host[host]}"
             )
-            case_file.add_note_to_iris(group="IRIS-SOAR Audit", msg=f"Initial Alerts: {alerts_by_host[host]}")
 
             # Add a note to the alerts
             for alert in alerts_by_host[host]:
