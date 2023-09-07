@@ -15,12 +15,8 @@ integrations:
       log_level_file: info
       log_level_stdout: warning
       log_level_syslog: error
-    iris-cases:
-      default_priority: 3 normal
-      default_type: Security Alert
-      enabled: true
-      target_queue: ISOAR Alerts::Tests
-      target_queue_escalation: ISOAR Alerts::Tests
+    default_severity: 3
+    default_type: 2
     url: https://iris.pve.lan
     verify_certs: false
     version: 2.0.1
