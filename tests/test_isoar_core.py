@@ -199,3 +199,21 @@ def test_case_worker():
     assert (
         isoar.isoar_worker.check_module_has_function("some_invalid_module", "some_invalid_function", mlog) == False
     ), "some_invalid_module.some_invalid_function exists"
+
+
+def test_alert_collector():
+    """Tests the alert_collector function.
+
+    Args:
+        None
+
+    Returns:
+        None
+    """
+    config = isoar.config_helper.Config().cfg
+    mlog = isoar.logging_helper.Log("isoar_test_core")
+
+    try:
+        isoar.isoar_alert_collector.main(config)
+    except Exception as e:
+        pytest.fail("The alert_collector function failed: {}".format(e))

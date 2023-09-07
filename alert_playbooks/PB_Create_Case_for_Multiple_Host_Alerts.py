@@ -28,7 +28,7 @@ import lib.iris_helper as iris_helper
 COUNT_ALERTS_FROM_SAME_HOST = 2
 
 
-def irsoar_handle_alerts(alerts: Alert):
+def irsoar_handle_alerts(alerts: Alert, Test: bool = False):
     """Handles the alerts from DFIR-IRIS.
 
     Args:

@@ -559,5 +559,14 @@ def test_generic_helper():
     generic_helper.get_from_cache("test", "entities", "123") == "4566", "Could not get from cache"
     # TODO: Add more tests
 
-
-test_generic_helper()
+def test_iris_helper():
+    import lib.iris_helper as iris_helper
+    
+    iris_helper.add_note_to_alert("123", "Test note")
+    iris_helper.add_note_to_case(123, 123, "Test note", "Test description")
+    iris_helper.get_cases_by_title("Test case")
+    iris_helper.update_alert_state("123", "OPEN")
+    iris_helper.escalate_alert("123", "Test escalation")
+    iris_helper.merge_alert_to_case("123", 123)
+    
+#test_generic_helper()

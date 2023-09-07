@@ -125,7 +125,10 @@ def escalate_alert(alert_id, title, iocs=None, assets=None, note=None, tags=None
 
     # Get the alert
     alert = Alert(session=session)
-    alert.escalate_alert(alert_id, iocs, assets, note, title, tags, template, True)
+    response = alert.escalate_alert(alert_id, iocs, assets, note, title, tags, template, True)
+    if not response.is_success():
+        return False
+    
     return True
 
 
