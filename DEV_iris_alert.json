@@ -1,0 +1,197 @@
+{
+    "severity": {
+        "severity_description": "Unspecified",
+        "severity_name": "Unspecified",
+        "severity_id": 1
+    },
+    "alert_source_ref": "191a36b2da8965e41c4dbcb0fc645525528f34173310202bd647265daa71e2c1",
+    "customer": {
+        "creation_date": "2023-08-31T15:58:15.822906",
+        "customer_name": "IrisInitialClient",
+        "customer_id": 1,
+        "customer_description": "None",
+        "client_uuid": "4630cdfb-a83d-4f09-8252-b415cc93dd8e",
+        "last_update_date": "2023-08-31T15:58:15.822906",
+        "customer_sla": "None",
+        "custom_attributes": "None"
+    },
+
+    "alert_creation_time": "2023-08-31T20:21:26.768428",
+    "alert_uuid": "b98e5f1e-e0eb-405c-8571-e82cc5ab21c9",
+    "alert_source": "ELASTIC_SIEM",
+    "comments": [2],
+    "alert_classification_id": 1,
+    "iocs": [
+        {
+            "ioc_uuid": "1cf5f9d4-8ca9-401e-8859-313f43ba56f9",
+            "ioc_value": "10.21.0.9",
+            "ioc_type": {
+                "type_id": 2,
+                "type_validation_expect": "None",
+                "type_description": "ABA routing transit number",
+                "type_taxonomy": "None",
+                "type_name": "aba-rtn",
+                "type_validation_regex": "None"
+            },
+            "ioc_misp": "None",
+            "ioc_id": 8,
+            "ioc_description": "None",
+            "ioc_enrichment": "None",
+            "user_id": "None",
+            "ioc_tags": "None",
+            "ioc_type_id": 2,
+            "custom_attributes": "None",
+            "ioc_tlp_id": 1
+        }, {
+            "ioc_uuid": "1c0cccf4-b573-488a-8de8-3153fd1add64",
+            "ioc_value": "d1532f01829c92d66cd10c2395ce80b4",
+            "ioc_type": {
+                "type_id": 3,
+                "type_validation_expect": "None",
+                "type_description": "Account of any type",
+                "type_taxonomy": "None",
+                "type_name": "account",
+                "type_validation_regex": "None"
+            },
+            "ioc_misp": "None",
+            "ioc_id": 9,
+            "ioc_description": "None",
+            "ioc_enrichment": "None",
+            "user_id": "None",
+            "ioc_tags": "None",
+            "ioc_type_id": 3,
+            "custom_attributes": "None",
+            "ioc_tlp_id": 1
+        }, {
+            "ioc_uuid": "bc2e5ffd-2af9-4e4d-9669-e02e9914ae6d",
+            "ioc_value": "397227950fa74f242205e6e78bceb8b77ce1903d",
+            "ioc_type": {
+                "type_id": 3,
+                "type_validation_expect": "None",
+                "type_description": "Account of any type",
+                "type_taxonomy": "None",
+                "type_name": "account",
+                "type_validation_regex": "None"
+            },
+            "ioc_misp": "None",
+            "ioc_id": 10,
+            "ioc_description": "None",
+            "ioc_enrichment": "None",
+            "user_id": "None",
+            "ioc_tags": "None",
+            "ioc_type_id": 3,
+            "custom_attributes": "None",
+            "ioc_tlp_id": 1
+        }, {
+            "ioc_uuid": "6a1105e2-927b-4ce1-ae15-aa182e44db90",
+            "ioc_value": "5bb2496a35cfc2c80fcc1f9be9c4b9abbb0bdd4be142333a050ad89be3fca51f",
+            "ioc_type": {
+                "type_id": 3,
+                "type_validation_expect": "None",
+                "type_description": "Account of any type",
+                "type_taxonomy": "None",
+                "type_name": "account",
+                "type_validation_regex": "None"
+            },
+            "ioc_misp": "None",
+            "ioc_id": 11,
+            "ioc_description": "None",
+            "ioc_enrichment": "None",
+            "user_id": "None",
+            "ioc_tags": "None",
+            "ioc_type_id": 3,
+            "custom_attributes": "None",
+            "ioc_tlp_id": 1
+        }
+    ],
+    "alert_context": {
+        "device_name": "Martins-MacBook-Pro-14",
+        "device_os": "macOS",
+        "process_name": "dscl",
+        "process_id": 29813,
+        "process_command_line": [
+            "dscl",
+            ".",
+            "-list",
+            "/Users",
+            "hint"
+        ],
+        "process_user": "root",
+        "process_path": "/usr/bin/dscl",
+        "process_md5": "d1532f01829c92d66cd10c2395ce80b4"
+    },
+    "alert_description": "Identifies the execution of macOS built-in commands related to account or group enumeration. Adversaries may use account and group information to orient themselves before deciding how to act.",
+    "alert_owner_id": 2,
+    "alert_customer_id": 1,
+    "classification": {
+        "creation_date": "2023-08-31T15:58:10.671117",
+        "name_expanded": "Abusive-Content: spam",
+        "id": 1,
+        "description": "Spam or ‘unsolicited bulk e-mail’, meaning that the recipient has not granted verifiable permission for the message to be sent and that the message is sent as part of a larger collection of messages, all having identical content.",
+        "name": "abusive-content:spam"
+    },
+    "alert_id": 4,
+    "alert_source_link": "None",
+    "assets": [
+        {
+            "asset_description": "None",
+            "asset_enrichment": "None",
+            "analysis_status_id": "None",
+            "case_id": "None",
+            "asset_name": "Martins-MacBook-Pro-14",
+            "custom_attributes": "None",
+            "asset_id": 3,
+            "asset_compromise_status_id": "None",
+            "asset_type": {
+                "asset_description": "Generic Account",
+                "asset_name": "Account",
+                "asset_icon_compromised": "ioc_user.png",
+                "asset_icon_not_compromised": "user.png",
+                "asset_id": 1
+            },
+            "date_added": "None",
+            "asset_type_id": 1,
+            "asset_ip": "10.21.0.9",
+            "asset_info": "None",
+            "asset_domain": "None",
+            "date_update": "None",
+            "user_id": "None",
+            "asset_tags": "None",
+            "asset_uuid": "c712f7aa-f4d3-4614-984a-a2f172dfa359"
+        }
+    ],
+    "alert_tags": "IRIS-SOARSecurity",
+    "status": {
+        "status_name": "Escalated",
+        "status_description": "Alert converted to a new case",
+        "status_id": 8
+    },
+    "alert_source_event_time": "2023-08-31T15:59:07.996000",
+    "resolution_status": "None",
+    "owner": {
+        "user_email": "martin@pve.lan",
+        "user_login": "martin",
+        "id": 2,
+        "user_name": "Martin"
+    },
+    "cases": [],
+    "alert_resolution_status_id": "None",
+    "alert_status_id": 8,
+    "alert_title": "[ELASTIC_SIEM]  Enumeration of Users or Groups via Built-in Commands",
+    "alert_severity_id": 1,
+    "related_alerts": {
+        "assets": [
+            2, 4
+        ],
+        "iocs": [
+            2,
+            2,
+            2,
+            2,
+            4,
+            4,
+            4,
+            4
+        ]
+    }
+}

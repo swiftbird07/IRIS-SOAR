@@ -5,7 +5,7 @@
 import datetime
 
 from case_playbooks.PB_021_Advanced_Elastic_Context import irsoar_can_handle_alert, irsoar_handle_alert
-from lib.class_helper import CaseFile, Alert, Rule, ContextDevice
+from lib.class_helper import CaseFile, Alert, Rule, ContextAsset
 
 
 def prepare_test():
@@ -18,7 +18,7 @@ def prepare_test():
         host_ip="10.21.0.9",
         host_name="test-host",
         uuid="1438",
-        device=ContextDevice("MacBook Pro von Martin 14'", "10.21.0.9"),
+        device=ContextAsset("MacBook Pro von Martin 14'", "10.21.0.9"),
     )
     case_file = CaseFile([alert])
     iris_case = irsoar_create_iris_case(

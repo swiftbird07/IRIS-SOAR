@@ -66,51 +66,72 @@ def irsoar_handle_alerts(alerts: Alert, Test: bool = False):
 
             # Add the alerts to the case
             for case in cases:
-                mlog.info(f"Adding {len(alerts_by_host[host])} alerts to case '{case.case_number}'")
-                case: CaseFile = case
-                case.alerts.extend(alerts_by_host[host])
+                case_id = case["case_id"]
+                case_name = case["case_name"]
+                mlog.info(f"Adding {len(alerts_by_host[host])} alerts to case '{case_id}' with name '{case_name}'.")
+                # case: CaseFile = case
+                # case.alerts.extend(alerts_by_host[host])
 
                 # Add the case to the alerts
                 for alert in alerts_by_host[host]:
                     alert: Alert = alert
                     alert.iris_update_state("open")
-                    alert.iris_attach_to_case(case.uuid)
+                    alert.iris_attach_to_case(case_id)
+                    mlog.info(f"Added alert '{alert.name}' with ID '{alert.uuid}' to case '{case_id}' with name '{case_name}'.")
 
+                case_obj = CaseFile(alerts_by_host, case_id)
                 # Add a audit notes to the case
-                case.add_note_to_iris(group="IRIS-SOAR Audit", title=f"Added {len(alerts_by_host[host])} alerts to case.", content=f"Added Alerts: {alerts_by_host[host]}")
+                case_obj.add_note_to_iris(
+                    group="IRIS-SOAR Audit",
+                    title=f"Added {len(alerts_by_host[host])} alerts to case.",
+                    content=f"Added Alerts: {alerts_by_host[host]}",
+                )
 
                 # Add a note to the alerts
                 for alert in alerts_by_host[host]:
-                    alert.add_note_to_iris(alert.case_file, f"Added to case '{case.case_number}'")
+                    alert.add_note_to_iris(f"Added to case '{case_id}'")
 
-            case_list.extend(cases)
+                case_list.extend(case_obj)
             continue  # Skip the rest of the loop
 
         # For potential new Case: Check if there are enough alerts from the same host
         if len(alerts_by_host[host]) >= COUNT_ALERTS_FROM_SAME_HOST:
             mlog.info(f"Found {len(alerts_by_host[host])} alerts from the same host '{host}'. Creating a case for them.")
             # Create a new case object for the alerts
-            case_file = CaseFile(alerts_by_host[host])
+            case_file = CaseFile(alerts_by_host[host], case_id=None)
 
             # Add the case to the alerts
             for alert in alerts_by_host[host]:
                 alert: Alert = alert
                 alert.iris_update_state("open")
 
-                # The first alert hast to be excalaed to a case, the rest will merge into it
+                # The first alert hast to be escalated to a case, the rest will merge into it
                 if alert == alerts_by_host[host][0]:
-                    case_file.uuid = alert.iris_excalate_to_case()
+                    title = f"[IRIS-SOAR] Multiple Alerts on Host '{host}'"
+                    case_file.uuid = alert.iris_excalate_to_case(title)
+                    mlog.info(
+                        f"Created a case for initial alert '{alert.name}' ({alert.uuid}) with case title '{title}' and case ID '{case_file.uuid}'."
+                    )
+
+                    if not case_file.uuid:
+                        mlog.error(f"Could not create case for alert '{alert.name}' with ID '{alert.uuid}'. Aborting.")
+                        break
                 else:
                     alert.iris_attach_to_case(case_file.uuid)
+                    mlog.info(f"Added alert '{alert.name}' with ID '{alert.uuid}' to the same case (ID {case_file.uuid}).")
 
             # Add a audit notes to the case
             case_file.add_note_to_iris(
-                group="IRIS-SOAR Audit", title=f"Created a case for {len(alerts_by_host[host])} alerts from the same host '{host}'.", content=f"Initial Alerts: {alerts_by_host[host]}"
+                group="IRIS-SOAR Audit",
+                title=f"Created a case for {len(alerts_by_host[host])} alerts from the same host '{host}'.",
+                content=f"Initial Alerts: {alerts_by_host[host]}",
             )
+            mlog.info(f"Added audit note to case '{case_file.uuid}'.")
 
             # Add a note to the alerts
             for alert in alerts_by_host[host]:
-                alert.add_note_to_iris(alert.case_file, f"Added to case '{case_file.uuid}'")
+                alert.add_note_to_iris(f"Added to case '{case_file.uuid}'")
+                mlog.info(f"Added note to alert '{alert.name}' with ID '{alert.uuid}'.")
 
             case_list.append(case_file)
 
@@ -118,3 +139,9 @@ def irsoar_handle_alerts(alerts: Alert, Test: bool = False):
             mlog.info(f"Found {len(alerts_by_host[host])} alerts from the same host '{host}'. Not enough to create a case.")
 
     return case_list
+
+
+# TODO: Fix note not in case
+# TODO: Edit note events to contain alert data
+# TODO: De-Duplicate loaded Assets
+# TODO: Fix broken case tags

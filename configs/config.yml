@@ -1,9 +1,27 @@
+alert_playbooks:
+  PB_Create_Case_for_Multiple_Host_Alerts:
+    enabled: true
 cache:
   file:
     enabled: true
     max_age_hours: 24
     max_size_mb: 10
     path: lib/cache.json
+case_playbooks:
+  PB_010_Generic_Elastic_Alerts:
+    enabled: true
+  PB_011_Generic_QRadar_Offenses:
+    enabled: true
+  PB_020_Generic_Suricata_Alerts:
+    enabled: true
+  PB_021_Advanced_Elastic_Context:
+    enabled: true
+  PB_022_Generic_NTOP-NG_Alerts:
+    enabled: true
+  PB_110_Generic_VirusTotal:
+    enabled: true
+  PB_900_Classify_and_Notify:
+    enabled: true
 daemon:
   enabled: true
   interval: 1
@@ -13,7 +31,7 @@ integrations:
     api_key: $IRSOAR_IRIS_API_KEY
     logging:
       log_level_file: info
-      log_level_stdout: warning
+      log_level_stdout: debug
       log_level_syslog: error
     default_severity: 3
     default_type: 2
@@ -71,21 +89,6 @@ logging:
   split_file_on_startup: true
   split_file_on_worker_iteration: false
   split_files_by_module: false
-playbooks:
-  PB_010_Generic_Elastic_Alerts:
-    enabled: true
-  PB_011_Generic_QRadar_Offenses:
-    enabled: true
-  PB_020_Generic_Suricata_Alerts:
-    enabled: true
-  PB_021_Advanced_Elastic_Context:
-    enabled: true
-  PB_022_Generic_NTOP-NG_Alerts:
-    enabled: true
-  PB_110_Generic_VirusTotal:
-    enabled: true
-  PB_900_Classify_and_Notify:
-    enabled: true
 setup:
   load_enviroment_variables: true
   setup_step: 2

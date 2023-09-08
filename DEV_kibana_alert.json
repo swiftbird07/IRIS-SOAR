@@ -1,0 +1,342 @@
+"alert_source_content" : {
+    "kibana.alert.severity": "low",
+    "agent": {
+        "id": "209dbd22-7d4a-4c58-afd9-99b20b2198a8",
+        "type": "endpoint",
+        "version": "8.7.0"
+    },
+    "kibana.alert.rule.references": [],
+    "kibana.alert.rule.updated_by": "elastic",
+    "event.category": ["process"],
+    "kibana.alert.rule.threat": [
+        {
+            "framework": "MITRE ATT&CK",
+            "technique": [
+                {
+                    "reference": "https://attack.mitre.org/techniques/T1069/",
+                    "name": "Permission Groups Discovery",
+                    "subtechnique": [
+                        {
+                            "reference": "https://attack.mitre.org/techniques/T1069/001/",
+                            "name": "Local Groups",
+                            "id": "T1069.001"
+                        }
+                    ],
+                    "id": "T1069"
+                }, {
+                    "reference": "https://attack.mitre.org/techniques/T1087/",
+                    "name": "Account Discovery",
+                    "subtechnique": [
+                        {
+                            "reference": "https://attack.mitre.org/techniques/T1087/001/",
+                            "name": "Local Account",
+                            "id": "T1087.001"
+                        }
+                    ],
+                    "id": "T1087"
+                }
+            ],
+            "tactic": {
+                "reference": "https://attack.mitre.org/tactics/TA0007/",
+                "name": "Discovery",
+                "id": "TA0007"
+            }
+        }
+    ],
+    "kibana.alert.url": "https://pfelk.pve.lan:5601/app/security/alerts/redirect/191a36b2da8965e41c4dbcb0fc645525528f34173310202bd647265daa71e2c1?index=.alerts-security.alerts-default&timestamp=2023-08-31T15:59:07.996Z",
+    "kibana.alert.rule.description": "Identifies the execution of macOS built-in commands related to account or group enumeration. Adversaries may use account and group information to orient themselves before deciding how to act.",
+    "kibana.alert.rule.tags": [
+        "Domain: Endpoint", "OS: macOS", "Use Case: Threat Detection", "Tactic: Discovery"
+    ],
+    "kibana.alert.rule.producer": "siem",
+    "kibana.alert.rule.to": "now",
+    "kibana.alert.rule.created_by": "elastic",
+    "kibana.alert.rule.timestamp_override": "event.ingested",
+    "kibana.alert.original_event.ingested": "2023-08-31T15:53:17Z",
+    "ecs": {
+        "version": "1.11.0"
+    },
+    "kibana.alert.risk_score": 21,
+    "host": {
+        "hostname": "Martins-MacBook-Pro-14",
+        "os": {
+            "Ext": {
+                "variant": "macOS"
+            },
+            "kernel": "Darwin Kernel Version 22.6.0: Wed Jul  5 22:21:53 PDT 2023; root:xnu-8796.141.3~6/RELEASE_ARM64_T6020",
+            "name": "macOS",
+            "family": "macos",
+            "type": "macos",
+            "version": "13.5.1",
+            "platform": "macos",
+            "full": "macOS 13.5.1"
+        },
+        "ip": [
+            "127.0.0.1",
+            "::1",
+            "fe80::1",
+            "fe80::3039:39ff:fea4:9a95",
+            "fe80::3039:39ff:fea4:9a94",
+            "fe80::3039:39ff:fea4:9a96",
+            "fe80::7ce9:1eff:feb2:659",
+            "192.168.178.151",
+            "fe80::1028:6608:2e7b:dbf1",
+            "2a01:41e3:28fe:b800:52:2533:73a1:c3e1",
+            "2a01:41e3:28fe:b800:e996:ed1:def3:aa27",
+            "2a01:41e3:28fe:b800:1028:6608:2e7b:dbf1",
+            "fdfe:bd1a:4cf9:439b:4a0:9d4:8b12:14f5",
+            "fe80::4430:7dff:fe92:611e",
+            "fe80::4fca:8850:2665:56d5",
+            "fe80::ea0f:f8c5:eeeb:ba85",
+            "fe80::ce81:b1c:bd2c:69e",
+            "fe80::3342:6bbb:9ada:8703",
+            "fe80::d2a6:f663:32c1:735c",
+            "fe80::895:c891:f6d0:179e",
+            "fe80::4c70:f4d:f711:3cfa",
+            "fe80::1f16:661b:ea7b:b9c8",
+            "fe80::c992:c237:c402:c243",
+            "10.21.0.9"
+        ],
+        "name": "Martins-MacBook-Pro-14",
+        "id": "5AB8B333-9E5B-580F-B34B-067737F068AC",
+        "mac": [
+            "32:39:39:a4:9a:95",
+            "32:39:39:a4:9a:94",
+            "32:39:39:a4:9a:96",
+            "32:39:39:a4:9a:74",
+            "32:39:39:a4:9a:75",
+            "32:39:39:a4:9a:76",
+            "36:ee:2d:3f:a6:c0",
+            "36:ee:2d:3f:a6:c4",
+            "36:ee:2d:3f:a6:c8",
+            "7e:e9:1e:b2:06:59",
+            "5c:e9:1e:b2:06:59",
+            "46:30:7d:92:61:1e"
+        ],
+        "architecture": "arm64"
+    },
+    "kibana.alert.rule.name": "Enumeration of Users or Groups via Built-in Commands",
+    "event.agent_id_status": "verified",
+    "event.kind": "signal",
+    "kibana.alert.original_event.id": "NCryJtemwObdCMV/++++PPyr",
+    "group": {
+        "Ext": {
+            "real": {
+                "name": "wheel",
+                "id": 0
+            }
+        },
+        "name": "wheel",
+        "id": 0
+    },
+    "event.outcome": "unknown",
+    "kibana.alert.workflow_status": "open",
+    "kibana.alert.rule.uuid": "a59a3e51-1437-11ee-99c9-030cd6943e25",
+    "kibana.alert.original_event.created": "2023-08-31T15:53:09.87399Z",
+    "kibana.alert.original_event.category": ["process"],
+    "kibana.alert.rule.risk_score_mapping": [],
+    "kibana.alert.original_event.module": "endpoint",
+    "kibana.alert.rule.interval": "5m",
+    "kibana.alert.reason": "process event with process dscl, by root on Martins-MacBook-Pro-14 created low alert Enumeration of Users or Groups via Built-in Commands.",
+    "kibana.alert.rule.type": "eql",
+    "kibana.alert.start": "2023-08-31T15:59:08.217Z",
+    "kibana.alert.rule.immutable": "True",
+    "kibana.alert.original_event.type": ["start"],
+    "event.created": "2023-08-31T15:53:09.87399Z",
+    "kibana.alert.depth": 1,
+    "kibana.alert.rule.enabled": "True",
+    "kibana.alert.rule.version": 103,
+    "kibana.alert.rule.from": "now-9m",
+    "kibana.alert.rule.parameters": {
+        "severity_mapping": [],
+        "references": [],
+        "description": "Identifies the execution of macOS built-in commands related to account or group enumeration. Adversaries may use account and group information to orient themselves before deciding how to act.",
+        "language": "eql",
+        "type": "eql",
+        "exceptions_list": [],
+        "timestamp_override": "event.ingested",
+        "from": "now-9m",
+        "severity": "low",
+        "max_signals": 100,
+        "risk_score": 21,
+        "risk_score_mapping": [],
+        "author": ["Elastic"],
+        "rule_id": "6e9b351e-a531-4bdc-b73e-7034d6eed7ff",
+        "license": "Elastic License v2",
+        "required_fields": [
+            {
+                "ecs": "True",
+                "name": "event.type",
+                "type": "keyword"
+            },
+            {
+                "ecs": "True",
+                "name": "host.os.type",
+                "type": "keyword"
+            },
+            {
+                "ecs": "True",
+                "name": "process.args",
+                "type": "keyword"
+            },
+            {
+                "ecs": "True",
+                "name": "process.name",
+                "type": "keyword"
+            }, {
+                "ecs": "True",
+                "name": "process.parent.executable",
+                "type": "keyword"
+            }
+        ],
+        "immutable": "True",
+        "related_integrations": [
+            {
+                "package": "endpoint",
+                "version": "^8.2.0"
+            }
+        ],
+        "setup": "If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.",
+        "False_positives": [],
+        "threat": [
+            {
+                "framework": "MITRE ATT&CK",
+                "technique": [
+                    {
+                        "reference": "https://attack.mitre.org/techniques/T1069/",
+                        "name": "Permission Groups Discovery",
+                        "subtechnique": [
+                            {
+                                "reference": "https://attack.mitre.org/techniques/T1069/001/",
+                                "name": "Local Groups",
+                                "id": "T1069.001"
+                            }
+                        ],
+                        "id": "T1069"
+                    }, {
+                        "reference": "https://attack.mitre.org/techniques/T1087/",
+                        "name": "Account Discovery",
+                        "subtechnique": [
+                            {
+                                "reference": "https://attack.mitre.org/techniques/T1087/001/",
+                                "name": "Local Account",
+                                "id": "T1087.001"
+                            }
+                        ],
+                        "id": "T1087"
+                    }
+                ],
+                "tactic": {
+                    "reference": "https://attack.mitre.org/tactics/TA0007/",
+                    "name": "Discovery",
+                    "id": "TA0007"
+                }
+            }
+        ],
+        "to": "now"
+    },
+    "kibana.alert.rule.revision": 103,
+    "kibana.alert.status": "active",
+    "kibana.alert.last_detected": "2023-08-31T15:59:08.217Z",
+    "kibana.alert.ancestors": [
+        {
+            "depth": 0,
+            "index": ".ds-logs-endpoint.events.process-default-2023.08.30-000041",
+            "id": "S65MTIoBZDY505qmgu2R",
+            "type": "event"
+        }
+    ],
+    "kibana.alert.original_event.dataset": "endpoint.events.process",
+    "kibana.alert.rule.exceptions_list": [],
+    "kibana.alert.rule.actions": [],
+    "event.sequence": 4868424,
+    "kibana.alert.rule.rule_type_id": "siem.eqlRule",
+    "event.module": "endpoint",
+    "kibana.alert.rule.license": "Elastic License v2",
+    "kibana.alert.original_event.kind": "event",
+    "kibana.alert.rule.severity_mapping": [],
+    "process": {
+        "Ext": {
+            "ancestry": []
+        },
+        "args": [
+            "dscl",
+            ".",
+            "-list",
+            "/Users",
+            "hint"
+        ],
+        "parent": {
+            "args": [],
+            "pid": 1194,
+            "args_count": 0
+        },
+        "code_signature": {
+            "signing_id": "com.apple.dscl",
+            "trusted": "True",
+            "subject_name": "Software Signing",
+            "exists": "True",
+            "status": "No error."
+        },
+        "name": "dscl",
+        "pid": 29813,
+        "args_count": 5,
+        "entity_id": "MjA5ZGJkMjItN2Q0YS00YzU4LWFmZDktOTliMjBiMjE5OGE4LTI5ODEzLTE2OTM0OTcxODk=",
+        "command_line": "dscl . -list /Users hint",
+        "executable": "/usr/bin/dscl",
+        "hash": {
+            "sha1": "397227950fa74f242205e6e78bceb8b77ce1903d",
+            "sha256": "5bb2496a35cfc2c80fcc1f9be9c4b9abbb0bdd4be142333a050ad89be3fca51f",
+            "md5": "d1532f01829c92d66cd10c2395ce80b4"
+        }
+    },
+    "kibana.alert.rule.max_signals": 100,
+    "kibana.alert.rule.updated_at": "2023-06-29T11:51:51.582Z",
+    "kibana.alert.rule.risk_score": 21,
+    "kibana.alert.rule.author": ["Elastic"],
+    "kibana.alert.rule.False_positives": [],
+    "message": "Endpoint process event",
+    "kibana.alert.rule.consumer": "siem",
+    "kibana.alert.rule.indices": [
+        "auditbeat-*", "logs-endpoint.events.*"
+    ],
+    "kibana.alert.rule.category": "Event Correlation Rule",
+    "kibana.alert.original_event.sequence": 4868424,
+    "kibana.alert.original_event.outcome": "unknown",
+    "event.ingested": "2023-08-31T15:53:17Z",
+    "event.action": "exec",
+    "@timestamp": "2023-08-31T15:59:07.996Z",
+    "kibana.alert.rule.created_at": "2023-06-26T15:39:33.001Z",
+    "kibana.alert.original_event.action": "exec",
+    "kibana.alert.rule.severity": "low",
+    "data_stream": {
+        "namespace": "default",
+        "type": "logs",
+        "dataset": "endpoint.events.process"
+    },
+    "event.type": ["start"],
+    "kibana.alert.original_event.agent_id_status": "verified",
+    "elastic": {
+        "agent": {
+            "id": "209dbd22-7d4a-4c58-afd9-99b20b2198a8"
+        }
+    },
+    "kibana.alert.rule.execution.uuid": "b55fbd09-9b35-4f2f-849e-dbefd39b4c45",
+    "kibana.space_ids": ["default"],
+    "kibana.alert.uuid": "191a36b2da8965e41c4dbcb0fc645525528f34173310202bd647265daa71e2c1",
+    "kibana.version": "8.8.1",
+    "event.id": "NCryJtemwObdCMV/++++PPyr",
+    "user": {
+        "Ext": {
+            "real": {
+                "name": "root",
+                "id": 0
+            }
+        },
+        "name": "root",
+        "id": 0
+    },
+    "event.dataset": "endpoint.events.process",
+    "kibana.alert.original_time": "2023-08-31T15:53:09.873Z",
+    "kibana.alert.rule.rule_id": "6e9b351e-a531-4bdc-b73e-7034d6eed7ff"
+},

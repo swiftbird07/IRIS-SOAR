@@ -25,7 +25,7 @@ from lib.generic_helper import del_none_from_dict, dict_get
 DEBUG_ADD_AUDIT_LOG_TO_IRIS_CASE = True  # Weither or not to add the audit log to theiris-casewhen the worker is finished
 
 
-def check_module_exists(module_name, playbook=False):
+def check_module_exists(module_name, alert_playbook=False, case_playbook=False):
     """Checks if a module exists.
 
     Args:
@@ -35,10 +35,13 @@ def check_module_exists(module_name, playbook=False):
         bool: True if the module exists, False if not
     """
     try:
-        if not playbook:
+        if not alert_playbook:
             __import__("integrations." + module_name)
         else:
-            __import__("playbooks." + module_name)
+            if alert_playbook:
+                __import__("alert_playbooks." + module_name)
+            elif case_playbook:
+                __import__("case_playbooks." + module_name)
         return True
     except ModuleNotFoundError:
         return False
@@ -123,34 +126,12 @@ def main(config, fromDaemon=False, debug=False):
             continue
 
         try:
-            alert_title = alert["alert_title"]
+            mlog.info(f"Transforming alert {alert['alert_title']} to Alert object...")
             alert_id = alert["alert_id"]
-
-            mlog.info(f"Transforming alert '{alert_title}' ({alert_id})) to a Alert object.")
-
-            for integration in integrations:
-                if integration == "dfir-iris":
-                    continue
-                if not check_module_exists(integration):
-                    mlog.error("The integration " + integration + " does not exist. Skipping.")
-                    continue
-                if not check_module_has_function(integration, "irsoar_transform_alert_to_alert", mlog):
-                    mlog.info(
-                        "The integration "
-                        + integration
-                        + " does not have the function 'irsoar_transform_alert_to_alert'. Skipping."
-                    )
-                    continue
-                integration_config = config["integrations"][integration]
-                alert = getattr(__import__("integrations." + integration), integration).irsoar_transform_alert_to_alert(
-                    integration_config, alert, alert_id
-                )
-                if not isinstance(alert, class_helper.Alert):
-                    mlog.error("The integration " + integration + " did not return a valid Alert object. Skipping.")
-                    continue
-                else:
-                    mlog.info("The integration " + integration + " transformed the alert to a Alert object successfully.")
-                    alert_list.append(alert)
+            alert_obj = class_helper.Alert()
+            alert_obj.load_from_iris(alert_id)
+            # alert_obj.iris_update_state("pending")
+            alert_list.append(alert_obj)
         except Exception as e:
             mlog.error(f"Failed to transform alert {alert['alert_title']} to Alert object. Error: " + traceback.format_exc())
             continue
@@ -167,13 +148,8 @@ def main(config, fromDaemon=False, debug=False):
             continue
 
         # Check if the alert_playbook exists
-        if not check_module_exists(alert_playbook):
+        if not check_module_exists(alert_playbook, alert_playbook=True):
             mlog.error("The alert_playbook " + alert_playbook + " does not exist. Skipping.")
-            continue
-
-        # Check if the alert_playbook has the function 'irsoar_handle_alerts'
-        if not check_module_has_function(alert_playbook, "irsoar_handle_alerts", mlog):
-            mlog.info("The alert_playbook " + alert_playbook + " does not have the function 'irsoar_handle_alerts'. Skipping.")
             continue
 
         # Let the alert_playbook handle the alert
@@ -202,7 +178,7 @@ def main(config, fromDaemon=False, debug=False):
                 continue
 
             # Check if the playbook exists
-            if not check_module_exists(playbook_name, playbook=True):
+            if not check_module_exists(playbook_name, case_playbook=True):
                 mlog.error("The playbook " + playbook_name + " does not exist. Skipping.")
                 continue
 

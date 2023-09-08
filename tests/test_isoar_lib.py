@@ -151,8 +151,8 @@ def test_class_helper():
     assert flow != None, "ContextFlow class could not be initialized"
     assert type(flow.source_ip) == ipaddress.IPv4Address, "ContextFlow initialized wrong ip type"
     assert flow.destination_ip == ipaddress.ip_address("10.0.0.1"), "ContextFlow initialized wrong ip value"
-    assert flow.flow_direction == "R2L", "ContextFlow wrong flow direction calculation"
-    assert flow.flow_id > 0, "ContextFlow id is not set"
+    assert flow.direction == "R2L", "ContextFlow wrong flow direction calculation"
+    assert flow.id > 0, "ContextFlow id is not set"
 
     # Test Certificate class
     cert = class_helper.Certificate(alert.uuid, "example.com", "Pytest Inc.", "Pytest CN", public_key_size=2048)
@@ -204,7 +204,7 @@ def test_class_helper():
         file_extension=".png",
     )
     assert file != None, "File class could not be initialized"
-    assert file.file_extension == "png", "File class file_extension not set correctly"
+    assert file.extension == "png", "File class file_extension not set correctly"
 
     # Test ContextLog class
     log_message = class_helper.ContextLog(
@@ -318,7 +318,7 @@ def test_class_helper():
     assert len(person.roles) == 1, "Person class roles not set correctly"
 
     # Test Device class
-    device = class_helper.ContextDevice(
+    device = class_helper.ContextAsset(
         "MacBook Pro von John Doe",
         "10.12.2.4",
         mac="00:00:00:00:00:00",
@@ -340,15 +340,13 @@ def test_class_helper():
         "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run",
         "C:\\Windows\\System32\\calc.exe",
     )
-    assert (
-        reg_context.registry_key == "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
-    ), "Could not create RegistryContext"
-    assert reg_context.registry_value == "C:\\Windows\\System32\\calc.exe", "Could not create RegistryContext"
+    assert reg_context.key == "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", "Could not create RegistryContext"
+    assert reg_context.value == "C:\\Windows\\System32\\calc.exe", "Could not create RegistryContext"
 
     # Test CaseFile add_context
     case_file.add_context(log_message)
     assert len(case_file.context_logs) == 1, "Could not add context log_message to alert"
-    assert case_file.context_logs[0].log_message == "Failed user logon user=root", "Could not add log_message context to alert"
+    assert case_file.context_logs[0].message == "Failed user logon user=root", "Could not add log_message context to alert"
 
     case_file.add_context(process)
     assert len(case_file.context_processes) == 1, "Could not add process context to alert"
@@ -377,7 +375,7 @@ def test_class_helper():
 
     case_file.add_context(file)
     assert len(case_file.context_files) == 1, "Could not add file context to alert"
-    assert case_file.context_files[0].file_name == "image.png", "Could not add file context to alert"
+    assert case_file.context_files[0].name == "image.png", "Could not add file context to alert"
 
     flow.http = http
     case_file.add_context(flow)
@@ -428,13 +426,13 @@ def test_class_helper():
     case_file.add_context(log_message3)
     assert len(case_file.context_logs) == 1 + 3, "Could not add log messages to alert"
     assert (
-        case_file.context_logs[1 + 0].log_message == "Second created Log message. Happened first."
+        case_file.context_logs[1 + 0].message == "Second created Log message. Happened first."
     ), "Time sorting of log messages failed"
     assert (
-        case_file.context_logs[1 + 1].log_message == "Third created Log message. Happened in the middle."
+        case_file.context_logs[1 + 1].message == "Third created Log message. Happened in the middle."
     ), "Time sorting of log msg failed"
     assert (
-        case_file.context_logs[1 + 2].log_message == "First created Log message. Happened last."
+        case_file.context_logs[1 + 2].message == "First created Log message. Happened last."
     ), "Time sorting of log messages failed"
 
     flow.dns_query = class_helper.DNSQuery(alert.uuid, "A", "*.example.com", True, "10.10.10.10")
@@ -559,14 +557,16 @@ def test_generic_helper():
     generic_helper.get_from_cache("test", "entities", "123") == "4566", "Could not get from cache"
     # TODO: Add more tests
 
+
 def test_iris_helper():
     import lib.iris_helper as iris_helper
-    
+
     iris_helper.add_note_to_alert("123", "Test note")
     iris_helper.add_note_to_case(123, 123, "Test note", "Test description")
     iris_helper.get_cases_by_title("Test case")
     iris_helper.update_alert_state("123", "OPEN")
     iris_helper.escalate_alert("123", "Test escalation")
     iris_helper.merge_alert_to_case("123", 123)
-    
-#test_generic_helper()
+
+
+# test_generic_helper()

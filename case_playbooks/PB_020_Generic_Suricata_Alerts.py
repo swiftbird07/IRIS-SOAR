@@ -55,8 +55,8 @@ def irsoar_can_handle_alert(case_file: CaseFile) -> bool:
         if alert.vendor_id == "IBM QRadar":
             for log in case_file.context_logs:
                 if (
-                    dict_get(log.log_custom_fields, "Alert - Signature") != None
-                    and dict_get(log.log_custom_fields, "Alert - Action") != "store"
+                    dict_get(log.custom_fields, "Alert - Signature") != None
+                    and dict_get(log.custom_fields, "Alert - Action") != "store"
                 ):
                     mlog.info(f"Playbook '{PB_NAME}' can handle alert '{alert.name}' ({alert.uuid}).")
                     return True
@@ -109,7 +109,7 @@ def irsoar_handle_alert(case_file: CaseFile, DRY_RUN=False) -> CaseFile:
     #            '"Alert - Updated"',
 
     for log in case_file.context_logs:
-        custom_fields = log.log_custom_fields
+        custom_fields = log.custom_fields
         if dict_get(custom_fields, "Alert - Signature") != None:
             rule = Rule(
                 dict_get(custom_fields, "Alert - SID", "Unknown"),
@@ -189,11 +189,11 @@ def irsoar_handle_alert(case_file: CaseFile, DRY_RUN=False) -> CaseFile:
 
     offender = []
     for log in case_file.context_logs:
-        if log.log_source_device is not None:
-            offender.append(log.log_source_device.name)
+        if log.source_device is not None:
+            offender.append(log.source_device.name)
 
     if len(offender) == 0:
-        offender.append(log.log_source_ip)
+        offender.append(log.source_ip)
     if len(offender) == 1:
         title += " | Offender: " + str(offender[0])
     else:

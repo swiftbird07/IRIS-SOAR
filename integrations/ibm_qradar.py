@@ -32,7 +32,7 @@ import ipaddress
 import lib.logging_helper as logging_helper
 
 # For new alerts:
-from lib.class_helper import Rule, Alert, ContextFlow, ContextDevice, ContextLog, HTTP, ContextFile, ContextDevice, DNSQuery
+from lib.class_helper import Rule, Alert, ContextFlow, ContextAsset, ContextLog, HTTP, ContextFile, ContextAsset, DNSQuery
 from lib.config_helper import Config
 from lib.generic_helper import cast_to_ipaddress
 
@@ -657,7 +657,7 @@ def create_flow_from_events(mlog, offense_id, all_events):
                 src_ip = cast_to_ipaddress(event["Source IP"], False)
                 src_ip_private = src_ip.is_private if src_ip != None else False
 
-                device = ContextDevice(
+                device = ContextAsset(
                     event["Source Asset Name"],
                     src_ip if src_ip_private else None,
                     src_ip if not src_ip_private else None,
@@ -668,7 +668,7 @@ def create_flow_from_events(mlog, offense_id, all_events):
                 dst_ip = cast_to_ipaddress(event["Destination IP"], False)
                 dst_ip_private = dst_ip.is_private if dst_ip != None else False
 
-                device = ContextDevice(
+                device = ContextAsset(
                     event["Destination Asset Name"],
                     dst_ip if dst_ip_private else None,
                     dst_ip if not dst_ip_private else None,
@@ -735,7 +735,7 @@ def create_logs_from_events(mlog, offense_id, all_events):
                 src_ip = cast_to_ipaddress(event["Source IP"], False)
                 src_ip_private = src_ip.is_private if src_ip != None else False
 
-                device = ContextDevice(
+                device = ContextAsset(
                     event["Source Asset Name"],
                     src_ip if src_ip_private else None,
                     src_ip if not src_ip_private else None,
@@ -746,7 +746,7 @@ def create_logs_from_events(mlog, offense_id, all_events):
                 dst_ip = cast_to_ipaddress(event["Destination IP"], False)
                 dst_ip_private = dst_ip.is_private if dst_ip != None else False
 
-                device = ContextDevice(
+                device = ContextAsset(
                     event["Destination Asset Name"],
                     dst_ip if dst_ip_private else None,
                     dst_ip if not dst_ip_private else None,
@@ -919,7 +919,7 @@ def irsoar_provide_new_alerts(config, TEST=False) -> List[Alert]:
             mlog.debug("Offense content: " + str(offense))
             host_ip = cast_to_ipaddress(offense["offense_source"], False)
 
-            device = ContextDevice(None, host_ip)
+            device = ContextAsset(None, host_ip)
 
             alert = Alert(
                 "IBM QRadar",

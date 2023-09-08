@@ -28,7 +28,7 @@ import time
 import lib.logging_helper as logging_helper
 
 # For new alerts:
-from lib.class_helper import Rule, Alert, ContextProcess, ContextFlow, ContextDevice
+from lib.class_helper import Rule, Alert, ContextProcess, ContextFlow, ContextAsset
 
 # For context for alerts:
 from lib.class_helper import (
@@ -451,7 +451,7 @@ def create_process_from_doc(mlog, doc_dict, alertOnly=True):
         is_complete=True,
     )
 
-    mlog.debug("Created process: " + str(process.process_name) + " with UUID: " + str(process.process_uuid))
+    mlog.debug("Created process: " + str(process.name) + " with UUID: " + str(process.uuid))
     return process
 
 
@@ -484,7 +484,7 @@ def create_file_from_doc(mlog, doc_dict, alert_id):
         # TODO: Add more fields if found
     )
 
-    mlog.debug("Created file: " + str(file.file_name))
+    mlog.debug("Created file: " + str(file.name))
     return file
 
 
@@ -551,7 +551,7 @@ def create_alert_from_doc(mlog, doc):
 
     device = None
     if dict_get(doc_dict, "host.hostname") is not None:
-        device = ContextDevice(
+        device = ContextAsset(
             name=dict_get(doc_dict, "host.hostname"),
             local_ip=host_ip,
             global_ip=global_ip,
@@ -605,7 +605,7 @@ def create_registry_from_doc(mlog, doc_dict, alert_id):
         registry_path=dict_get(doc_dict, "registry.path"),
     )
 
-    mlog.debug("Created registry: " + str(registry.registry_key))
+    mlog.debug("Created registry: " + str(registry.key))
     return registry
 
 
@@ -1252,7 +1252,7 @@ def irsoar_provide_new_alerts(config, TEST="") -> List[Alert]:
         return alerts
 
     for num, doc in enumerate(hits):
-        alert: Alert = create_alert_from_doc(doc)
+        alerts.append(alert := create_alert_from_doc(mlog, doc))
 
         try:
             index = doc["_index"]

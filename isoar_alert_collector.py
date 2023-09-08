@@ -19,7 +19,7 @@ from dfir_iris_client.alert import Alert
 
 import lib.logging_helper as logging_helper
 import lib.class_helper as class_helper  # TODO: Implement class_helper.py
-from lib.generic_helper import dict_get
+from lib.generic_helper import dict_get, del_none_from_dict
 import lib.config_helper as config_helper
 
 
@@ -159,9 +159,9 @@ def main(config, fromDaemon=False, debug=False):
                 AlertList.append(alert)
 
     # Loop through each alert
-    for alert_alert in AlertList:
-        alert_title = alert_alert.name
-        alert_id = alert_alert.uuid
+    for alert in AlertList:
+        alert_title = alert.name
+        alert_id = alert.uuid
         alertHandled = False
 
         mlog.info("Pushing alert " + alert_title + " (" + str(alert_id) + ") to IRIS as alert.")
@@ -177,180 +177,78 @@ def main(config, fromDaemon=False, debug=False):
 
         # Try to expand fill context dict fields:
         try:
-            if alert.dns_request:
-                dns_query = alert.dns_request
+            alert: Alert = alert
+            file_dict = alert.file.__dict__() if alert.file else {}
+            alert_context_dict = del_none_from_dict(file_dict)
 
-                if dns_query is not None and dns_query != "None":
-                    dns_query = dns_query.query
-                    if dns_query is not None:
-                        alert_context_dict["dns_query"] = dns_query
+            # Add the device
+            device_dict = alert.device.__dict__() if alert.device else {}
+            alert_context_dict |= del_none_from_dict(device_dict)
 
-                    dns_query_response = dns_query.query_response
-                    if dns_query_response is not None:
-                        alert_context_dict["dns_response"] = dns_query_response
+            # Add the flow
+            flow_dict = alert.flow.__dict__() if alert.flow else {}
+            alert_context_dict |= del_none_from_dict(flow_dict)
 
-            if alert.http_request:
-                http = alert.http_request
+            # Add the log
+            log_dict = alert.log.__dict__() if alert.log else {}
+            alert_context_dict |= del_none_from_dict(log_dict)
 
-                if http is not None and http != "None":
-                    http_url = http.full_url
-                    if http_url is not None:
-                        alert_context_dict["full_url"] = http_url
+            # Add the process
+            process_dict = alert.process.__dict__() if alert.process else {}
+            alert_context_dict |= del_none_from_dict(process_dict)
 
-                    http_method = http.method
-                    if http_method is not None:
-                        alert_context_dict["http_method"] = http_method
+            # Add the threat_intel
+            threat_intel_dict = alert.threat_intel.__dict__() if alert.threat_intel else {}
+            alert_context_dict |= del_none_from_dict(threat_intel_dict)
 
-                    http_status_code = http.status_code
-                    if http_status_code is not None:
-                        alert_context_dict["http_status_code"] = http_status_code
+            # Add the location
+            location_dict = alert.location.__dict__() if alert.location else {}
+            alert_context_dict |= del_none_from_dict(location_dict)
 
-                    http_user_agent = http.user_agent
-                    if http_user_agent is not None:
-                        alert_context_dict["http_user_agent"] = http_user_agent
+            # Add the user
+            user_dict = alert.user.__dict__() if alert.user else {}
+            alert_context_dict |= del_none_from_dict(user_dict)
 
-                    http_referer = http.host
-                    if http_referer is not None:
-                        alert_context_dict["host"] = http_referer
+            # Add the registry
+            registry_dict = alert.registry.__dict__() if alert.registry else {}
+            alert_context_dict |= del_none_from_dict(registry_dict)
 
-                    http_body = http.request_headers
-                    if http_body is not None and http_body != "None":
-                        alert_context_dict["request_headers"] = http_body
+            # Add the http
+            http_dict = alert.flow.http.__dict__() if alert.flow and alert.flow.http else {}
+            alert_context_dict |= del_none_from_dict(http_dict)
 
-                    http_body = http.request_body
-                    if http_body is not None and http_body != "None":
-                        alert_context_dict["request_body"] = http_body
-
-                    http_body = http.response_headers
-                    if http_body is not None and http_body != "None":
-                        alert_context_dict["response_headers"] = http_body
-
-                    http_body = http.response_body
-                    if http_body is not None and http_body != "None":
-                        alert_context_dict["response_body"] = http_body
-
-                    http_body = http.certificate
-                    if http_body is not None and http_body != "None":
-                        alert_context_dict["response_body"] = http_body
-
-            if alert.device:
-                device = alert.device
-
-                if device is not None and device != "None":
-                    device_name = device.name
-                    if device_name is not None:
-                        alert_context_dict["device_name"] = device_name
-
-                    device_type = device.type
-                    if device_type is not None and device_type != "None":
-                        alert_context_dict["device_type"] = device_type
-
-                    device_os = device.os
-                    if device_os is not None:
-                        alert_context_dict["device_os"] = device_os
-
-            process = alert.process
-            if process is not None and process != "None":
-                process_name = process.process_name
-                pass
-                if process_name is not None:
-                    alert_context_dict["process_name"] = process_name
-
-                process_pid = process.process_id
-                if process_pid is not None:
-                    alert_context_dict["process_id"] = process_pid
-
-                process_parent = process.parent_process_name
-                if process_parent is not None:
-                    alert_context_dict["process_parent"] = process_parent
-
-                process_command_line = process.process_command_line
-                if process_command_line is not None:
-                    alert_context_dict["process_command_line"] = process_command_line
-
-                process_user = process.process_username
-                if process_user is not None:
-                    alert_context_dict["process_user"] = process_user
-
-                process_path = process.process_path
-                if process_path is not None:
-                    alert_context_dict["process_path"] = process_path
-
-                process_hash = process.process_md5
-                if process_hash is not None:
-                    alert_context_dict["process_md5"] = process_hash
-
-                process_signature = process.process_signature
-                if process_signature is not None:
-                    alert_context_dict["process_signature"] = process_signature
-
-                # Flow data
-                flow = alert.flow
-                if flow is not None and flow != "None":
-                    flow_protocol = flow.protocol
-                    if flow_protocol is not None:
-                        alert_context_dict["flow_protocol"] = flow_protocol
-
-                    flow_source_ip = flow.source_ip
-                    if flow_source_ip is not None:
-                        alert_context_dict["flow_source_ip"] = str(flow_source_ip)
-
-                    flow_source_port = flow.source_port
-                    if flow_source_port is not None:
-                        alert_context_dict["flow_source_port"] = flow_source_port
-
-                    flow_destination_ip = flow.destination_ip
-                    if flow_destination_ip is not None:
-                        alert_context_dict["flow_destination_ip"] = str(flow_destination_ip)
-
-                    flow_destination_port = flow.destination_port
-                    if flow_destination_port is not None:
-                        alert_context_dict["flow_destination_port"] = flow_destination_port
-
-                    flow_bytes = flow.bytes_send
-                    if flow_bytes is not None:
-                        alert_context_dict["bytes_send"] = flow_bytes
-
-                    flow_packets = flow.packets_send
-                    if flow_packets is not None:
-                        alert_context_dict["packets_send"] = flow_packets
-
-                    flow_start = flow.start
-                    if flow_start is not None:
-                        alert_context_dict["flow_start"] = flow_start
-
-                    flow_end = flow.end
-                    if flow_end is not None:
-                        alert_context_dict["flow_end"] = flow_end
+            # Add the dns
+            dns_dict = alert.flow.dns.__dict__() if alert.flow and alert.flow.dns else {}
+            alert_context_dict |= del_none_from_dict(dns_dict)
 
         except Exception as e:
             mlog.warning("format_results() - Error while trying to format alert_context: " + str(e))
 
         # Add the IOCs
         iocs = []
-        if alert_alert.indicators["ip"]:
-            for ip in alert_alert.indicators["ip"]:
+        if alert.indicators["ip"]:
+            for ip in alert.indicators["ip"]:
                 iocs.append({"ioc_type_id": 79, "ioc_value": str(ip), "ioc_tlp_id": 1})
-        if alert_alert.indicators["domain"]:
-            for domain in alert_alert.indicators["domain"]:
+        if alert.indicators["domain"]:
+            for domain in alert.indicators["domain"]:
                 iocs.append({"ioc_type_id": 20, "ioc_value": domain, "ioc_tlp_id": 1})
-        if alert_alert.indicators["url"]:
-            for url in alert_alert.indicators["url"]:
+        if alert.indicators["url"]:
+            for url in alert.indicators["url"]:
                 iocs.append({"ioc_type_id": 141, "ioc_value": url, "ioc_tlp_id": 1})
-        if alert_alert.indicators["hash"]:
-            for hash in alert_alert.indicators["hash"]:
+        if alert.indicators["hash"]:
+            for hash in alert.indicators["hash"]:
                 iocs.append({"ioc_type_id": 90, "ioc_value": hash, "ioc_tlp_id": 1})
-        if alert_alert.indicators["email"]:
-            for email in alert_alert.indicators["email"]:
+        if alert.indicators["email"]:
+            for email in alert.indicators["email"]:
                 iocs.append({"ioc_type_id": 22, "ioc_value": email, "ioc_tlp_id": 1})
-        if alert_alert.indicators["countries"]:
-            for country in alert_alert.indicators["countries"]:
+        if alert.indicators["countries"]:
+            for country in alert.indicators["countries"]:
                 iocs.append({"ioc_type_id": 96, "ioc_value": country, "ioc_tlp_id": 1})
-        if alert_alert.indicators["registry"]:
-            for registry in alert_alert.indicators["registry"]:
+        if alert.indicators["registry"]:
+            for registry in alert.indicators["registry"]:
                 iocs.append({"ioc_type_id": 109, "ioc_value": registry, "ioc_tlp_id": 1})
-        if alert_alert.indicators["other"]:
-            for other in alert_alert.indicators["other"]:
+        if alert.indicators["other"]:
+            for other in alert.indicators["other"]:
                 iocs.append({"ioc_type_id": 96, "ioc_value": other, "ioc_tlp_id": 1})
 
         alert_severity = 2  # TODO: Implement severity calculation
