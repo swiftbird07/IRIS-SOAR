@@ -178,8 +178,11 @@ def add_note_to_alert(alert_id, msg):
     return True
 
 
-def add_note_to_case(case_id, group, title, message):
+def add_note_to_case(case_id, title, message, group_id=None, group_title=None):
     # Initiate a session with our API key and host. Session stays the same during all the script run.
+    if group_id is None and group_title is None:
+        group_title = "IRIS-SOAR Audit"
+
     session = ClientSession(
         apikey=config["api_key"],
         host=config["url"],
@@ -192,11 +195,22 @@ def add_note_to_case(case_id, group, title, message):
     # Fetch the case from its ID.
     if not case.case_id_exists(cid=case_id):
         mlog.error(f"Case ID {str(case_id)} not found !")
-        return False
+        return 0, False
 
     # Attribute the cid to the case instance
-    case.set_cid(cid=1)
-    case.add_note(title, message, group, cid=case_id)
+    case.set_cid(cid=case_id)
+    if not group_id:
+        response_group = case.add_notes_group(group_title, cid=case_id)
+        if not response_group.is_success():
+            mlog.error(f"Could not create group for case: {response_group.log_error()}")
+            return 0, False
+        group_id = response_group.get_data()["group_id"]
+
+    response = case.add_note(title, message, group_id, cid=case_id)
+    if not response.is_success():
+        mlog.error(f"Could not add note to case: {case.log_error()}")
+        return group_id, False
+    return group_id, True
 
 
 def get_alert_by_id(alert_id):

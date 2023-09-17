@@ -30,7 +30,7 @@ integrations:
   dfir-iris:
     api_key: $IRSOAR_IRIS_API_KEY
     logging:
-      log_level_file: info
+      log_level_file: debug
       log_level_stdout: debug
       log_level_syslog: error
     default_severity: 3
@@ -83,7 +83,7 @@ logging:
   log_file_split: false
   log_file_split_module: false
   log_file_split_start: true
-  log_level_file: info
+  log_level_file: debug
   log_level_stdout: warning
   log_level_syslog: none
   split_file_on_startup: true

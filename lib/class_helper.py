@@ -3381,7 +3381,8 @@ class Alert:
 
     def __str__(self):
         """Returns the string representation of the object."""
-        return json.dumps(del_none_from_dict(self.__dict__()), indent=4, sort_keys=False, default=str)
+        s = json.dumps(del_none_from_dict(self.__dict__()), indent=4, sort_keys=False, default=str)
+        return s.replace("\n", "<br>")
 
     def get_host(self):
         """Returns the host of the alert."""
@@ -3828,6 +3829,7 @@ class CaseFile:
         self.context_persons: List[Person] = []
         self.context_files: List[ContextFile] = []
         self.context_registries: List[ContextRegistry] = []
+        self.notes = {}
 
         self.uuid = case_id
         self.indicators = {
@@ -4207,20 +4209,49 @@ class CaseFile:
         else:
             raise ValueError("The case_file has no iris_case.")
 
-    def add_note_to_iris(self, title, content, group=None, group_id=None):
-        """Adds a note to the case in iris (and also to the local object)"""
-        if group is None and group_id is None:
-            raise ValueError("Either group or group_id must be set.")
+    def add_note_to_iris(self, title, content, group_title=None):
+        """Adds a note to the case in iris (and also to the local object)
 
-        if group == "IRIS-SOAR Audit":
-            group_id = 1
-        # ...
-        else:
-            raise ValueError("Group name '{group}' not supported. Specify group_id instead.")
+        Args:
+            title (str): The title of the note
+            content (str): The content of the note
+            group_title (str, optional): The title of the group to add the note to (implies the creation of a new group). Defaults to None.
+            group_id (str, optional): The id of the group to add the note to. Defaults to None.
+
+        Returns:
+            bool: True if successful, False if not
+        """
+        mlog = logging_helper.Log("lib.class_helper")
+        if group_title is None:
+            raise ValueError("group_title must be set.")
 
         try:
-            return iris_helper.add_note_to_case(self.uuid, group_id, title, content)
+            group_id = None
+            group_id = (
+                self.notes[group_title][0]["id"] if group_title in self.notes and len(self.notes[group_title]) > 0 else None
+            )
+            if group_id:
+                mlog.debug(f"add_note_to_iris() - note '{title}': found group_id: {group_id} for group_title: {group_title}")
+            else:
+                mlog.debug(
+                    f"add_note_to_iris() - note '{title}': no group_id found for group_title: {group_title}. Will let iris create a new group."
+                )
+
+            gid, suc = iris_helper.add_note_to_case(self.uuid, title, content, group_id, group_title)
+            if suc:
+                self.notes[group_title] = [] if group_title not in self.notes else self.notes[group_title]
+                self.notes[group_title].append({"title": title, "content": content, "id": gid})
+                mlog.debug(
+                    f"add_note_to_iris() - added note '{title}' to case {str(self.uuid)} with group_title: {group_title} and group_id: {gid}. Length of content: {len(content)}. Current count of notes in group: {len(self.notes[group_title])}"
+                )
+            if not suc and gid is not 0:
+                self.notes[group_title] = [] if group_title not in self.notes else self.notes[group_title]
+                self.notes[group_title].append({"id": gid})
+                mlog.error(
+                    f"add_note_to_iris() - failed to add note '{title}' to case {str(self.uuid)}, but creation of group was successful. Group id: {gid}"
+                )
+            return suc
+
         except Exception as e:
-            mlog = logging_helper.Log("lib.class_helper")
             mlog.error(f"Couldn't send note to iris case {str(self.uuid)}.  Error: " + traceback.format_exc())
             return False
