@@ -149,6 +149,5 @@ def irsoar_handle_alerts(alerts: Alert, Test: bool = False):
     return case_list
 
 
-# TODO: Edit note events to contain alert data
 # TODO: De-Duplicate loaded Assets
 # TODO: Fix broken case tags

@@ -508,6 +508,11 @@ def create_alert_from_doc(mlog, doc):
         doc_dict = doc
     rule_list = []
 
+    # Check if building block alert (kibana.alert.building_block_type: "default")
+    if dict_get(doc_dict, "kibana.alert.building_block_type") == "default":
+        mlog.debug("Skipping alert because it is a building block alert.")
+        return None
+
     rule_list.append(
         Rule(
             doc_dict["kibana.alert.rule.uuid"],
