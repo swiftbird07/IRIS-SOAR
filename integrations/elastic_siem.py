@@ -509,8 +509,8 @@ def create_alert_from_doc(mlog, doc):
     rule_list = []
 
     # Check if building block alert (kibana.alert.building_block_type: "default")
-    if dict_get(doc_dict, "kibana.alert.building_block_type") == "default":
-        mlog.debug("Skipping alert because it is a building block alert.")
+    if dict_get(doc["_source"]["kibana.alert.rule.parameters"], "building_block_type", False):
+        mlog.info("Skipping building block alert.")
         return None
 
     rule_list.append(
@@ -1257,7 +1257,9 @@ def irsoar_provide_new_alerts(config, TEST="") -> List[Alert]:
         return alerts
 
     for num, doc in enumerate(hits):
-        alerts.append(alert := create_alert_from_doc(mlog, doc))
+        alert = create_alert_from_doc(mlog, doc)
+        if alert is not None:
+            alerts.append(alert)
 
         try:
             index = doc["_index"]
