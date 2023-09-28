@@ -15,6 +15,8 @@ import ipaddress
 from typing import Union, List
 import re
 from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
+from collections import deque
+from uuid import UUID
 
 
 THRESHOLD_MAX_CONTEXTS = 1000  # The maximum number of contexts for each type that can be added to a alert case
@@ -603,3 +605,38 @@ def redact_string(s):
         mlog.info("redact_string() - Redacted string '" + s + "' to '" + s_new + "'")
 
     return s
+
+
+def make_json_serializable(obj):
+    """Converts all datetime and UUID objects in a nested structure to strings.
+
+    Args:
+        obj (dict/list): The dictionary or list to process.
+
+    Returns:
+        dict/list: The processed dictionary or list.
+    """
+
+    queue = deque([obj])
+
+    while queue:
+        current = queue.popleft()
+
+        if isinstance(current, dict):
+            for k, v in current.items():
+                if isinstance(v, datetime.datetime):
+                    current[k] = v.isoformat()
+                elif isinstance(v, UUID):
+                    current[k] = str(v)
+                elif isinstance(v, (list, dict)):
+                    queue.append(v)
+        elif isinstance(current, list):
+            for i, v in enumerate(current):
+                if isinstance(v, datetime.datetime):
+                    current[i] = v.isoformat()
+                elif isinstance(v, UUID):
+                    current[i] = str(v)
+                elif isinstance(v, (list, dict)):
+                    queue.append(v)
+
+    return obj

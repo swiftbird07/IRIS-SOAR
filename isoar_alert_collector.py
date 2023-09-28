@@ -19,7 +19,7 @@ from dfir_iris_client.alert import Alert
 
 import lib.logging_helper as logging_helper
 import lib.class_helper as class_helper  # TODO: Implement class_helper.py
-from lib.generic_helper import dict_get, del_none_from_dict
+from lib.generic_helper import dict_get, del_none_from_dict, make_json_serializable
 import lib.config_helper as config_helper
 
 
@@ -254,6 +254,11 @@ def main(config, fromDaemon=False, debug=False):
             for other in alert.indicators["other"]:
                 iocs.append({"ioc_type_id": 96, "ioc_value": other, "ioc_tlp_id": 1})
 
+        # Sanitize: Search empty ioc values and remove them
+        for ioc in iocs:
+            if ioc["ioc_value"] == "":
+                iocs.remove(ioc)
+
         alert_severity = 2  # TODO: Implement severity calculation
 
         # Craft asset_id:
@@ -304,10 +309,20 @@ def main(config, fromDaemon=False, debug=False):
             "alert_customer_id": 1,
             "alert_classification_id": 1,
         }
+
+        # DEBUG TODO: Remove
+        alert_data = make_json_serializable(alert_data)
+
         # Initialize the case instance with the session
         alert = Alert(session=session)
         response = alert.add_alert(alert_data)
-        print(response)
+        mlog.debug("Response: " + str(response))
+        # Handle errors:
+        if not response.is_success():
+            mlog.error("Could not add alert: " + response)
+            continue
+        else:
+            mlog.info("Successfully added alert.")
 
     # Check if the alert was handled correctly
 
