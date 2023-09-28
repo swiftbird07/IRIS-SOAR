@@ -89,13 +89,22 @@ def update_alert_state(alert_id, state):
             state_id = 1
         elif state == "closed":
             state_id = 2
+        elif state == "pending":
+            state_id = 4
+
+        if state_id is None:
+            mlog.error(f"update_alert_state() was called with an invalid state argument: {state}")
+            return False
     elif type(state) == int:
         state_id = state
     else:
         mlog.error(f"update_alert_state() was called with a non-string and non-int state argument: {state}")
         return False
 
-    alert_obj.update_alert(alert_id, {"alert_status_id": state_id})
+    res = alert_obj.update_alert(alert_id, {"alert_status_id": state_id})
+    if not res.is_success():
+        mlog.error(f"Could not update alert state: {res.log_error()}")
+        return False
     return True
 
 

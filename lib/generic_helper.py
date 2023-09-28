@@ -13,6 +13,9 @@ import base64
 import datetime
 import ipaddress
 from typing import Union, List
+import re
+from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
+
 
 THRESHOLD_MAX_CONTEXTS = 1000  # The maximum number of contexts for each type that can be added to a alert case
 
@@ -547,3 +550,56 @@ def default(obj):
     if isinstance(obj, datetime.datetime):
         return obj.isoformat()
     raise TypeError
+
+
+import re
+from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
+
+
+def redact_url(url: str) -> str:
+    """
+    Redacts sensitive information from a URL.
+
+    Parameters:
+        url (str): The URL to redact.
+
+    Returns:
+        str: The redacted URL.
+    """
+    SENSITIVE_PARAMS = ["password", "token", "apikey", "secret"]
+
+    parsed_url = urlparse(url)
+    query_params = parse_qs(parsed_url.query)
+
+    # Redact sensitive parameters
+    for param in SENSITIVE_PARAMS:
+        if param in query_params:
+            query_params[param] = ["REDACTED"]
+
+    redacted_query = urlencode(query_params, doseq=True)
+
+    # Construct redacted URL
+    redacted_url = urlunparse(
+        (parsed_url.scheme, parsed_url.netloc, parsed_url.path, parsed_url.params, redacted_query, parsed_url.fragment)
+    )
+    return redacted_url
+
+
+# Test the function
+url = "https://example.com/login?username=john&password=my_password&token=abc123"
+print(redact_url(url))
+
+
+def redact_string(s):
+    """Redacts a string by replacing passwords, tokens, etc. with asterisks."""
+    s = str(s)
+    # First try to redact string if its an url:
+    try:
+        s_new = redact_url(s)
+    except Exception as e:
+        pass
+
+    if s_new != s:
+        mlog.info("redact_string() - Redacted string '" + s + "' to '" + s_new + "'")
+
+    return s

@@ -49,13 +49,13 @@ def main(TEST_CALL):
 
     # Start the main loop
     while True:
-        mlog.info("Starting isoar_alert_worker.py")
+        mlog.info("Starting isoar_alert_collector.py")
         try:
             isoar_alert_collector.main(cfg, fromDaemon=True, debug=args.debug_module)
-            mlog.info("isoar_alert_worker.py finished. Waiting for next run.")
+            mlog.info("isoar_alert_collector.py finished. Waiting for next run.")
         except Exception as e:
             mlog.error(
-                "isoar_alert_worker.py failed. See the isoar_alert_worker logs for more information. Error: "
+                "isoar_alert_collector.py failed. See the isoar_alert_collector logs for more information. Error: "
                 + traceback.format_exc()
             )
 

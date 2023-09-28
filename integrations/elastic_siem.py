@@ -46,7 +46,7 @@ from lib.class_helper import (
 from lib.generic_helper import dict_get, get_from_cache, add_to_cache
 
 
-ELASTIC_MAX_RESULTS = 50  # Maximum number of results to return from Elastic-SIEM for a Context in one query
+ELASTIC_MAX_RESULTS = 100  # Maximum number of results to return from Elastic-SIEM for a Context in one query
 VERBOSE_DEBUG = False  # If set to True, the script will print additional debug information to stdout, including the full Elastic-SIEM response
 MAX_SIZE_ELASTICSEARCH_SEARCH = 10000  # Maximum number of results to return from Elastic-SIEM in one query
 MAX_CACHE_ENTITY_SIZE = 100000  # Max size (in chars) an entity can have to be cached
@@ -274,19 +274,23 @@ def create_flow_from_doc(mlog, doc_dict, alert_id):
     dns = None
     if "dns" in doc_dict:
         try:
-            msg = doc_dict["message"]
+            msg = dict_get(doc_dict, "msg")
             resolved_ip = None
             has_resp = False
             dns_type = "A"  # Default type if unknown is A
 
             # Get the resolved IP Address from the message string using regex:
-            resolved_ips = re.findall(
-                r"(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)",
-                msg,
-            )
-            resolved_ip = resolved_ips[0] if len(resolved_ips) > 0 else None
-            resolved_ip = ".".join(resolved_ip) if resolved_ip is not None else None
-            if resolved_ip is None:
+            if msg:
+                resolved_ips = re.findall(
+                    r"(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)",
+                    msg,
+                )
+                resolved_ip = resolved_ips[0] if len(resolved_ips) > 0 else None
+                resolved_ip = ".".join(resolved_ip) if resolved_ip is not None else None
+            elif dict_get(doc_dict, "suricata.eve.dns.answers.rdata"):
+                resolved_ip = dict_get(doc_dict, "suricata.eve.dns.answers.rdata")[0]
+
+            if resolved_ip is None and msg:
                 # Try find an ipv6 address
                 resolved_ips = re.findall("([0-9a-fA-F]{1,4}(?::[0-9a-fA-F]{1,4}){7})", msg)
                 resolved_ip = resolved_ips[0] if len(resolved_ips) > 0 else None
@@ -509,7 +513,8 @@ def create_alert_from_doc(mlog, doc):
     rule_list = []
 
     # Check if building block alert (kibana.alert.building_block_type: "default")
-    if dict_get(doc["_source"]["kibana.alert.rule.parameters"], "building_block_type", False):
+    doc_parameters = doc["_source"]["kibana.alert.rule.parameters"]
+    if dict_get(doc_parameters, "building_block_type", False):
         mlog.info("Skipping building block alert.")
         return None
 
@@ -587,6 +592,7 @@ def create_alert_from_doc(mlog, doc):
         device=device,
         severity=doc_dict["kibana.alert.risk_score"],
         raw=doc_dict,
+        highlighted_fields=dict_get(doc_parameters, "investigation_fields"),
     )
     mlog.info("Created alert: " + str(alert))
     return alert
@@ -1216,8 +1222,17 @@ def irsoar_provide_new_alerts(config, TEST="") -> List[Alert]:
 
     requests.packages.urllib3.disable_warnings()
 
-    # Dictionary structured like an Elasticsearch query:
-    query_body = {"query": {"bool": {"must": {"match": {"kibana.alert.workflow_status": "open"}}}}}
+    # Dictionary structured like an Elasticsearch query. It also filter out building block alerts where: "kibana.alert.rule.parameters" building_block_type == "default"
+    query_body = {
+        "query": {
+            "bool": {
+                "must": [{"match": {"kibana.alert.workflow_status": "open"}}],
+                "must_not": [{"match": {"kibana.alert.rule.parameters.building_block_type": "default"}}],
+            }
+        }
+    }
+
+    # query_body = {"query": {"bool": {"must": {"match": {"kibana.alert.workflow_status": "open"}}}}}
 
     # When called from online tests, search for acknowledged alerts instead, to guarentee results and not interfere with the real system.
     if TEST == "ONLINE":
@@ -1263,7 +1278,7 @@ def irsoar_provide_new_alerts(config, TEST="") -> List[Alert]:
 
         try:
             index = doc["_index"]
-            acknowledge_alert(mlog, config, alert.uuid, index)
+            acknowledge_alert(mlog, config, alert.uuid, index) if alert else None
         except Exception as e:
             alerts.remove(alert)
             mlog.critical(

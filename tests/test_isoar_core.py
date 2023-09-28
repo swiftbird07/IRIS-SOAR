@@ -31,6 +31,13 @@ def test_import():
         pytest.fail("The module can not be imported.")
 
 
+import os
+import sys
+
+# Add the parent directory of the test file to the Python path
+# sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+# Now you can import the isoar module
 import isoar
 
 

@@ -1,6 +1,8 @@
 alert_playbooks:
-  PB_Create_Case_for_Multiple_Host_Alerts:
+  PB_Alerts_to_Matrix:
     enabled: true
+  PB_Create_Case_for_Multiple_Host_Alerts:
+    enabled: false
 cache:
   file:
     enabled: true
@@ -23,7 +25,7 @@ case_playbooks:
   PB_900_Classify_and_Notify:
     enabled: true
 daemon:
-  enabled: true
+  enabled: false
   interval: 1
   interval_min: 1
 integrations:

@@ -2917,6 +2917,8 @@ class Alert:
         log_source: str = None,
         url: str = None,
         uuid: uuid.UUID = uuid.uuid4(),
+        highlighted_fields: List[str] = [],
+        state: str = "new",
     ):
         self.vendor_id = vendor_id
         self.name = name
@@ -3082,6 +3084,9 @@ class Alert:
                 self.indicators["domain"].remove(domain)
                 self.indicators["domain"].append(domain[2:])
 
+        self.highlighted_fields = highlighted_fields
+        self.state = state
+
         # Remove duplicates
         remove_duplicates_from_dict(self.indicators)
 
@@ -3140,8 +3145,12 @@ class Alert:
         dns_context = {k: v for k, v in context.items() if k.startswith("dns_")}
         dns_request = DNSQuery().load_from_dict(dns_context)
 
+        # Load 'highlighted_fields' from IRIS
+        self.highlighted_fields = context["highlighted_fields"] if "highlighted_fields" in context else []
+
         vendor_id = iris_alert_id
         name = iris_alert["alert_title"]
+        self.state = iris_alert["status"]["status_name"].lower()
         rules = [rule]
         timestamp = iris_alert["alert_creation_time"]
         description = iris_alert["alert_description"]
@@ -3355,6 +3364,7 @@ class Alert:
         dict_ = {
             "id": self.vendor_id,
             "name": self.name,
+            "state": self.state,
             "description": self.description,
             "timestamp": self.timestamp,
             "host_name": self.source,
@@ -3512,7 +3522,10 @@ class Alert:
         Args:
             state (str): The state of the alert in IRIS
         """
-        return iris_helper.update_alert_state(self.uuid, state)
+        if iris_helper.update_alert_state(self.uuid, state):
+            self.state = state
+            return True
+        return False
 
     def get_iris_iocs(self):
         # IOCs (self)

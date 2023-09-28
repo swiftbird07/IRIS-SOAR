@@ -83,7 +83,7 @@ def main(config, fromDaemon=False, debug=False):
         None
     """
     # Get the logger
-    mlog = logging_helper.Log("isoar_worker")
+    mlog = logging_helper.Log("isoar_case_worker")
 
     if debug:
         mlog.set_level("DEBUG")
@@ -157,7 +157,13 @@ def main(config, fromDaemon=False, debug=False):
             mlog.info(f"Alert_playbook can handle the alerts. Calling it to handle.")
             module_import = __import__("alert_playbooks." + alert_playbook)
             alert_playbook_import = getattr(module_import, alert_playbook)
-            case_list = alert_playbook_import.irsoar_handle_alerts(alert_list)
+            case_list.append(alert_playbook_import.irsoar_handle_alerts(alert_list))
+
+            # Set the status of the alert to 'pending'
+            for alert in alert_list:
+                alert: class_helper.Alert = alert
+                alert.iris_update_state("pending")
+
         except Exception as e:
             mlog.warning(
                 "The alert_playbook " + alert_playbook + " failed to handle the alerts. Error: " + traceback.format_exc()
@@ -165,6 +171,10 @@ def main(config, fromDaemon=False, debug=False):
             continue
 
     # Loop through each returned case and check if any case_playbook can handle it
+    if not case_list or len(case_list) == 0 or not case_list[0]:
+        mlog.info("No case was created for the alerts. No case playbook will be called.")
+        return
+
     for case in case_list:
         alert_title = case.get_title()
         alert_id = case.uuid

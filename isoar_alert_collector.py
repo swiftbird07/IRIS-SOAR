@@ -177,7 +177,7 @@ def main(config, fromDaemon=False, debug=False):
 
         # Try to expand fill context dict fields:
         try:
-            alert: Alert = alert
+            alert: class_helper.Alert = alert
             file_dict = alert.file.__dict__() if alert.file else {}
             alert_context_dict = del_none_from_dict(file_dict)
 
@@ -218,8 +218,11 @@ def main(config, fromDaemon=False, debug=False):
             alert_context_dict |= del_none_from_dict(http_dict)
 
             # Add the dns
-            dns_dict = alert.flow.dns.__dict__() if alert.flow and alert.flow.dns else {}
+            dns_dict = alert.flow.dns_query.__dict__() if alert.flow and alert.flow.dns_query else {}
             alert_context_dict |= del_none_from_dict(dns_dict)
+
+            # Add 'highlighted fields'
+            alert_context_dict["highlighted_fields"] = alert.highlighted_fields if alert.highlighted_fields else None
 
         except Exception as e:
             mlog.warning("format_results() - Error while trying to format alert_context: " + str(e))
@@ -256,22 +259,23 @@ def main(config, fromDaemon=False, debug=False):
         # Craft asset_id:
         asset_id = 3
 
-        if alert.device.type == "host":
-            if alert.device.os_family == "windows":
-                asset_id = 9
-            elif alert.device.os_family == "linux":
-                asset_id = 4
-            elif alert.device.os_family == "macos":
-                asset_id = 6
-            elif alert.device.os_family == "ios":
-                asset_id = 8
-            elif alert.device.os_family == "android":
-                asset_id = 7
-        else:
-            if alert.device.os_family == "windows":
-                asset_id = 10
-            elif alert.device.os_family == "linux":
-                asset_id = 3
+        if alert.device:
+            if alert.device.type == "host":
+                if alert.device.os_family == "windows":
+                    asset_id = 9
+                elif alert.device.os_family == "linux":
+                    asset_id = 4
+                elif alert.device.os_family == "macos":
+                    asset_id = 6
+                elif alert.device.os_family == "ios":
+                    asset_id = 8
+                elif alert.device.os_family == "android":
+                    asset_id = 7
+            else:
+                if alert.device.os_family == "windows":
+                    asset_id = 10
+                elif alert.device.os_family == "linux":
+                    asset_id = 3
 
         # Craft the alert data
         alert_data = {
@@ -290,11 +294,11 @@ def main(config, fromDaemon=False, debug=False):
             "alert_iocs": iocs,
             "alert_assets": [
                 {
-                    "asset_name": alert.device.name if alert.device.name else "Unknown",
+                    "asset_name": alert.device.name if alert.device and alert.device.name else "Unknown",
                     "asset_type_id": asset_id,
-                    "asset_description": alert.device.description if alert.device.description else None,
-                    "asset_ip": str(alert.device.local_ip) if alert.device.local_ip else None,
-                    "asset_tags": alert.device.tags if alert.device.tags else None,
+                    "asset_description": alert.device.description if alert.device and alert.device.description else None,
+                    "asset_ip": str(alert.device.local_ip) if alert.device and alert.device.local_ip else None,
+                    "asset_tags": alert.device.tags if alert.device and alert.device.tags else None,
                 }
             ],
             "alert_customer_id": 1,
