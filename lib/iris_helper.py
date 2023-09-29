@@ -87,10 +87,12 @@ def update_alert_state(alert_id, state):
         state = state.lower()
         if state == "open":
             state_id = 1
-        elif state == "closed":
+        elif state == "new":
             state_id = 2
         elif state == "pending":
-            state_id = 4
+            state_id = 5
+        elif state == "closed":
+            state_id = 6
 
         if state_id is None:
             mlog.error(f"update_alert_state() was called with an invalid state argument: {state}")

@@ -148,9 +148,6 @@ def irsoar_handle_alerts(alerts: Alert, Test: bool = False):
         ## Prepare the alert message to matrix
         mlog.info(f"Sending alert '{rule_name}' from host '{hostname}' with source ip '{source_ip}' to matrix.")
 
-        # Get the hostname string as either the hostname itself or if not available the source ip
-        hostname_str = hostname if hostname else source_ip
-
         # Get the alerts severity emoji circle
         severity = dict_get(
             alert.raw["kibana.alert.rule.parameters"], "risk_score", -1
@@ -159,7 +156,7 @@ def irsoar_handle_alerts(alerts: Alert, Test: bool = False):
 
         # Create the message in matrix compatible html format, including the highlighted fields, all wrapped in a big quote for style, including the severity emoji
         # OLD message = f"<blockquote><b>{circle} New Alert from SIEM </b><br><br><b>Hostname:</b> {hostname_str}<br><b>Rule Name:</b> {rule_name}<br><br>{get_highlighted_fields_str(mlog, alert)}</blockquote>"
-        message = f"<blockquote><b>{circle} New Alert '{rule_name}' </b><br><br><b>Hostname:</b> {hostname_str}<br><br><br>{get_highlighted_fields_str(mlog, alert)}</blockquote>"
+        message = f"<blockquote><b>{circle} New Alert '{rule_name}' </b><br><br><b>Hostname:</b> {hostname}<br><br><br>{get_highlighted_fields_str(mlog, alert)}</blockquote>"
 
         mlog.debug(f"Message to send to matrix: {message}")
 

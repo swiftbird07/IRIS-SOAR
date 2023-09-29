@@ -587,11 +587,6 @@ def redact_url(url: str) -> str:
     return redacted_url
 
 
-# Test the function
-url = "https://example.com/login?username=john&password=my_password&token=abc123"
-print(redact_url(url))
-
-
 def redact_string(s):
     """Redacts a string by replacing passwords, tokens, etc. with asterisks."""
     s = str(s)

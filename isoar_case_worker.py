@@ -23,6 +23,9 @@ import lib.class_helper as class_helper  # TODO: Implement class_helper.py
 from lib.generic_helper import del_none_from_dict, dict_get
 
 DEBUG_ADD_AUDIT_LOG_TO_IRIS_CASE = True  # Weither or not to add the audit log to theiris-casewhen the worker is finished
+THRESHOLD_CLOSE_ALERTS_MINUTES = (
+    24 * 60
+)  # The amount of minutes after which an alert will be closed from pending (thereby not being correlated to a case anymore)
 
 
 def check_module_exists(module_name, alert_playbook=False, case_playbook=False):
@@ -105,19 +108,42 @@ def main(config, fromDaemon=False, debug=False):
     )
 
     # Get all alert in DFIR-IRIS that are 'new' or 'pending'
-    alert_obj = Alert(session)
-    response = alert_obj.filter_alerts(alert_status_id=[2, 3])
-    if not response.is_success:
-        mlog.error("Failed to get alerts from DFIR-IRIS. Error: " + response.log_error())
+
+    # Get all alerts that are 'new'
+    alert_obj_new = Alert(session)
+    response_new = alert_obj_new.filter_alerts(alert_status_id=2)
+
+    if not response_new.is_success:
+        mlog.error("Failed to get alerts from DFIR-IRIS. Error: " + response_new.log_error())
         return
     else:
-        mlog.info("Successfully got alerts from DFIR-IRIS.")
+        mlog.info("Successfully requested alerts from DFIR-IRIS (new).")
         # print(response.get_data())
-        alerts = response.get_data_field("alerts")
+        alerts = response_new.get_data_field("alerts")
 
         if not alerts:
             mlog.info("No new alerts found.")
-            return
+
+    # Get all alerts that are 'pending'
+    alert_obj_pending = Alert(session)
+    response_pending = alert_obj_pending.filter_alerts(alert_status_id=5)
+
+    if not response_pending.is_success:
+        mlog.error("Failed to get alerts from DFIR-IRIS. Error: " + response_pending.log_error())
+        return
+    else:
+        mlog.info("Successfully requested alerts from DFIR-IRIS (pending).")
+        # print(response.get_data())
+        alerts.extend(pending_alerts := response_pending.get_data_field("alerts"))
+
+        if not pending_alerts:
+            mlog.info("No pending alerts found.")
+
+    if len(alerts) == 0:
+        mlog.info("No alerts found.")
+        return
+
+    mlog.info("Successfully got {0} alerts from DFIR-IRIS.".format(len(alerts)))
 
     for alert in alerts:
         # Transform each Alert dict to a Alert object
@@ -161,8 +187,17 @@ def main(config, fromDaemon=False, debug=False):
 
             # Set the status of the alert to 'pending'
             for alert in alert_list:
-                alert: class_helper.Alert = alert
-                alert.iris_update_state("pending")
+                # Check age of alert
+                if alert.get_age() / 60 > THRESHOLD_CLOSE_ALERTS_MINUTES:
+                    mlog.info(
+                        f"Alert {alert.name} ({str(alert.uuid)}) is older than {str(THRESHOLD_CLOSE_ALERTS_MINUTES)} minutes. Closing it."
+                    )
+                    alert.iris_update_state("closed")
+                else:
+                    mlog.info(
+                        f"Alert {alert.name} ({str(alert.uuid)}) is younger than {str(THRESHOLD_CLOSE_ALERTS_MINUTES)} minutes. Setting it to pending."
+                    )
+                    alert.iris_update_state("pending")
 
         except Exception as e:
             mlog.warning(

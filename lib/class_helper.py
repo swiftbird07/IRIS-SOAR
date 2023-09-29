@@ -3161,13 +3161,21 @@ class Alert:
         # TODO: Load full asset from IRIS
         severity: int = iris_alert["alert_severity_id"]
 
+        # Load Hostname from Elastic Source
+        if not self.device:
+            try:
+                self.device = ContextAsset(dict_get(raw, "host.name"))
+                if not self.device:
+                    self.device = ContextAsset(dict_get(dict_get(raw, "agent"), "hostname"))
+            except Exception as e:
+                pass
+
         # Context for every type of context
         log: ContextLog = log
         process: ContextProcess = process
         flow: ContextFlow = flow
         threat_intel: ContextThreatIntel = threat_intel
         location: Location = location
-        devices = [device]
         user: Person = user
         file: ContextFile = file
         registry: ContextRegistry = registry
@@ -3267,10 +3275,10 @@ class Alert:
                 self.indicators["countries"].append(location.country)
         self.location = location
 
-        if device != None:
-            if not isinstance(device, ContextAsset):
+        if self.device != None:
+            if not isinstance(self.device, ContextAsset):
                 raise TypeError("device must be of type Device")
-        self.device = device
+            self.host_name = self.device.name
 
         if user != None:
             if not isinstance(user, Person):
@@ -3396,18 +3404,22 @@ class Alert:
 
     def get_host(self):
         """Returns the host of the alert."""
-        host = "unknown"
+        host = "Unknown"
 
         if self.device:
             host = self.device.name
             if not host:
-                host = self.device.local_ip
+                host = str(self.device.local_ip) if self.device.local_ip else None
                 if not host:
                     host = self.device.uuid
         elif self.host_name:
             host = self.host_name
 
         return host
+
+    def get_age(self):
+        """Returns the age of the alert in seconds."""
+        return (datetime.datetime.utcnow() - self.timestamp).total_seconds()
 
     def get_context_by_uuid(self, uuid):
         """Returns the context object by uuid.
