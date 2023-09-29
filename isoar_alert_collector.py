@@ -160,169 +160,174 @@ def main(config, fromDaemon=False, debug=False):
 
     # Loop through each alert
     for alert in AlertList:
-        alert_title = alert.name
-        alert_id = alert.uuid
-        alertHandled = False
-
-        mlog.info("Pushing alert " + alert_title + " (" + str(alert_id) + ") to IRIS as alert.")
-
-        # Initiate a session with our API key and host. Session stays the same during all the script run.
-        session = ClientSession(
-            apikey=config["integrations"]["dfir-iris"]["api_key"],
-            host=config["integrations"]["dfir-iris"]["url"],
-            ssl_verify=False,
-        )
-
-        alert_context_dict = {}
-
-        # Try to expand fill context dict fields:
         try:
-            alert: class_helper.Alert = alert
-            file_dict = alert.file.__dict__() if alert.file else {}
-            alert_context_dict = del_none_from_dict(file_dict)
+            alert_title = alert.name
+            alert_id = alert.uuid
+            alertHandled = False
 
-            # Add the device
-            device_dict = alert.device.__dict__() if alert.device else {}
-            alert_context_dict |= del_none_from_dict(device_dict)
+            mlog.info("Pushing alert " + alert_title + " (" + str(alert_id) + ") to IRIS as alert.")
 
-            # Add the flow
-            flow_dict = alert.flow.__dict__() if alert.flow else {}
-            alert_context_dict |= del_none_from_dict(flow_dict)
+            # Initiate a session with our API key and host. Session stays the same during all the script run.
+            session = ClientSession(
+                apikey=config["integrations"]["dfir-iris"]["api_key"],
+                host=config["integrations"]["dfir-iris"]["url"],
+                ssl_verify=False,
+            )
 
-            # Add the log
-            log_dict = alert.log.__dict__() if alert.log else {}
-            alert_context_dict |= del_none_from_dict(log_dict)
+            alert_context_dict = {}
 
-            # Add the process
-            process_dict = alert.process.__dict__() if alert.process else {}
-            alert_context_dict |= del_none_from_dict(process_dict)
+            # Try to expand fill context dict fields:
+            try:
+                alert: class_helper.Alert = alert
+                file_dict = alert.file.__dict__() if alert.file else {}
+                alert_context_dict = del_none_from_dict(file_dict)
 
-            # Add the threat_intel
-            threat_intel_dict = alert.threat_intel.__dict__() if alert.threat_intel else {}
-            alert_context_dict |= del_none_from_dict(threat_intel_dict)
+                # Add the device
+                device_dict = alert.device.__dict__() if alert.device else {}
+                alert_context_dict |= del_none_from_dict(device_dict)
 
-            # Add the location
-            location_dict = alert.location.__dict__() if alert.location else {}
-            alert_context_dict |= del_none_from_dict(location_dict)
+                # Add the flow
+                flow_dict = alert.flow.__dict__() if alert.flow else {}
+                alert_context_dict |= del_none_from_dict(flow_dict)
 
-            # Add the user
-            user_dict = alert.user.__dict__() if alert.user else {}
-            alert_context_dict |= del_none_from_dict(user_dict)
+                # Add the log
+                log_dict = alert.log.__dict__() if alert.log else {}
+                alert_context_dict |= del_none_from_dict(log_dict)
 
-            # Add the registry
-            registry_dict = alert.registry.__dict__() if alert.registry else {}
-            alert_context_dict |= del_none_from_dict(registry_dict)
+                # Add the process
+                process_dict = alert.process.__dict__() if alert.process else {}
+                alert_context_dict |= del_none_from_dict(process_dict)
 
-            # Add the http
-            http_dict = alert.flow.http.__dict__() if alert.flow and alert.flow.http else {}
-            alert_context_dict |= del_none_from_dict(http_dict)
+                # Add the threat_intel
+                threat_intel_dict = alert.threat_intel.__dict__() if alert.threat_intel else {}
+                alert_context_dict |= del_none_from_dict(threat_intel_dict)
 
-            # Add the dns
-            dns_dict = alert.flow.dns_query.__dict__() if alert.flow and alert.flow.dns_query else {}
-            alert_context_dict |= del_none_from_dict(dns_dict)
+                # Add the location
+                location_dict = alert.location.__dict__() if alert.location else {}
+                alert_context_dict |= del_none_from_dict(location_dict)
 
-            # Add 'highlighted fields'
-            alert_context_dict["highlighted_fields"] = alert.highlighted_fields if alert.highlighted_fields else None
+                # Add the user
+                user_dict = alert.user.__dict__() if alert.user else {}
+                alert_context_dict |= del_none_from_dict(user_dict)
+
+                # Add the registry
+                registry_dict = alert.registry.__dict__() if alert.registry else {}
+                alert_context_dict |= del_none_from_dict(registry_dict)
+
+                # Add the http
+                http_dict = alert.flow.http.__dict__() if alert.flow and alert.flow.http else {}
+                alert_context_dict |= del_none_from_dict(http_dict)
+
+                # Add the dns
+                dns_dict = alert.flow.dns_query.__dict__() if alert.flow and alert.flow.dns_query else {}
+                alert_context_dict |= del_none_from_dict(dns_dict)
+
+                # Add 'highlighted fields'
+                alert_context_dict["highlighted_fields"] = alert.highlighted_fields if alert.highlighted_fields else None
+
+            except Exception as e:
+                mlog.warning("format_results() - Error while trying to format alert_context: " + str(e))
+
+            # Add the IOCs
+            iocs = []
+            if alert.indicators["ip"]:
+                for ip in alert.indicators["ip"]:
+                    iocs.append({"ioc_type_id": 79, "ioc_value": str(ip), "ioc_tlp_id": 1})
+            if alert.indicators["domain"]:
+                for domain in alert.indicators["domain"]:
+                    iocs.append({"ioc_type_id": 20, "ioc_value": domain, "ioc_tlp_id": 1})
+            if alert.indicators["url"]:
+                for url in alert.indicators["url"]:
+                    iocs.append({"ioc_type_id": 141, "ioc_value": url, "ioc_tlp_id": 1})
+            if alert.indicators["hash"]:
+                for hash in alert.indicators["hash"]:
+                    iocs.append({"ioc_type_id": 90, "ioc_value": hash, "ioc_tlp_id": 1})
+            if alert.indicators["email"]:
+                for email in alert.indicators["email"]:
+                    iocs.append({"ioc_type_id": 22, "ioc_value": email, "ioc_tlp_id": 1})
+            if alert.indicators["countries"]:
+                for country in alert.indicators["countries"]:
+                    iocs.append({"ioc_type_id": 96, "ioc_value": country, "ioc_tlp_id": 1})
+            if alert.indicators["registry"]:
+                for registry in alert.indicators["registry"]:
+                    iocs.append({"ioc_type_id": 109, "ioc_value": registry, "ioc_tlp_id": 1})
+            if alert.indicators["other"]:
+                for other in alert.indicators["other"]:
+                    iocs.append({"ioc_type_id": 96, "ioc_value": other, "ioc_tlp_id": 1})
+
+            # Sanitize: Search empty ioc values and remove them
+            for ioc in iocs:
+                if ioc["ioc_value"] == "":
+                    iocs.remove(ioc)
+
+            alert_severity = 2  # TODO: Implement severity calculation
+
+            # Craft asset_id:
+            asset_id = 3
+
+            if alert.device:
+                if alert.device.type == "host":
+                    if alert.device.os_family == "windows":
+                        asset_id = 9
+                    elif alert.device.os_family == "linux":
+                        asset_id = 4
+                    elif alert.device.os_family == "macos":
+                        asset_id = 6
+                    elif alert.device.os_family == "ios":
+                        asset_id = 8
+                    elif alert.device.os_family == "android":
+                        asset_id = 7
+                else:
+                    if alert.device.os_family == "windows":
+                        asset_id = 10
+                    elif alert.device.os_family == "linux":
+                        asset_id = 3
+
+            # Craft the alert data
+            alert_data = {
+                "alert_title": alert_title,
+                "alert_description": alert.description,
+                "alert_source": alert.vendor_id.upper(),
+                "alert_source_ref": str(alert.uuid),
+                "alert_source_link": alert.url,
+                "alert_source_content": alert.raw,
+                "alert_severity_id": alert_severity,
+                "alert_status_id": 2,  # new
+                "alert_context": alert_context_dict,
+                "alert_source_event_time": str(alert.timestamp),
+                "alert_note": "This alert was collected by IRIS-SOAR.",
+                "alert_tags": "IRIS-SOAR,Security",
+                "alert_iocs": iocs,
+                "alert_assets": [
+                    {
+                        "asset_name": alert.device.name if alert.device and alert.device.name else "Unknown",
+                        "asset_type_id": asset_id,
+                        "asset_description": alert.device.description if alert.device and alert.device.description else None,
+                        "asset_ip": str(alert.device.local_ip) if alert.device and alert.device.local_ip else None,
+                        "asset_tags": alert.device.tags if alert.device and alert.device.tags else None,
+                    }
+                ],
+                "alert_customer_id": 1,
+                "alert_classification_id": 1,
+            }
+
+            # DEBUG TODO: Remove
+            alert_data = make_json_serializable(alert_data)
+
+            # Initialize the case instance with the session
+            alert = Alert(session=session)
+            response = alert.add_alert(alert_data)
+            mlog.debug("Response: " + str(response))
+            # Handle errors:
+            if not response.is_success():
+                mlog.error("Could not add alert: " + response)
+                continue
+            else:
+                mlog.info("Successfully added alert.")
 
         except Exception as e:
-            mlog.warning("format_results() - Error while trying to format alert_context: " + str(e))
-
-        # Add the IOCs
-        iocs = []
-        if alert.indicators["ip"]:
-            for ip in alert.indicators["ip"]:
-                iocs.append({"ioc_type_id": 79, "ioc_value": str(ip), "ioc_tlp_id": 1})
-        if alert.indicators["domain"]:
-            for domain in alert.indicators["domain"]:
-                iocs.append({"ioc_type_id": 20, "ioc_value": domain, "ioc_tlp_id": 1})
-        if alert.indicators["url"]:
-            for url in alert.indicators["url"]:
-                iocs.append({"ioc_type_id": 141, "ioc_value": url, "ioc_tlp_id": 1})
-        if alert.indicators["hash"]:
-            for hash in alert.indicators["hash"]:
-                iocs.append({"ioc_type_id": 90, "ioc_value": hash, "ioc_tlp_id": 1})
-        if alert.indicators["email"]:
-            for email in alert.indicators["email"]:
-                iocs.append({"ioc_type_id": 22, "ioc_value": email, "ioc_tlp_id": 1})
-        if alert.indicators["countries"]:
-            for country in alert.indicators["countries"]:
-                iocs.append({"ioc_type_id": 96, "ioc_value": country, "ioc_tlp_id": 1})
-        if alert.indicators["registry"]:
-            for registry in alert.indicators["registry"]:
-                iocs.append({"ioc_type_id": 109, "ioc_value": registry, "ioc_tlp_id": 1})
-        if alert.indicators["other"]:
-            for other in alert.indicators["other"]:
-                iocs.append({"ioc_type_id": 96, "ioc_value": other, "ioc_tlp_id": 1})
-
-        # Sanitize: Search empty ioc values and remove them
-        for ioc in iocs:
-            if ioc["ioc_value"] == "":
-                iocs.remove(ioc)
-
-        alert_severity = 2  # TODO: Implement severity calculation
-
-        # Craft asset_id:
-        asset_id = 3
-
-        if alert.device:
-            if alert.device.type == "host":
-                if alert.device.os_family == "windows":
-                    asset_id = 9
-                elif alert.device.os_family == "linux":
-                    asset_id = 4
-                elif alert.device.os_family == "macos":
-                    asset_id = 6
-                elif alert.device.os_family == "ios":
-                    asset_id = 8
-                elif alert.device.os_family == "android":
-                    asset_id = 7
-            else:
-                if alert.device.os_family == "windows":
-                    asset_id = 10
-                elif alert.device.os_family == "linux":
-                    asset_id = 3
-
-        # Craft the alert data
-        alert_data = {
-            "alert_title": alert_title,
-            "alert_description": alert.description,
-            "alert_source": alert.vendor_id.upper(),
-            "alert_source_ref": str(alert.uuid),
-            "alert_source_link": alert.url,
-            "alert_source_content": alert.raw,
-            "alert_severity_id": alert_severity,
-            "alert_status_id": 2,  # new
-            "alert_context": alert_context_dict,
-            "alert_source_event_time": str(alert.timestamp),
-            "alert_note": "This alert was collected by IRIS-SOAR.",
-            "alert_tags": "IRIS-SOAR,Security",
-            "alert_iocs": iocs,
-            "alert_assets": [
-                {
-                    "asset_name": alert.device.name if alert.device and alert.device.name else "Unknown",
-                    "asset_type_id": asset_id,
-                    "asset_description": alert.device.description if alert.device and alert.device.description else None,
-                    "asset_ip": str(alert.device.local_ip) if alert.device and alert.device.local_ip else None,
-                    "asset_tags": alert.device.tags if alert.device and alert.device.tags else None,
-                }
-            ],
-            "alert_customer_id": 1,
-            "alert_classification_id": 1,
-        }
-
-        # DEBUG TODO: Remove
-        alert_data = make_json_serializable(alert_data)
-
-        # Initialize the case instance with the session
-        alert = Alert(session=session)
-        response = alert.add_alert(alert_data)
-        mlog.debug("Response: " + str(response))
-        # Handle errors:
-        if not response.is_success():
-            mlog.error("Could not add alert: " + response)
+            mlog.error("Error while trying to add alert: " + traceback.format_exc())
             continue
-        else:
-            mlog.info("Successfully added alert.")
 
     # Check if the alert was handled correctly
 
