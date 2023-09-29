@@ -120,6 +120,7 @@ def irsoar_handle_alerts(alerts: Alert, Test: bool = False):
 
         ## First compare if the cache has an entry for an alert with the same name, host and source ip in the last X minutes
         # If yes, skip the alert
+        skip_alert = False
         if matrix_past_messages and len(matrix_past_messages) > 0:
             for past_message in matrix_past_messages:
                 if (
@@ -135,15 +136,19 @@ def irsoar_handle_alerts(alerts: Alert, Test: bool = False):
                         mlog.info(
                             f"Alert '{rule_name}' from host '{hostname}' with source ip '{source_ip}' received already in the last {str(CACHE_MAX_LOOKBACK_TIME_MINUTES)} minutes. Skipping."
                         )
-                        continue
+                        skip_alert = True
+                        break
                     else:
                         mlog.debug(
-                            f"Alert '{rule_name}' from host '{hostname}' with source ip '{source_ip}' received more than {str(CACHE_MAX_LOOKBACK_TIME_MINUTES)} minutes ago. Sending to matrix."
+                            f"Alert '{rule_name}' from host '{hostname}' with source ip '{source_ip}' received more than {str(CACHE_MAX_LOOKBACK_TIME_MINUTES)} minutes ago. Still may sending to matrix."
                         )
-                else:
-                    mlog.debug(
-                        f"Alert '{rule_name}' from host '{hostname}' with source ip '{source_ip}' not found in cache. Sending to matrix."
-                    )
+
+        if skip_alert:
+            continue
+        else:
+            mlog.debug(
+                f"Alert '{rule_name}' from host '{hostname}' with source ip '{source_ip}' not found in cache. Sending to matrix."
+            )
 
         ## Prepare the alert message to matrix
         mlog.info(f"Sending alert '{rule_name}' from host '{hostname}' with source ip '{source_ip}' to matrix.")
