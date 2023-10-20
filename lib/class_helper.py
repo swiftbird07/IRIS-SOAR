@@ -3068,7 +3068,7 @@ class Alert:
         if registry != None:
             if not isinstance(registry, ContextRegistry):
                 raise TypeError("registry must be of type ContextRegistry")
-            self.indicators["registry"].append(registry.registry_key)
+            self.indicators["registry"].append(registry.key)
         self.registry = registry
         self.log_source = log_source
         self.url = url
