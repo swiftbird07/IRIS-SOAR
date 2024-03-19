@@ -62,6 +62,7 @@ integrations:
     user: zsoar
     index: wazuh-alerts-3.x
     fields: CHANGEME
+    query: CHANGEME
     size: 100
     cert: CHANGEME
     verify_certs: false

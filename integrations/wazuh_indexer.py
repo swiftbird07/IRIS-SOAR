@@ -280,6 +280,7 @@ def irsoar_provide_new_alerts(config, TEST="") -> List[Alert]:
         size = config["size"]
         cert = config["cert"]
         verify = config["verify"]
+        query = config["query"]
     except KeyError as e:
         mlog.critical("Missing config parameters: " + e)
         return alerts
@@ -302,7 +303,6 @@ def irsoar_provide_new_alerts(config, TEST="") -> List[Alert]:
     info = {}
     hits = []
     devices = []
-    query = { }  # CHANGEME TO AN USEFUL QUERY
     total = "eq"
     # query string to show kql search
     info["querystring"] = ""
