@@ -51,6 +51,21 @@ integrations:
       log_level_file: debug
       log_level_stdout: warning
       log_level_syslog: error
+  wazuh_indexer:
+    enabled: true
+    logging:
+      log_level_file: debug
+      log_level_stdout: debug
+      log_level_syslog: debug
+    url: https://10.20.1.28:9200
+    password: $IRSOAR_ELASTIC_PW
+    user: zsoar
+    index: wazuh-alerts-3.x
+    fields: CHANGEME
+    size: 100
+    cert: CHANGEME
+    verify_certs: false
+
   ibm_qradar:
     enabled: true
     logging:
