@@ -279,8 +279,7 @@ def irsoar_provide_new_alerts(config, TEST="") -> List[Alert]:
         fields = config["fields"]
         size = config["size"]
         cert = config["cert"]
-        verify = config["verify"]
-        query = config["query"]
+        verify = config["verify_certs"]
     except KeyError as e:
         mlog.critical("Missing config parameters: " + e)
         return alerts
@@ -306,6 +305,7 @@ def irsoar_provide_new_alerts(config, TEST="") -> List[Alert]:
     total = "eq"
     # query string to show kql search
     info["querystring"] = ""
+    query = "raspberry-pi.home"
     # populate logs
     mlog.info(f'Searching Wazuh-Indexer for: {query} contained within the field name {fields}')
     objects = []
@@ -322,7 +322,7 @@ def irsoar_provide_new_alerts(config, TEST="") -> List[Alert]:
         },
     )
 
-    hits = res["hits"]["total"]["value"]
+    hits = res["hits"]["hits"]
 
     mlog.info("Found " + str(len(hits)) + " hits.")
 

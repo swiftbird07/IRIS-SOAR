@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 # IRIS-SOAR
 # Created by: Martin Offermann
 # This module is the user interactive start point for the IRIS-SOAR project.

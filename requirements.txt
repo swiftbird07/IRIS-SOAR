@@ -5,7 +5,6 @@ psutil
 treelib
 # for elastic_siem integration
 requests
-elasticsearch
 # For dev:
 mock
 pytest
@@ -13,3 +12,9 @@ pytest
 dfir_iris_client
 # For Matrix integration
 matrix_client
+
+# IMPORTANT 
+#if you want to use Wazuh indexer integration use the following package:
+elasticsearch==7.13.4
+# if you wnat to use the Elastic SIEM integration use the following package (uncomment the following line and comment the previous one):
+# elasticsearch
