@@ -1,6 +1,6 @@
 # Integration for IRIS-SOAR
 # Created by: Martin Offermann
-# This module is used to integrate IRIS-SOAR with Wazuh-Indexer.
+# This module is used to integrate IRIS-SOAR with Graylog.
 #
 # This module is capable of:
 # [X] Providing new alerts.
@@ -307,7 +307,7 @@ def irsoar_provide_new_alerts(config, TEST="") -> List[Alert]:
     info["querystring"] = ""
     query = "raspberry-pi.home"
     # populate logs
-    mlog.info(f'Searching Wazuh-Indexer for: {query} contained within the field name {fields}')
+    mlog.info(f'Searching Graylog\'s Wazuh-Indexer for: {query} contained within the field name {fields}')
     objects = []
 
     # Call to Elasticsearch

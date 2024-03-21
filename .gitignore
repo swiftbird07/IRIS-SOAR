@@ -141,3 +141,4 @@ logs/
 
 # Config
 configs/isoar_config.yml
+lib/cache.json
