@@ -114,87 +114,59 @@ def create_alert_from_doc(mlog, doc):
         doc_dict = doc
     rule_list = []
 
-    # Check if building block alert (kibana.alert.building_block_type: "default")
-    doc_parameters = doc["_source"]["kibana.alert.rule.parameters"]
-    if dict_get(doc_parameters, "building_block_type", False):
-        mlog.info("Skipping building block alert.")
-        return None
+    # Parse rule name from data_win_eventdata_ruleName: "technique_id=T1055.001,technique_name=Dynamic-link Library Injection"
+    rule_name = dict_get(doc_dict, "data_win_eventdata_ruleName")
+    if rule_name is not None:
+        rule_name = rule_name.split(",")[1].split("=")[1]
+        rule_list.append(Rule("1", rule_name, 0, description=dict_get(doc_dict, "rule_description")))
+    else:
+        rule_list.append(Rule("1", "Unknown Rule", 0))
+        mlog.warning("No rule name found in alert.")
 
-    rule_list.append(
-        Rule(
-            doc_dict["kibana.alert.rule.uuid"],
-            doc_dict["kibana.alert.rule.name"],
-            doc_dict["kibana.alert.severity"],
-            description=doc_dict["kibana.alert.rule.description"],
-            tags=doc_dict["kibana.alert.rule.tags"],
-            known_false_positives=doc_dict["kibana.alert.rule.false_positives"],
-            query=dict_get(doc_dict, "kibana.alert.rule.parameters.query"),
-            mitre_references=dict_get(doc_dict, "kibana.alert.rule.parameters.threat.technique.referencee"),
-            risk_score=doc_dict["kibana.alert.risk_score"],
-        )
-    )
+
     mlog.debug("Created rules: " + str(rule_list))
 
     # Get the most relevant IP address of the host
     host_ip = None
     global_ip = None
 
-    host_ip, global_ip = get_host_ip_from_doc(doc_dict)
+    host_ip = dict_get(doc_dict, "agent_ip")
 
     mlog.debug("Decided host IP: " + str(host_ip))
-    alert_id = doc_dict["kibana.alert.uuid"]
+    alert_id = doc_dict["id"]
 
     # Most EDR alerts are process related so check if a ContextProcess context can be created
     process = None
-    if dict_get(doc_dict, "process.entity_id") is not None:
-        process = create_process_from_doc(mlog, doc_dict)
-
-    flow = None
-    if dict_get(doc_dict, "source.ip") is not None and dict_get(doc_dict, "destination.ip") is not None:
-        flow = create_flow_from_doc(mlog, doc_dict, alert_id)
-
-    file = None
-    if dict_get(doc_dict, "file.path") is not None:
-        file = create_file_from_doc(mlog, doc_dict, alert_id)
-
-    registry = None
-    if dict_get(doc_dict, "registry.path") is not None:
-        registry = create_registry_from_doc(mlog, doc_dict, alert_id)
+    if dict_get(doc_dict, "data_win_eventdata_sourceImage") is not None:
+        process = ContextProcess(
+            process_name=dict_get(doc_dict, "data_win_eventdata_sourceImage"),
+            parent_process_name=dict_get(doc_dict, "data_win_eventdata_parentImage"),
+            process_arguments=dict_get(doc_dict, "data_win_eventdata_commandLine"),
+            parent_process_arguments=dict_get(doc_dict, "data_win_eventdata_parentCommandLine")
+        )
 
     device = None
-    if dict_get(doc_dict, "host.hostname") is not None:
+    if dict_get(doc_dict, "agent_name") is not None:
         device = ContextAsset(
-            name=dict_get(doc_dict, "host.hostname"),
+            name=dict_get(doc_dict, "agent_name"),
             local_ip=host_ip,
-            global_ip=global_ip,
-            ips=dict_get(doc_dict, "host.ip"),
-            mac=dict_get(doc_dict, "host.mac"),
-            os_family=dict_get(doc_dict, "ost.os.Ext.variant"),
-            os=dict_get(doc_dict, "host.os.name"),
-            kernel=dict_get(doc_dict, "host.os.kernel"),
-            os_version=dict_get(doc_dict, "host.os.version"),
+            ips=[dict_get(doc_dict, "agent_ip")],
             in_scope=True,
         )
 
     # Create the alert object
     alert = Alert(
-        "elastic_siem",
-        doc_dict["kibana.alert.rule.name"],
+        "graylog",
+        doc_dict["data_win_eventdata_ruleName"],
         rule_list,
-        doc_dict["@timestamp"],
-        description=doc_dict["kibana.alert.rule.description"],
-        tags=doc_dict["kibana.alert.rule.tags"],
-        host_name=dict_get(doc_dict, "host.hostname"),
+        dict_get(doc_dict, "timestamp"),
+        description=doc_dict["rule_description"],
+        host_name=dict_get(doc_dict, "agent_name"),
         host_ip=host_ip,
         process=process,
-        flow=flow,
-        file=file,
-        registry=registry,
         uuid=alert_id,
         device=device,
-        severity=doc_dict["kibana.alert.risk_score"],
-        raw=doc_dict,
-        highlighted_fields=dict_get(doc_parameters, "investigation_fields"),
+        raw=doc_dict
     )
     mlog.info("Created alert: " + str(alert))
     return alert
@@ -337,7 +309,7 @@ def irsoar_provide_new_alerts(config, TEST="") -> List[Alert]:
 
         try:
             index = doc["_index"]
-            acknowledge_alert(mlog, config, alert.uuid, index) if alert else None
+            acknowledge_alert(mlog, config, alert.uuid, index) if alert else None # TODO implement
         except Exception as e:
             alerts.remove(alert)
             mlog.critical(
